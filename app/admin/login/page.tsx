@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Toast, { ToastType } from '../../components/ui/Toast';
 import { User, Lock } from 'lucide-react';
+import { auth } from '../../lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -48,6 +50,20 @@ export default function AdminLoginPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        if (auth) {
+          try {
+            await signInWithEmailAndPassword(auth, email, password);
+          } catch (firebaseErr: any) {
+            console.warn('Firebase Auth admin sign-in failed, trying to auto-create user:', firebaseErr);
+            if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-credential') {
+              try {
+                await createUserWithEmailAndPassword(auth, email, password);
+              } catch (createErr) {
+                console.error('Failed to auto-create admin in Firebase Auth:', createErr);
+              }
+            }
+          }
+        }
         showToast('Successfully authenticated as administrator.', 'success');
         router.push('/admin');
       } else {

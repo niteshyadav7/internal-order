@@ -28,6 +28,8 @@ import {
   subscribeToOrders
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
+import { auth } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Icons for metrics cards
 import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check } from 'lucide-react';
@@ -187,6 +189,19 @@ export default function AdminDashboard() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
+
+  // Listen to Firebase Auth state for Firestore rules compatibility
+  useEffect(() => {
+    if (!auth) {
+      setIsFirebaseLoaded(true);
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      setIsFirebaseLoaded(true);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Verification of admin session
   useEffect(() => {
@@ -211,7 +226,7 @@ export default function AdminDashboard() {
 
   // Real-time user profiles listener
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !isFirebaseLoaded) return;
     setLoadingData(true);
     const unsubscribeUsers = subscribeToUserProfiles((data) => {
       setUsersList(data);
@@ -220,7 +235,7 @@ export default function AdminDashboard() {
     return () => {
       unsubscribeUsers();
     };
-  }, [isAdmin]);
+  }, [isAdmin, isFirebaseLoaded]);
 
   // Fetch functions
   const fetchFields = async () => {
@@ -292,7 +307,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !isFirebaseLoaded) return;
     setLoadingOrders(true);
     let isFirstLoad = true;
 
@@ -327,10 +342,10 @@ export default function AdminDashboard() {
     return () => {
       unsubscribeOrders();
     };
-  }, [isAdmin]);
+  }, [isAdmin, isFirebaseLoaded]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && isFirebaseLoaded) {
       fetchFields(); // Load fields to resolve custom field IDs to labels
       if (activeTab === 'products') {
         fetchProducts();
@@ -338,7 +353,7 @@ export default function AdminDashboard() {
         fetchFields();
       }
     }
-  }, [isAdmin, activeTab]);
+  }, [isAdmin, isFirebaseLoaded, activeTab]);
 
   useEffect(() => {
     setProductPage(1);
