@@ -190,6 +190,7 @@ export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
 
   // Listen to Firebase Auth state for Firestore rules compatibility
   useEffect(() => {
@@ -211,6 +212,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (data.authenticated) {
           setIsAdmin(true);
+          setAdminEmail(data.adminEmail || 'admin@logistics.com');
         } else {
           router.push('/admin/login');
         }
@@ -224,9 +226,30 @@ export default function AdminDashboard() {
     verifyAdminSession();
   }, [router]);
 
+  // Synchronize Firebase Auth and Admin Cookie Session to prevent permission errors
+  useEffect(() => {
+    if (isAdmin && isFirebaseLoaded && auth) {
+      const currentUser = auth.currentUser;
+      if (!currentUser || (adminEmail && currentUser.email?.toLowerCase() !== adminEmail.toLowerCase())) {
+        console.warn("Admin session mismatch: Firebase Auth user is missing or incorrect. Logging out admin session.");
+        const performLogout = async () => {
+          try {
+            setIsAdmin(false); // set to false immediately to prevent dashboard rendering
+            await fetch('/api/admin/logout', { method: 'POST' });
+            router.push('/admin/login');
+          } catch (err) {
+            console.error("Logout during sync failed:", err);
+            router.push('/admin/login');
+          }
+        };
+        performLogout();
+      }
+    }
+  }, [isAdmin, isFirebaseLoaded, adminEmail, router]);
+
   // Real-time user profiles listener
   useEffect(() => {
-    if (!isAdmin || !isFirebaseLoaded) return;
+    if (!isAdmin || !isFirebaseLoaded || !auth?.currentUser) return;
     setLoadingData(true);
     const unsubscribeUsers = subscribeToUserProfiles((data) => {
       setUsersList(data);
@@ -307,7 +330,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (!isAdmin || !isFirebaseLoaded) return;
+    if (!isAdmin || !isFirebaseLoaded || !auth?.currentUser) return;
     setLoadingOrders(true);
     let isFirstLoad = true;
 
@@ -345,7 +368,7 @@ export default function AdminDashboard() {
   }, [isAdmin, isFirebaseLoaded]);
 
   useEffect(() => {
-    if (isAdmin && isFirebaseLoaded) {
+    if (isAdmin && isFirebaseLoaded && auth?.currentUser) {
       fetchFields(); // Load fields to resolve custom field IDs to labels
       if (activeTab === 'products') {
         fetchProducts();
@@ -1131,7 +1154,7 @@ export default function AdminDashboard() {
 
   const filteredUsers = getFilteredAndSortedUsers();
 
-  if (checkingSession || !isAdmin) {
+  if (checkingSession || !isAdmin || !isFirebaseLoaded) {
     return <Loader fullscreen text="Verifying administrator credentials..." />;
   }
 
