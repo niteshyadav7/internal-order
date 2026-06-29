@@ -29,7 +29,7 @@ import {
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 
 // Icons for metrics cards
 import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check } from 'lucide-react';
@@ -198,10 +198,14 @@ export default function AdminDashboard() {
       setIsFirebaseLoaded(true);
       return;
     }
-    const unsubscribe = onAuthStateChanged(auth, () => {
-      setIsFirebaseLoaded(true);
-    });
-    return () => unsubscribe();
+    auth.authStateReady()
+      .then(() => {
+        setIsFirebaseLoaded(true);
+      })
+      .catch((err) => {
+        console.error("Firebase authStateReady failed:", err);
+        setIsFirebaseLoaded(true); // Fallback to prevent UI hang
+      });
   }, []);
 
   // Verification of admin session
@@ -503,6 +507,13 @@ export default function AdminDashboard() {
 
   const handleConfirmLogout = async () => {
     setShowSignOutModal(false);
+    try {
+      if (auth) {
+        await signOut(auth);
+      }
+    } catch (err) {
+      console.warn("Firebase sign out failed during admin logout:", err);
+    }
     try {
       await fetch('/api/admin/logout', { method: 'POST' });
       router.push('/admin/login');
