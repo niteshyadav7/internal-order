@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Toast, { ToastType } from '../../components/ui/Toast';
-import { User, Lock } from 'lucide-react';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -13,6 +13,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -110,13 +111,20 @@ export default function AdminLoginPage() {
           <div className="flex items-center gap-3 border-b border-slate-200 dark:border-zinc-800 py-1.5 focus-within:border-[#1c2c80] dark:focus-within:border-indigo-500 transition-colors">
             <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               placeholder="Password"
               className="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 font-semibold text-sm outline-none border-none py-1 px-1"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 focus:outline-none flex-shrink-0 cursor-pointer"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
 
           {/* Sign In Button */}
