@@ -74,6 +74,28 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   }
 }
 
+// Sync and approve admin profile in Firestore under their real Auth UID
+export async function syncAdminProfile(uid: string, email: string): Promise<void> {
+  if (!db) return;
+  try {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists() || userSnap.data()?.status !== 'approved') {
+      console.log("Syncing admin profile in Firestore under UID:", uid);
+      await setDoc(userRef, {
+        uid,
+        email,
+        name: 'System Admin',
+        status: 'approved',
+        createdAt: new Date().toISOString(),
+        registrationCompleted: true
+      }, { merge: true });
+    }
+  } catch (error) {
+    console.error("Error in syncAdminProfile:", error);
+  }
+}
+
 // Update user profile approval status
 export async function updateUserProfileStatus(
   uid: string,

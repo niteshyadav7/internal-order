@@ -25,7 +25,8 @@ import {
   deleteProduct,
   deleteOrder,
   updateOrder,
-  subscribeToOrders
+  subscribeToOrders,
+  syncAdminProfile
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
@@ -247,6 +248,9 @@ export default function AdminDashboard() {
           }
         };
         performLogout();
+      } else if (currentUser && adminEmail) {
+        // Sync administrative profile under their real UID in Firestore
+        syncAdminProfile(currentUser.uid, currentUser.email || adminEmail);
       }
     }
   }, [isAdmin, isFirebaseLoaded, adminEmail, router]);
