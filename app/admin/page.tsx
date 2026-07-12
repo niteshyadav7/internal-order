@@ -1202,7 +1202,30 @@ export default function AdminDashboard() {
         {/* Content Scroll View */}
         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-6 sm:p-8 md:p-10">
           <div className="max-w-6xl w-full mx-auto">
-        
+            {isFirebaseLoaded && auth && !auth.currentUser && (
+              <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-955/15 border border-amber-200 dark:border-amber-900/35 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm animate-in fade-in duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
+                    <XCircle className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">Firebase Authentication Inactive</h4>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
+                      This domain (<code className="bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-[10px]">balajitextiles.phyteam.com</code>) is not authorized in your Firebase Console. Database actions (Approve, Reject, Delete) will fail until authorized.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="https://console.firebase.google.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap self-end sm:self-auto cursor-pointer"
+                >
+                  Go to Firebase Console
+                </a>
+              </div>
+            )}
+
             {/* Tab 0: Notifications Feed */}
             {activeTab === 'notifications' && (
               <div className="space-y-6 animate-in fade-in duration-300">
