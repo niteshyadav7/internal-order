@@ -15,7 +15,9 @@ import {
   ShoppingCart,
   Package,
   ClipboardList,
-  User
+  User,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -301,6 +303,7 @@ export default function ProductCatalog() {
   const { user, profileName, userProfile, refreshProfile, logout } = useAuth();
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleSignOutClick = () => {
     setShowSignOutModal(true);
@@ -491,7 +494,9 @@ export default function ProductCatalog() {
             nameHi: product.nameHi,
             price: product.price,
             unit: product.unit,
-            quantity: 1
+            quantity: 1,
+            code: product.code || '',
+            design: product.design || ''
           });
         }
       });
@@ -567,12 +572,12 @@ export default function ProductCatalog() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Header Navigation */}
-          <div className="flex items-center gap-1.5 sm:gap-2 mr-2">
+          {/* Desktop Header Navigation - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-2 mr-2">
             <button
               type="button"
               onClick={() => setActiveView('products')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-black transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all cursor-pointer ${
                 activeView === 'products'
                   ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/25'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-zinc-805 dark:text-zinc-305 dark:hover:bg-zinc-700'
@@ -580,7 +585,7 @@ export default function ProductCatalog() {
               title="Shop Products"
             >
               <Package className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Shop</span>
+              <span>Shop</span>
             </button>
             
             <button
@@ -589,7 +594,7 @@ export default function ProductCatalog() {
                 setActiveView('orders');
                 fetchUserOrders();
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-black transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all cursor-pointer ${
                 activeView === 'orders'
                   ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/25'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-zinc-805 dark:text-zinc-305 dark:hover:bg-zinc-700'
@@ -597,13 +602,13 @@ export default function ProductCatalog() {
               title="My Orders"
             >
               <ClipboardList className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Orders</span>
+              <span>Orders</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveView('profile')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-black transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all cursor-pointer ${
                 activeView === 'profile'
                   ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/25'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-zinc-805 dark:text-zinc-305 dark:hover:bg-zinc-700'
@@ -611,21 +616,132 @@ export default function ProductCatalog() {
               title="My Profile"
             >
               <User className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Profile</span>
+              <span>Profile</span>
             </button>
           </div>
 
-          {/* Sign Out */}
+          {/* Desktop Sign Out */}
           <button 
             type="button"
             onClick={handleSignOutClick}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-full transition-colors cursor-pointer"
+            className="hidden md:flex p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-full transition-colors cursor-pointer"
             title="Sign Out"
           >
-            <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+            <LogOut className="w-5 h-5" />
+          </button>
+
+          {/* Mobile Hamburger Menu Button */}
+          <button
+            type="button"
+            onClick={() => setShowMobileMenu(true)}
+            className="md:hidden w-10 h-10 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+            title="Menu"
+          >
+            <Menu className="w-5 h-5 text-slate-700 dark:text-slate-200" />
           </button>
         </div>
       </header>
+
+      {/* Mobile Top Dropdown Menu */}
+      {showMobileMenu && (
+        <div className="md:hidden fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowMobileMenu(false)}
+          />
+          
+          {/* Top Sheet */}
+          <div className="absolute top-0 left-0 right-0 bg-white dark:bg-zinc-900 rounded-b-[2rem] shadow-2xl animate-in slide-in-from-top duration-300">
+            {/* Header with close */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-[#5d51e8] p-2 rounded-xl text-white shadow-md shadow-[#5d51e8]/20">
+                  <ShoppingCart className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">Smart Store</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileMenu(false)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors active:scale-95"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Navigation Items */}
+            <div className="px-4 pb-5 space-y-1.5">
+              {[
+                { key: 'products' as const, icon: Package, label: 'Shop Products', desc: 'Browse & add items to your order' },
+                { key: 'orders' as const, icon: ClipboardList, label: 'My Orders', desc: 'Track your order history & status' },
+                { key: 'profile' as const, icon: User, label: 'My Profile', desc: 'View & edit your profile details' },
+              ].map((item) => {
+                const isActive = activeView === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveView(item.key);
+                      if (item.key === 'orders') fetchUserOrders();
+                      setShowMobileMenu(false);
+                    }}
+                    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[0.98] cursor-pointer ${
+                      isActive
+                        ? 'bg-[#5d51e8]/10 border border-[#5d51e8]/20'
+                        : 'hover:bg-slate-50 dark:hover:bg-zinc-800/50 border border-transparent'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      isActive
+                        ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/20'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'
+                    }`}>
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-black ${
+                        isActive ? 'text-[#5d51e8]' : 'text-slate-800 dark:text-slate-200'
+                      }`}>{item.label}</p>
+                      <p className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500">{item.desc}</p>
+                    </div>
+                    {isActive && (
+                      <div className="ml-auto w-2 h-2 rounded-full bg-[#5d51e8] animate-pulse" />
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* Divider */}
+              <div className="border-t border-slate-100 dark:border-zinc-800 my-2" />
+
+              {/* Sign Out */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileMenu(false);
+                  handleSignOutClick();
+                }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-left hover:bg-red-50 dark:hover:bg-red-950/10 transition-all active:scale-[0.98] cursor-pointer border border-transparent"
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-red-50 dark:bg-red-950/20 text-red-500">
+                  <LogOut className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-red-600 dark:text-red-400">Sign Out</p>
+                  <p className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500">Log out from your account</p>
+                </div>
+              </button>
+            </div>
+
+            {/* Handle bar at bottom */}
+            <div className="flex justify-center pb-3">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-zinc-700 rounded-full" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-grow max-w-5xl w-full mx-auto p-5 sm:p-8 space-y-6">
@@ -633,6 +749,7 @@ export default function ProductCatalog() {
         {activeView === 'profile' ? (
           <ClientProfileTab
             user={user}
+            userProfile={userProfile}
             editName={editName}
             onEditNameChange={setEditName}
             profileFields={profileFields}
@@ -644,6 +761,7 @@ export default function ProductCatalog() {
             profileSuccess={profileSuccess}
             lang={lang}
             t={t}
+            onRefreshProfile={refreshProfile}
           />
         ) : activeView === 'orders' ? (
           <ClientOrdersList

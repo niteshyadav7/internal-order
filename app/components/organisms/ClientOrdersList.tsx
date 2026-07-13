@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Truck, Calendar, Edit2, Trash2, XCircle, AlertCircle, ShoppingBag, Plus, Minus } from 'lucide-react';
-import { Order, OrderItem } from '../../lib/db';
+import { Order, OrderItem, getPriceRange } from '../../lib/db';
 import Button from '../atoms/Button';
 import ConfirmModal from '../ui/ConfirmModal';
 
@@ -109,12 +109,17 @@ export default function ClientOrdersList({
                       <Calendar className="w-3.5 h-3.5" />
                       <span>{new Date(order.createdAt).toLocaleDateString()}</span>
                     </div>
+                    {order.assignedSalesmanName && (
+                      <span className="text-[9px] bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-lg font-black border border-purple-100/50 dark:border-purple-900/40 uppercase tracking-wider">
+                        Prep: {order.assignedSalesmanName}
+                      </span>
+                    )}
                   </div>
                   
                   <div className="text-right">
-                    <span className="text-xs font-bold text-slate-400">Total Value: </span>
+                    <span className="text-xs font-bold text-slate-400">Total Value Range: </span>
                     <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                      ₹{orderTotal.toLocaleString()}
+                      {getPriceRange(orderTotal)}
                     </span>
                   </div>
                 </div>
@@ -126,17 +131,20 @@ export default function ClientOrdersList({
                       key={idx} 
                       className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 rounded-2xl p-3 flex items-center justify-between"
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 text-left">
                         <div className="bg-[#5d51e8]/10 text-[#5d51e8] p-1.5 rounded-lg flex-shrink-0">
                           <Truck className="w-4 h-4" />
                         </div>
                         <div>
                           <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 line-clamp-1">{item.nameEn}</p>
-                          <p className="text-[10px] text-slate-400 font-bold">Qty: {item.quantity}</p>
+                          <p className="text-[10px] text-slate-400 font-bold">
+                            Qty: {item.quantity}
+                            {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
+                          </p>
                         </div>
                       </div>
-                      <span className="text-xs font-black text-slate-900 dark:text-white">
-                        ₹{(item.price * item.quantity).toLocaleString()}
+                      <span className="text-xs font-black text-slate-900 dark:text-white whitespace-nowrap ml-2">
+                        {getPriceRange(item.price * item.quantity)}
                       </span>
                     </div>
                   ))}
@@ -191,7 +199,10 @@ export default function ClientOrdersList({
                   <div key={item.productId} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
                     <div className="space-y-0.5 text-left max-w-[55%]">
                       <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">₹{item.price.toLocaleString()} / {item.unit}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">
+                        {getPriceRange(item.price)} / {item.unit}
+                        {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-3.5">

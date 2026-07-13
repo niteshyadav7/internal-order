@@ -18,9 +18,11 @@ export default function Home() {
     if (!loading) {
       if (!user) {
         router.push('/login');
+      } else if (userProfile && userProfile.role === 'salesman') {
+        router.push('/salesman');
       }
     }
-  }, [user, loading, router]);
+  }, [user, userProfile, loading, router]);
 
   const handleLogout = async () => {
     try {

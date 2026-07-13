@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, ShoppingCart, Loader2, Check } from 'lucide-react';
-import { Product } from '../../lib/db';
+import { Search, MapPin, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X } from 'lucide-react';
+import { Product, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
 
 interface ClientProductGridProps {
@@ -37,20 +37,57 @@ export default function ClientProductGrid({
   const [visibleCount, setVisibleCount] = useState(12);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset visible limit back to 12 when search query changes
+  // Dynamically calculate maximum price in catalog
+  const absoluteMaxPrice = products.length > 0 
+    ? Math.max(...products.map(p => p.price)) 
+    : 150000;
+
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [priceFilter, setPriceFilter] = useState(absoluteMaxPrice);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+
+  // Reset price range when products list changes
+  useEffect(() => {
+    if (products.length > 0) {
+      setPriceFilter(Math.max(...products.map(p => p.price)));
+    }
+  }, [products]);
+
+  // Combined product filtering logic
+  const finalFilteredProducts = products.filter(product => {
+    // 1. Search Query Filter
+    const name = lang === 'en' ? product.nameEn : product.nameHi;
+    const desc = lang === 'en' ? product.descEn : product.descHi;
+    const matchesSearch = 
+      name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // 2. Category Filter
+    const matchesCategory = 
+      selectedCategory === 'All' || 
+      product.category.toLowerCase() === selectedCategory.toLowerCase();
+
+    // 3. Price Filter
+    const matchesPrice = product.price <= priceFilter;
+
+    return matchesSearch && matchesCategory && matchesPrice;
+  });
+
+  // Reset page limit when filters/search changes
   useEffect(() => {
     setVisibleCount(12);
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory, priceFilter]);
 
   // Infinite Scroll logic via IntersectionObserver
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       const target = entries[0];
       if (target.isIntersecting) {
-        setVisibleCount((prev) => Math.min(prev + 12, filteredProducts.length));
+        setVisibleCount((prev) => Math.min(prev + 12, finalFilteredProducts.length));
       }
     }, {
-      rootMargin: '200px', // start loading before the user reaches the absolute bottom
+      rootMargin: '200px',
     });
 
     const currentSentinel = sentinelRef.current;
@@ -63,43 +100,176 @@ export default function ClientProductGrid({
         observer.unobserve(currentSentinel);
       }
     };
-  }, [filteredProducts.length]);
+  }, [finalFilteredProducts.length]);
 
-  const paginatedProducts = filteredProducts.slice(0, visibleCount);
+  const paginatedProducts = finalFilteredProducts.slice(0, visibleCount);
 
   return (
     <>
       {/* User Welcome Block & Search */}
-      <div className="bg-gradient-to-r from-[#5d51e8]/10 via-[#5d51e8]/5 to-transparent border border-[#5d51e8]/20 rounded-3xl p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              Welcome, {profileName || 'Valued User'}
+      <div className="bg-gradient-to-br from-[#5d51e8]/10 via-[#5d51e8]/5 to-transparent border border-[#5d51e8]/15 rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="space-y-0.5 sm:space-y-1 text-left">
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>Welcome, {profileName || 'Valued User'}</span>
+              <span className="animate-bounce origin-bottom-right">👋</span>
             </h2>
-            <p className="text-sm font-semibold text-slate-500 dark:text-zinc-400">
+            <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-zinc-400">
               Search and select the items you need to order.
             </p>
           </div>
           
-          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-4 py-2.5 rounded-full shadow-sm w-fit self-start sm:self-center">
-            <MapPin className="w-4 h-4 text-[#5d51e8]" />
-            <span className="text-xs font-extrabold text-slate-650 dark:text-zinc-300">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full shadow-sm w-fit self-start sm:self-center">
+            <MapPin className="w-3.5 h-3.5 text-[#5d51e8] flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs font-black text-slate-650 dark:text-zinc-300">
               E-Commerce Store
             </span>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full max-w-lg">
-          <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search for smartphones, laptops, clothing..."
-            className="w-full pl-12 pr-4 py-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full text-sm font-semibold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 shadow-sm"
-          />
+        {/* Search Bar & Filter Action Button - Inline on Mobile */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="relative flex-grow">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={lang === 'en' ? 'Search for items...' : 'सामान खोजें...'}
+              className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-850 rounded-full text-xs sm:text-sm font-semibold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 shadow-sm transition-all"
+            />
+          </div>
+          
+          <button
+            type="button"
+            onClick={() => setShowFiltersPanel(!showFiltersPanel)}
+            className={`flex items-center justify-center gap-1.5 p-2.5 sm:px-5 sm:py-3 rounded-full text-xs font-black border-2 transition-all active:scale-95 cursor-pointer shadow-sm shrink-0 ${
+              showFiltersPanel || priceFilter < absoluteMaxPrice
+                ? 'bg-[#5d51e8]/10 border-[#5d51e8] text-[#5d51e8]'
+                : 'bg-white border-slate-200 dark:border-zinc-800 hover:bg-slate-55 text-slate-755 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+            }`}
+            title={lang === 'en' ? 'Filters' : 'फ़िल्टर'}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">{lang === 'en' ? 'Filters' : 'फ़िल्टर'}</span>
+            {priceFilter < absoluteMaxPrice && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#5d51e8] animate-pulse"></span>
+            )}
+          </button>
         </div>
+
+        {/* Dynamic Category Scrolling Bar */}
+        {products.length > 0 && (
+          <div className="w-full pt-1">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-slate-400">
+                {lang === 'en' ? 'Browse Categories' : 'श्रेणियां ब्राउज़ करें'}
+              </span>
+              {selectedCategory !== 'All' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('All')}
+                  className="text-[9px] sm:text-[10px] font-black text-[#5d51e8] hover:underline cursor-pointer"
+                >
+                  {lang === 'en' ? 'Reset Category' : 'श्रेणी रीसेट करें'}
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 -mx-4 px-4 sm:-mx-8 sm:px-8">
+              {['All', ...Array.from(new Set(products.map(p => p.category)))].map((cat) => {
+                const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap border-2 transition-all active:scale-95 cursor-pointer shadow-sm ${
+                      isSelected
+                        ? 'bg-[#5d51e8] border-[#5d51e8] text-white font-black shadow-md shadow-[#5d51e8]/20'
+                        : 'bg-white hover:bg-slate-55 border-slate-200 dark:border-zinc-800 text-slate-755 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    {getProductIcon(cat, "w-3.5 h-3.5")}
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Collapsible Filter Panel */}
+        {showFiltersPanel && (
+          <div className="bg-white dark:bg-zinc-900/50 border border-slate-250 dark:border-zinc-800/80 rounded-2xl p-4 sm:p-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800/80 pb-2">
+              <h3 className="text-xs font-black text-slate-850 dark:text-slate-300 uppercase tracking-wider">
+                {lang === 'en' ? 'Refine Price Range' : 'मूल्य सीमा परिष्कृत करें'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPriceFilter(absoluteMaxPrice)}
+                className="text-[10px] font-black text-rose-600 dark:text-rose-450 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>{lang === 'en' ? 'Reset Price' : 'मूल्य रीसेट करें'}</span>
+              </button>
+            </div>
+            
+            <div className="space-y-3 text-left">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-zinc-400">
+                <span>Min: ₹0</span>
+                <span className="text-[#5d51e8] font-black text-sm bg-[#5d51e8]/5 px-3 py-1 rounded-full border border-indigo-100/50 dark:border-indigo-950">
+                  Max: ₹{priceFilter.toLocaleString('en-IN')}
+                </span>
+              </div>
+              
+              <input
+                type="range"
+                min="0"
+                max={absoluteMaxPrice}
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(Number(e.target.value))}
+                className="w-full h-2 bg-slate-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#5d51e8]"
+              />
+              
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPriceFilter(2000)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all border active:scale-95 cursor-pointer ${
+                    priceFilter === 2000
+                      ? 'bg-[#5d51e8] text-white border-transparent'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 text-slate-655 dark:text-slate-300'
+                  }`}
+                >
+                  {lang === 'en' ? 'Under ₹2,000' : '₹2,000 से कम'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPriceFilter(10000)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all border active:scale-95 cursor-pointer ${
+                    priceFilter === 10000
+                      ? 'bg-[#5d51e8] text-white border-transparent'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 text-slate-655 dark:text-slate-300'
+                  }`}
+                >
+                  {lang === 'en' ? 'Under ₹10,000' : '₹10,000 से कम'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPriceFilter(50000)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all border active:scale-95 cursor-pointer ${
+                    priceFilter === 50000
+                      ? 'bg-[#5d51e8] text-white border-transparent'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 text-slate-655 dark:text-slate-300'
+                  }`}
+                >
+                  {lang === 'en' ? 'Under ₹50,000' : '₹50,000 से कम'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Product Grid */}
@@ -114,10 +284,10 @@ export default function ClientProductGrid({
             {t('noProductsText')}
           </p>
         </div>
-      ) : filteredProducts.length === 0 ? (
+      ) : finalFilteredProducts.length === 0 ? (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-12 text-center">
           <p className="text-slate-500 dark:text-zinc-400 font-bold">
-            No products match your search.
+            No products match selected filters or search.
           </p>
         </div>
       ) : (
@@ -170,7 +340,12 @@ export default function ClientProductGrid({
 
                   {/* Card Details */}
                   <div className="p-6 space-y-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1 text-left">
+                      {(product.code || product.design) && (
+                        <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider mb-1 border border-indigo-100/50 dark:border-indigo-900/30">
+                          Code: {product.code || 'N/A'} | Design: {product.design || 'N/A'}
+                        </div>
+                      )}
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white leading-snug group-hover:text-[#5d51e8] transition-colors line-clamp-1">
                         {name}
                       </h3>
@@ -181,13 +356,13 @@ export default function ClientProductGrid({
 
                     {/* Price and Action Section */}
                     <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-                      <div>
+                      <div className="text-left">
                         <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">
                           {t('priceLabel')}
                         </span>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-lg font-black text-slate-950 dark:text-white">
-                            ₹{product.price.toLocaleString('en-IN')}
+                          <span className="text-xs sm:text-sm font-black text-slate-950 dark:text-white">
+                            {getPriceRange(product.price)}
                           </span>
                           <span className="text-[10px] font-extrabold text-slate-400">
                             / {product.unit}

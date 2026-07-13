@@ -35,12 +35,14 @@ export default function Toast({ message, type, onClose, onClick }: ToastProps) {
   return (
     <div 
       onClick={onClick}
-      className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg backdrop-blur-md animate-in slide-in-from-top-4 fade-in duration-300 hover:scale-[1.02] active:scale-[0.98] transition-all ${bgStyles[type]} ${
+      className={`fixed bottom-4 left-4 right-4 sm:bottom-auto sm:top-4 sm:left-auto sm:right-4 z-50 flex items-center justify-between sm:justify-start gap-3 px-4 py-3 rounded-2xl border shadow-lg backdrop-blur-md animate-in slide-in-from-bottom-4 sm:slide-in-from-top-4 fade-in duration-300 hover:scale-[1.02] active:scale-[0.98] transition-all ${bgStyles[type]} ${
         onClick ? 'cursor-pointer' : ''
       }`}
     >
-      {Icon}
-      <p className="text-xs font-bold tracking-tight">{message}</p>
+      <div className="flex items-center gap-3 min-w-0">
+        {Icon}
+        <p className="text-xs font-bold tracking-tight truncate">{message}</p>
+      </div>
       <button 
         onClick={(e) => {
           e.stopPropagation();

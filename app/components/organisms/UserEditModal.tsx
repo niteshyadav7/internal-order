@@ -13,6 +13,8 @@ interface UserEditModalProps {
   customDetails: Record<string, string>;
   onCustomDetailChange: (key: string, value: string) => void;
   fieldsList: ProfileField[];
+  role: 'client' | 'salesman' | 'admin';
+  onRoleChange: (val: 'client' | 'salesman' | 'admin') => void;
   onSave: (e: React.FormEvent) => void;
   saving: boolean;
 }
@@ -28,14 +30,16 @@ export default function UserEditModal({
   customDetails,
   onCustomDetailChange,
   fieldsList,
+  role,
+  onRoleChange,
   onSave,
   saving
 }: UserEditModalProps) {
   if (!isOpen || !user) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-md w-full rounded-[2.2rem] p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-md w-full rounded-3xl sm:rounded-[2.2rem] p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="text-center space-y-1.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">
           <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none">
@@ -70,6 +74,19 @@ export default function UserEditModal({
             />
           </div>
 
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-black text-slate-400">User Role</label>
+            <select
+              value={role}
+              onChange={(e) => onRoleChange(e.target.value as 'client' | 'salesman' | 'admin')}
+              className="w-full px-3.5 py-2.5 bg-slate-55 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+            >
+              <option value="client">Client</option>
+              <option value="salesman">Salesman</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
           {/* Dynamic Registration Fields */}
           {fieldsList.length > 0 && (
             <div className="border-t border-slate-100 dark:border-zinc-800/85 pt-3 space-y-4">
@@ -89,6 +106,21 @@ export default function UserEditModal({
                       onChange={(e) => onCustomDetailChange(fieldId, e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-slate-55 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
                     />
+                    {field.labelEn.toLowerCase() === 'firm name' && user.requestedFirmName && (
+                      <div className="mt-1.5 bg-amber-50/70 dark:bg-amber-955/15 border border-amber-200/50 dark:border-amber-900/35 rounded-xl p-2.5 flex items-center justify-between gap-2 animate-in fade-in duration-200">
+                        <div className="text-left">
+                          <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">User Requested Change</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-350 mt-0.5">"{user.requestedFirmName}"</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onCustomDetailChange(fieldId, user.requestedFirmName || '')}
+                          className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[9px] rounded-lg active:scale-95 transition-all shadow-sm cursor-pointer"
+                        >
+                          Apply Change
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

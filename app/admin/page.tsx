@@ -26,14 +26,16 @@ import {
   deleteOrder,
   updateOrder,
   subscribeToOrders,
-  syncAdminProfile
+  syncAdminProfile,
+  preRegisterUserProfile
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
+import { compressImage } from '../lib/image';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check } from 'lucide-react';
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2 } from 'lucide-react';
 
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
@@ -45,6 +47,7 @@ import OrdersList from '../components/organisms/OrdersList';
 import ProductsTable from '../components/organisms/ProductsTable';
 import DynamicFieldsList from '../components/organisms/DynamicFieldsList';
 import UserEditModal from '../components/organisms/UserEditModal';
+import UserCreateModal from '../components/organisms/UserCreateModal';
 import ProductEditModal from '../components/organisms/ProductEditModal';
 
 // Atoms for Form Components
@@ -62,6 +65,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'client' | 'salesman' | 'admin'>('all');
   const [sortField, setSortField] = useState<'name' | 'createdAt' | 'status'>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -129,6 +133,9 @@ export default function AdminDashboard() {
   const [newProdImageUrl, setNewProdImageUrl] = useState('gradient-indigo');
   const [newProdCategory, setNewProdCategory] = useState('Electronics');
   const [newProdInStock, setNewProdInStock] = useState(true);
+  const [isNewProdCompressing, setIsNewProdCompressing] = useState(false);
+  const [newProdCode, setNewProdCode] = useState('');
+  const [newProdDesign, setNewProdDesign] = useState('');
 
   // Tab 4: Dynamic Fields
   const [fieldsList, setFieldsList] = useState<ProfileField[]>([]);
@@ -160,7 +167,10 @@ export default function AdminDashboard() {
   const [editUserName, setEditUserName] = useState('');
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserCustomDetails, setEditUserCustomDetails] = useState<Record<string, string>>({});
+  const [editUserRole, setEditUserRole] = useState<'client' | 'salesman' | 'admin'>('client');
   const [savingEditedUser, setSavingEditedUser] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
 
   // Catalog/Products states
   const [productSearchQuery, setProductSearchQuery] = useState('');
@@ -175,6 +185,8 @@ export default function AdminDashboard() {
   const [editProdCategory, setEditProdCategory] = useState('Electronics');
   const [editProdImageUrl, setEditProdImageUrl] = useState('');
   const [editProdInStock, setEditProdInStock] = useState(true);
+  const [editProdCode, setEditProdCode] = useState('');
+  const [editProdDesign, setEditProdDesign] = useState('');
   const [savingEditedProduct, setSavingEditedProduct] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
@@ -619,6 +631,7 @@ export default function AdminDashboard() {
     setEditUserName(user.name);
     setEditUserEmail(user.email);
     setEditUserCustomDetails(user.customDetails || {});
+    setEditUserRole(user.role || 'client');
   };
 
   const handleCustomDetailChange = (key: string, value: string) => {
@@ -640,7 +653,9 @@ export default function AdminDashboard() {
       await updateUserProfile(editingUser.uid, {
         name: editUserName,
         email: editUserEmail,
-        customDetails: editUserCustomDetails
+        customDetails: editUserCustomDetails,
+        role: editUserRole,
+        requestedFirmName: ""
       });
       setEditingUser(null);
     } catch (err) {
@@ -648,6 +663,38 @@ export default function AdminDashboard() {
       alert("Failed to update user profile.");
     } finally {
       setSavingEditedUser(false);
+    }
+  };
+
+  const handleCreateUserProfile = async (
+    name: string,
+    email: string,
+    role: 'client' | 'salesman' | 'admin',
+    status: 'pending' | 'approved' | 'rejected',
+    customDetails: Record<string, string>
+  ) => {
+    setCreatingUser(true);
+    try {
+      const profile = await preRegisterUserProfile({
+        name,
+        email,
+        role,
+        status,
+        customDetails,
+        registrationCompleted: true
+      });
+      if (profile) {
+        setIsCreateUserOpen(false);
+        setAdminToast({
+          message: `Successfully pre-registered ${name} as ${role}!`,
+          type: 'success'
+        });
+      }
+    } catch (err) {
+      console.error("Failed to pre-register user:", err);
+      alert("Error creating pre-registered user profile.");
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -750,6 +797,8 @@ export default function AdminDashboard() {
     setEditProdCategory(product.category);
     setEditProdImageUrl(product.imageUrl);
     setEditProdInStock(product.inStock !== false);
+    setEditProdCode(product.code || '');
+    setEditProdDesign(product.design || '');
   };
 
   const handleSaveEditedProduct = async (e: React.FormEvent) => {
@@ -770,7 +819,9 @@ export default function AdminDashboard() {
         unit: editProdUnit,
         category: editProdCategory,
         imageUrl: editProdImageUrl,
-        inStock: editProdInStock
+        inStock: editProdInStock,
+        code: editProdCode,
+        design: editProdDesign
       });
       setProductsList(prev => prev.map(p => p.id === editingProduct.id ? {
         ...p,
@@ -782,7 +833,9 @@ export default function AdminDashboard() {
         unit: editProdUnit,
         category: editProdCategory,
         imageUrl: editProdImageUrl,
-        inStock: editProdInStock
+        inStock: editProdInStock,
+        code: editProdCode,
+        design: editProdDesign
       } : p));
       setEditingProduct(null);
     } catch (err) {
@@ -793,10 +846,34 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleNewProdFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsNewProdCompressing(true);
+    try {
+      const compressed = await compressImage(file);
+      setNewProdImageUrl(compressed);
+    } catch (err) {
+      console.error("Compression error:", err);
+      alert("Failed to compress and upload image.");
+    } finally {
+      setIsNewProdCompressing(false);
+    }
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProdNameEn.trim() || !newProdPrice.trim()) {
       alert("Product Name and Price are required.");
+      return;
+    }
+    if (newProdImageUrl === 'upload-placeholder') {
+      alert("Please upload an image first.");
+      return;
+    }
+    if (isNewProdCompressing) {
+      alert("Please wait for the image to finish optimizing.");
       return;
     }
     setAddingProduct(true);
@@ -810,7 +887,9 @@ export default function AdminDashboard() {
         unit: newProdUnit,
         category: newProdCategory,
         imageUrl: newProdImageUrl,
-        inStock: newProdInStock
+        inStock: newProdInStock,
+        code: newProdCode,
+        design: newProdDesign
       });
       if (addedProduct) {
         setProductsList(prev => [addedProduct, ...prev]);
@@ -821,6 +900,8 @@ export default function AdminDashboard() {
         setNewProdImageUrl('gradient-indigo');
         setNewProdCategory('Electronics');
         setNewProdInStock(true);
+        setNewProdCode('');
+        setNewProdDesign('');
       }
     } catch (err) {
       console.error("Failed to add product:", err);
@@ -1072,6 +1153,14 @@ export default function AdminDashboard() {
       result = result.filter(u => u.status === statusFilter);
     }
     
+    // Role Filter
+    if (roleFilter !== 'all') {
+      result = result.filter(u => {
+        const uRole = u.role || 'client';
+        return uRole === roleFilter;
+      });
+    }
+    
     // Search Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -1116,25 +1205,44 @@ export default function AdminDashboard() {
     const list: any[] = [];
     let unread = 0;
 
-    // 1. Pending Approvals
+    // 1. Pending Approvals & Firm Name Change Requests
     usersList.forEach(user => {
       if (user.status === 'pending') {
         const id = `user-pending-${user.uid}`;
-        if (clearedNotificationIds.includes(id)) return;
+        if (!clearedNotificationIds.includes(id)) {
+          const isRead = readNotificationIds.includes(id);
+          if (!isRead) unread++;
+          
+          list.push({
+            id,
+            type: 'user',
+            title: 'Pending User Registration',
+            message: `${user.name} (${user.email}) submitted a registration request and is waiting for approval.`,
+            timestamp: user.createdAt,
+            actionLabel: 'Review Profile',
+            actionTab: 'users',
+            isRead
+          });
+        }
+      }
 
-        const isRead = readNotificationIds.includes(id);
-        if (!isRead) unread++;
-        
-        list.push({
-          id,
-          type: 'user',
-          title: 'Pending User Registration',
-          message: `${user.name} (${user.email}) submitted a registration request and is waiting for approval.`,
-          timestamp: user.createdAt,
-          actionLabel: 'Review Profile',
-          actionTab: 'users',
-          isRead
-        });
+      if (user.requestedFirmName) {
+        const id = `user-firmname-change-${user.uid}-${user.requestedFirmName}`;
+        if (!clearedNotificationIds.includes(id)) {
+          const isRead = readNotificationIds.includes(id);
+          if (!isRead) unread++;
+          
+          list.push({
+            id,
+            type: 'user',
+            title: 'Firm Name Change Request',
+            message: `${user.name} (${user.email}) requested to change their Firm Name to "${user.requestedFirmName}".`,
+            timestamp: user.createdAt,
+            actionLabel: 'Review Profile',
+            actionTab: 'users',
+            isRead
+          });
+        }
       }
     });
 
@@ -1204,7 +1312,7 @@ export default function AdminDashboard() {
         />
 
         {/* Content Scroll View */}
-        <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-6 sm:p-8 md:p-10">
+        <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 sm:p-8">
           <div className="max-w-6xl w-full mx-auto">
             {isFirebaseLoaded && auth && !auth.currentUser && (
               <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-955/15 border border-amber-200 dark:border-amber-900/35 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm animate-in fade-in duration-300">
@@ -1427,6 +1535,9 @@ export default function AdminDashboard() {
                   sortDirection={sortDirection}
                   onSort={handleSort}
                   statusFilter={statusFilter}
+                  roleFilter={roleFilter}
+                  onRoleFilterChange={setRoleFilter}
+                  onCreateUserClick={() => setIsCreateUserOpen(true)}
                   getFieldLabel={getFieldLabel}
                   actionLoading={actionLoading}
                 />
@@ -1480,6 +1591,22 @@ export default function AdminDashboard() {
                           placeholder="Product description..."
                         />
                       </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Input
+                          label="Product Code"
+                          required
+                          value={newProdCode}
+                          onChange={(e) => setNewProdCode(e.target.value)}
+                          placeholder="e.g. SKU-100"
+                        />
+                        <Input
+                          label="Design Identifier"
+                          required
+                          value={newProdDesign}
+                          onChange={(e) => setNewProdDesign(e.target.value)}
+                          placeholder="e.g. Design-A"
+                        />
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <Input
                           label="Price (INR)"
@@ -1510,11 +1637,13 @@ export default function AdminDashboard() {
                         </Select>
                         <Select
                           label="Image Source"
-                          value={newProdImageUrl.startsWith('http') ? 'custom' : newProdImageUrl}
+                          value={newProdImageUrl.startsWith('data:image/') || newProdImageUrl === 'upload-placeholder' ? 'upload' : (newProdImageUrl.startsWith('http') ? 'custom' : newProdImageUrl)}
                           onChange={(e) => {
                             const val = e.target.value;
                             if (val === 'custom') {
                               setNewProdImageUrl('https://');
+                            } else if (val === 'upload') {
+                              setNewProdImageUrl('upload-placeholder');
                             } else {
                               setNewProdImageUrl(val);
                             }
@@ -1526,10 +1655,11 @@ export default function AdminDashboard() {
                           <option value="gradient-cyan">Cyan Theme</option>
                           <option value="gradient-rose">Rose Theme</option>
                           <option value="custom">Web Image URL</option>
+                          <option value="upload">Upload Local Image</option>
                         </Select>
                       </div>
 
-                      {newProdImageUrl.startsWith('http') && (
+                      {newProdImageUrl.startsWith('http') && !newProdImageUrl.startsWith('data:image/') && (
                         <div className="animate-in fade-in duration-200">
                           <Input
                             label="Image URL"
@@ -1539,6 +1669,65 @@ export default function AdminDashboard() {
                             onChange={(e) => setNewProdImageUrl(e.target.value)}
                             placeholder="https://images.unsplash.com/..."
                           />
+                        </div>
+                      )}
+
+                      {(newProdImageUrl.startsWith('data:image/') || newProdImageUrl === 'upload-placeholder') && (
+                        <div className="space-y-1 animate-in fade-in duration-200">
+                          <label className="text-[10px] uppercase font-black text-slate-400">Upload Image</label>
+                          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-2xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors relative group min-h-[140px]">
+                            {isNewProdCompressing ? (
+                              <div className="flex flex-col items-center space-y-2">
+                                <Loader2 className="w-8 h-8 animate-spin text-[#5d51e8]" />
+                                <span className="text-xs font-bold text-slate-500">Compressing & optimizing image...</span>
+                              </div>
+                            ) : newProdImageUrl.startsWith('data:image/') ? (
+                              <div className="flex flex-col items-center space-y-3 w-full">
+                                <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-inner group">
+                                  <img src={newProdImageUrl} alt="Uploaded preview" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewProdImageUrl('upload-placeholder')}
+                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-xl cursor-pointer"
+                                    title="Remove Image"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Image Ready</p>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                    Compressed size: ~{Math.round((newProdImageUrl.length * 3) / 4 / 1024)} KB
+                                  </p>
+                                </div>
+                                <label className="px-3.5 py-1.5 bg-slate-150 hover:bg-slate-200 dark:bg-zinc-850 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-200 font-extrabold text-[10px] rounded-lg cursor-pointer transition-all active:scale-95 border border-slate-200 dark:border-zinc-700">
+                                  <span>Change Image</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleNewProdFileChange}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                            ) : (
+                              <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full h-full py-4">
+                                <div className="p-2.5 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
+                                  <Upload className="w-6 h-6" />
+                                </div>
+                                <div className="text-center">
+                                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload image</span>
+                                  <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">Supports JPG, PNG, WebP (auto-compressed)</span>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleNewProdFileChange}
+                                  className="hidden"
+                                />
+                              </label>
+                            )}
+                          </div>
                         </div>
                       )}
 
@@ -1552,7 +1741,7 @@ export default function AdminDashboard() {
 
                       <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
                         <Button type="button" variant="secondary" onClick={() => setAddingProduct(false)}>Cancel</Button>
-                        <Button type="submit">Create Product</Button>
+                        <Button type="submit" disabled={newProdImageUrl === 'upload-placeholder' || isNewProdCompressing}>Create Product</Button>
                       </div>
                     </form>
                   )}
@@ -1782,8 +1971,19 @@ export default function AdminDashboard() {
         customDetails={editUserCustomDetails}
         onCustomDetailChange={handleCustomDetailChange}
         fieldsList={fieldsList}
+        role={editUserRole}
+        onRoleChange={setEditUserRole}
         onSave={handleSaveEditedUser}
         saving={savingEditedUser}
+      />
+
+      {/* Create User Modal */}
+      <UserCreateModal
+        isOpen={isCreateUserOpen}
+        onClose={() => setIsCreateUserOpen(false)}
+        fieldsList={fieldsList}
+        onSave={handleCreateUserProfile}
+        saving={creatingUser}
       />
 
       {/* Edit Product Modal */}
@@ -1805,6 +2005,10 @@ export default function AdminDashboard() {
         onImageUrlChange={setEditProdImageUrl}
         inStock={editProdInStock}
         onInStockChange={setEditProdInStock}
+        code={editProdCode}
+        onCodeChange={setEditProdCode}
+        design={editProdDesign}
+        onDesignChange={setEditProdDesign}
         onSave={handleSaveEditedProduct}
         saving={savingEditedProduct}
       />

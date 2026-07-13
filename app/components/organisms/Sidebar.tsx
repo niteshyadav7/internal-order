@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   Shield, 
   Users, 
@@ -8,7 +7,8 @@ import {
   LogOut, 
   ChevronLeft, 
   ChevronRight,
-  Bell
+  Bell,
+  X
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -36,22 +36,33 @@ export default function Sidebar({
     <>
       <aside className={`
         fixed inset-y-0 left-0 z-40 bg-[#0b0e14] text-slate-300 border-r border-[#1a1f2c] 
-        flex flex-col justify-between transition-all duration-300 shadow-md h-full
+        flex flex-col justify-between transition-all duration-300 shadow-md h-full w-64
         ${isCollapsed ? 'md:w-20' : 'md:w-64'}
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Brand/Header */}
         <div>
-          <div className="h-16 flex items-center gap-3 px-6 border-b border-[#161a24]">
-            <div className="bg-white/10 text-white border border-white/5 shadow-sm p-2 rounded-xl flex-shrink-0">
-              <Shield className="w-5 h-5" />
-            </div>
-            {!isCollapsed && (
-              <div className="animate-in fade-in duration-300">
-                <h1 className="font-extrabold text-sm text-white leading-none">Admin Portal</h1>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">Elegance Logistics</p>
+          <div className="h-16 flex items-center justify-between px-6 border-b border-[#161a24]">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/10 text-white border border-white/5 shadow-sm p-2 rounded-xl flex-shrink-0">
+                <Shield className="w-5 h-5" />
               </div>
-            )}
+              {!isCollapsed && (
+                <div className="animate-in fade-in duration-300">
+                  <h1 className="font-extrabold text-sm text-white leading-none">Admin Portal</h1>
+                  <p className="text-[10px] text-slate-500 font-bold mt-1">Elegance Logistics</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Mobile close button inside the drawer */}
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Navigation Links */}

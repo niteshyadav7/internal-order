@@ -21,7 +21,7 @@ export default function StatsCard({
   activeBorderClass = "border-[#5d51e8] ring-2 ring-[#5d51e8]/20 dark:border-[#5d51e8]"
 }: StatsCardProps) {
   const isButton = !!onClick;
-  const classes = `text-left bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-sm flex items-center gap-4 transition-all duration-200 w-full ${
+  const classes = `text-left bg-white dark:bg-zinc-900 border rounded-2xl p-3 sm:p-5 shadow-sm flex items-center gap-3 sm:gap-4 transition-all duration-200 w-full ${
     isButton ? 'cursor-pointer hover:border-slate-350 dark:hover:border-zinc-700' : ''
   } ${
     active
@@ -31,12 +31,12 @@ export default function StatsCard({
 
   const content = (
     <>
-      <div className={`p-3 rounded-2xl ${colorClass}`}>
-        <Icon className="w-6 h-6" />
+      <div className={`p-2 sm:p-3 rounded-2xl flex-shrink-0 ${colorClass}`}>
+        <Icon className="w-5 h-5 sm:w-6 h-6" />
       </div>
-      <div>
-        <p className="text-xs font-bold text-slate-400">{label}</p>
-        <h3 className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{value}</h3>
+      <div className="min-w-0">
+        <p className="text-[10px] sm:text-xs font-bold text-slate-400 truncate">{label}</p>
+        <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5 truncate">{value}</h3>
       </div>
     </>
   );

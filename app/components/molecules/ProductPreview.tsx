@@ -1,4 +1,5 @@
 import React from 'react';
+import { transformImageUrl } from '../../lib/image';
 
 interface ProductPreviewProps {
   imageUrl?: string;
@@ -13,7 +14,8 @@ export default function ProductPreview({
   category,
   className = "w-10 h-10"
 }: ProductPreviewProps) {
-  const isWebLink = imageUrl?.startsWith('http') || imageUrl?.startsWith('https');
+  const transformedUrl = imageUrl ? transformImageUrl(imageUrl) : '';
+  const isWebLink = transformedUrl.startsWith('http') || transformedUrl.startsWith('https') || transformedUrl.startsWith('data:image/');
 
   const getGradientClass = (cat: string) => {
     switch (cat.toLowerCase()) {
@@ -30,9 +32,9 @@ export default function ProductPreview({
   return (
     <div className={`rounded-lg overflow-hidden border border-slate-150 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 flex items-center justify-center mx-auto shadow-sm flex-shrink-0 ${className}`}>
       {isWebLink ? (
-        <img 
-          src={imageUrl} 
-          alt={name} 
+        <img
+          src={transformedUrl}
+          alt={name}
           className="w-full h-full object-cover"
           loading="lazy"
         />

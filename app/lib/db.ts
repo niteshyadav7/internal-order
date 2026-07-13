@@ -23,6 +23,8 @@ export interface UserProfile {
   createdAt: string;
   customDetails?: Record<string, string>;
   registrationCompleted?: boolean;
+  requestedFirmName?: string;
+  role?: 'client' | 'salesman' | 'admin';
 }
 
 // Create or retrieve user profile in Firestore
@@ -44,13 +46,45 @@ export async function getOrCreateUserProfile(
       return userSnap.data() as UserProfile;
     }
 
+    // Check if user was pre-registered by Admin using their email
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef);
+    const querySnapshot = await getDocs(q);
+    let preRegisteredProfile: UserProfile | null = null;
+    let oldDocId = '';
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.email && data.email.toLowerCase() === email.toLowerCase()) {
+        preRegisteredProfile = data as UserProfile;
+        oldDocId = doc.id;
+      }
+    });
+
+    if (preRegisteredProfile) {
+      const profileData = preRegisteredProfile as UserProfile;
+      const mergedProfile: UserProfile = {
+        ...profileData,
+        uid,
+        registrationCompleted: profileData.registrationCompleted ?? false,
+        role: profileData.role || 'client'
+      };
+      await setDoc(userRef, mergedProfile);
+      
+      if (oldDocId !== uid) {
+        await deleteDoc(doc(db, 'users', oldDocId));
+      }
+      return mergedProfile;
+    }
+
     const newProfile: UserProfile = {
       uid,
       email,
       name: name || email.split('@')[0],
       status: 'pending', // default status for any new signups
       createdAt: new Date().toISOString(),
-      registrationCompleted: false
+      registrationCompleted: false,
+      role: 'client'
     };
 
     await setDoc(userRef, newProfile);
@@ -218,6 +252,8 @@ export interface Product {
   category: string;
   createdAt: string;
   inStock?: boolean;
+  code?: string;
+  design?: string;
 }
 
 // Order Item Interface
@@ -228,6 +264,26 @@ export interface OrderItem {
   price: number;
   unit: string;
   quantity: number;
+  code?: string;
+  design?: string;
+}
+
+// Helper to format price range (protects from changing daily rate issues)
+export function getPriceRange(price: number): string {
+  if (!price || price <= 0) return 'N/A';
+  let min = price * 0.95;
+  let max = price * 1.05;
+  if (price >= 10000) {
+    min = Math.floor(min / 1000) * 1000;
+    max = Math.ceil(max / 1000) * 1000;
+  } else if (price >= 1000) {
+    min = Math.floor(min / 100) * 100;
+    max = Math.ceil(max / 100) * 100;
+  } else {
+    min = Math.floor(min / 10) * 10;
+    max = Math.ceil(max / 10) * 10;
+  }
+  return `₹${min.toLocaleString('en-IN')} - ₹${max.toLocaleString('en-IN')}`;
 }
 
 // Order Interface
@@ -241,6 +297,8 @@ export interface Order {
   createdAt: string;
   trackingNumber?: string;
   adminNotes?: string;
+  assignedSalesmanUid?: string;
+  assignedSalesmanName?: string;
 }
 
 // Fetch all products from Firestore
@@ -524,6 +582,74 @@ export async function deleteOrder(id: string): Promise<void> {
     await deleteDoc(orderRef);
   } catch (error) {
     console.error("Error in deleteOrder:", error);
+    throw error;
+  }
+}
+
+// Pre-register user profiles (Admin)
+export async function preRegisterUserProfile(
+  profile: Omit<UserProfile, 'uid' | 'createdAt'>
+): Promise<UserProfile | null> {
+  if (!db) return null;
+  try {
+    const usersRef = collection(db, 'users');
+    const newProfile = {
+      ...profile,
+      uid: '', // generated empty until they sign up
+      createdAt: new Date().toISOString()
+    };
+    const docRef = await addDoc(usersRef, newProfile);
+    return { ...newProfile, uid: docRef.id } as any;
+  } catch (error) {
+    console.error("Error in preRegisterUserProfile:", error);
+    return null;
+  }
+}
+
+// Claim order (Salesman)
+export async function claimOrder(
+  orderId: string,
+  salesmanUid: string,
+  salesmanName: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    await updateDoc(orderRef, {
+      status: 'processing',
+      assignedSalesmanUid: salesmanUid,
+      assignedSalesmanName: salesmanName
+    });
+  } catch (error) {
+    console.error("Error in claimOrder:", error);
+    throw error;
+  }
+}
+
+// Complete / Dispatch order (Salesman)
+export async function completeOrder(orderId: string): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    await updateDoc(orderRef, { status: 'completed' });
+  } catch (error) {
+    console.error("Error in completeOrder:", error);
+    throw error;
+  }
+}
+
+// Release order back to queue (Salesman)
+export async function releaseOrder(orderId: string): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    await updateDoc(orderRef, {
+      status: 'pending',
+      assignedSalesmanUid: null,
+      assignedSalesmanName: null
+    });
+  } catch (error) {
+    console.error("Error in releaseOrder:", error);
     throw error;
   }
 }
