@@ -323,10 +323,21 @@ export default function ProductCatalog() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, { variantName?: string; imageUrl?: string }>>({});
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [activeView, setActiveView] = useState<'products' | 'orders' | 'profile'>('products');
+  
+  // Dynamic window/tab title
+  useEffect(() => {
+    const viewTitles: Record<string, string> = {
+      products: 'Smart Store - Shop Products',
+      orders: 'Smart Store - My Orders',
+      profile: 'Smart Store - My Profile'
+    };
+    document.title = viewTitles[activeView] || 'Smart Store';
+  }, [activeView]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
@@ -467,13 +478,22 @@ export default function ProductCatalog() {
     setLang(prev => prev === 'en' ? 'hi' : 'en');
   };
 
-  const handleToggleProduct = (id: string) => {
+  const handleToggleProduct = (id: string, variantName?: string, imageUrl?: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
+        setSelectedVariants(prevVars => {
+          const nextVars = { ...prevVars };
+          delete nextVars[id];
+          return nextVars;
+        });
       } else {
         next.add(id);
+        setSelectedVariants(prevVars => ({
+          ...prevVars,
+          [id]: { variantName, imageUrl }
+        }));
       }
       return next;
     });
@@ -488,6 +508,7 @@ export default function ProductCatalog() {
       selectedIds.forEach(id => {
         const product = products.find(p => p.id === id);
         if (product) {
+          const details = selectedVariants[id];
           items.push({
             productId: product.id || '',
             nameEn: product.nameEn,
@@ -496,7 +517,9 @@ export default function ProductCatalog() {
             unit: product.unit,
             quantity: 1,
             code: product.code || '',
-            design: product.design || ''
+            design: product.design || '',
+            selectedVariant: details?.variantName,
+            selectedImageUrl: details?.imageUrl || product.imageUrl
           });
         }
       });
@@ -510,6 +533,7 @@ export default function ProductCatalog() {
 
       setShowSuccessModal(true);
       setSelectedIds(new Set());
+      setSelectedVariants({});
       fetchUserOrders();
     } catch (err) {
       console.error("Order submission failed:", err);

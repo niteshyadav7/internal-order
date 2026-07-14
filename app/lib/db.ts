@@ -239,6 +239,19 @@ export function subscribeToOrders(callback: (orders: Order[]) => void): () => vo
   }
 }
 
+// Product Image Entry
+export interface ProductImage {
+  url: string;       // base64 data URL or http URL
+  label: string;     // Auto-generated: "Image 1", "Image 2", etc.
+}
+
+// Product Variant/Model Option
+export interface ProductVariant {
+  id: string;        // auto-generated unique ID
+  name: string;      // e.g. "Red", "128GB", "Model-A"
+  imageIndex: number; // which image from images[] to show for this variant
+}
+
 // Product Interface
 export interface Product {
   id?: string;
@@ -254,6 +267,8 @@ export interface Product {
   inStock?: boolean;
   code?: string;
   design?: string;
+  images?: ProductImage[];      // Multiple product images
+  variants?: ProductVariant[];  // Model/variant options
 }
 
 // Order Item Interface
@@ -266,6 +281,8 @@ export interface OrderItem {
   quantity: number;
   code?: string;
   design?: string;
+  selectedVariant?: string;     // Variant name chosen by user
+  selectedImageUrl?: string;    // Image URL of selected variant (for PDF)
 }
 
 // Helper to format price range (protects from changing daily rate issues)

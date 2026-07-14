@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X } from 'lucide-react';
 import { Product, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
+import ProductDetailSheet from './ProductDetailSheet';
 
 interface ClientProductGridProps {
   products: Product[];
@@ -10,7 +11,7 @@ interface ClientProductGridProps {
   searchQuery: string;
   onSearchChange: (val: string) => void;
   selectedIds: Set<string>;
-  onToggleProduct: (id: string) => void;
+  onToggleProduct: (id: string, variantName?: string, imageUrl?: string) => void;
   onPlaceOrder: () => void;
   submittingOrder: boolean;
   lang: 'en' | 'hi';
@@ -36,6 +37,10 @@ export default function ClientProductGrid({
 }: ClientProductGridProps) {
   const [visibleCount, setVisibleCount] = useState(12);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // States for detail modal
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   // Dynamically calculate maximum price in catalog
   const absoluteMaxPrice = products.length > 0 
@@ -104,189 +109,139 @@ export default function ClientProductGrid({
 
   const paginatedProducts = finalFilteredProducts.slice(0, visibleCount);
 
+  const handleCardClick = (product: Product) => {
+    setDetailProduct(product);
+    setIsDetailOpen(true);
+  };
+
   return (
     <>
       {/* User Welcome Block & Search */}
       <div className="bg-gradient-to-br from-[#5d51e8]/10 via-[#5d51e8]/5 to-transparent border border-[#5d51e8]/15 rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="space-y-0.5 sm:space-y-1 text-left">
-            <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>Welcome, {profileName || 'Valued User'}</span>
-              <span className="animate-bounce origin-bottom-right">👋</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="text-left space-y-1 sm:space-y-1.5">
+            <h2 className="text-xl sm:text-3xl font-black tracking-tight text-slate-905 dark:text-white leading-none">
+              {lang === 'en' ? 'Welcome Back,' : 'स्वागत है,'} {profileName || (lang === 'en' ? 'Valued Partner' : 'साझेदार')} 👋
             </h2>
-            <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-zinc-400">
-              Search and select the items you need to order.
+            <p className="text-xs sm:text-sm font-extrabold text-slate-400 dark:text-zinc-500">
+              {lang === 'en' ? 'Explore and add products to your active order request below.' : 'नीचे अपनी सक्रिय ऑर्डर सूची में उत्पाद जोड़ें।'}
             </p>
-          </div>
-          
-          <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full shadow-sm w-fit self-start sm:self-center">
-            <MapPin className="w-3.5 h-3.5 text-[#5d51e8] flex-shrink-0" />
-            <span className="text-[10px] sm:text-xs font-black text-slate-650 dark:text-zinc-300">
-              E-Commerce Store
-            </span>
           </div>
         </div>
 
-        {/* Search Bar & Filter Action Button - Inline on Mobile */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Search & Filter Inline Wrapper */}
+        <div className="flex items-center gap-2">
+          {/* Main Search input */}
           <div className="relative flex-grow">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
             <input
               type="text"
+              placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={lang === 'en' ? 'Search for items...' : 'सामान खोजें...'}
-              className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-850 rounded-full text-xs sm:text-sm font-semibold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 shadow-sm transition-all"
+              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-600 outline-none focus:border-[#5d51e8] shadow-sm transition-all"
             />
+            {searchQuery && (
+              <button 
+                onClick={() => onSearchChange('')} 
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-655"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          
+
+          {/* Quick Filter toggle */}
           <button
             type="button"
             onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className={`flex items-center justify-center gap-1.5 p-2.5 sm:px-5 sm:py-3 rounded-full text-xs font-black border-2 transition-all active:scale-95 cursor-pointer shadow-sm shrink-0 ${
-              showFiltersPanel || priceFilter < absoluteMaxPrice
-                ? 'bg-[#5d51e8]/10 border-[#5d51e8] text-[#5d51e8]'
-                : 'bg-white border-slate-200 dark:border-zinc-800 hover:bg-slate-55 text-slate-755 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+            className={`p-3 border rounded-2xl flex items-center justify-center gap-2 text-xs font-black shadow-sm transition-all cursor-pointer ${
+              showFiltersPanel
+                ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-[#5d51e8]/20'
+                : 'bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-805 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-800'
             }`}
-            title={lang === 'en' ? 'Filters' : 'फ़िल्टर'}
+            title="Toggle filter controls"
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span className="hidden sm:inline">{lang === 'en' ? 'Filters' : 'फ़िल्टर'}</span>
-            {priceFilter < absoluteMaxPrice && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#5d51e8] animate-pulse"></span>
-            )}
+            <span className="hidden sm:inline">
+              {showFiltersPanel ? (lang === 'en' ? 'Close Filters' : 'फ़िल्टर बंद करें') : (lang === 'en' ? 'Filters' : 'फ़िल्टर')}
+            </span>
           </button>
         </div>
 
-        {/* Dynamic Category Scrolling Bar */}
-        {products.length > 0 && (
-          <div className="w-full pt-1">
-            <div className="flex items-center justify-between pb-2">
-              <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-wider text-slate-400">
-                {lang === 'en' ? 'Browse Categories' : 'श्रेणियां ब्राउज़ करें'}
-              </span>
-              {selectedCategory !== 'All' && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory('All')}
-                  className="text-[9px] sm:text-[10px] font-black text-[#5d51e8] hover:underline cursor-pointer"
-                >
-                  {lang === 'en' ? 'Reset Category' : 'श्रेणी रीसेट करें'}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 -mx-4 px-4 sm:-mx-8 sm:px-8">
-              {['All', ...Array.from(new Set(products.map(p => p.category)))].map((cat) => {
-                const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap border-2 transition-all active:scale-95 cursor-pointer shadow-sm ${
-                      isSelected
-                        ? 'bg-[#5d51e8] border-[#5d51e8] text-white font-black shadow-md shadow-[#5d51e8]/20'
-                        : 'bg-white hover:bg-slate-55 border-slate-200 dark:border-zinc-800 text-slate-755 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    {getProductIcon(cat, "w-3.5 h-3.5")}
-                    <span>{cat}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Collapsible Filter Panel */}
+        {/* Expandable filter controls panel */}
         {showFiltersPanel && (
-          <div className="bg-white dark:bg-zinc-900/50 border border-slate-250 dark:border-zinc-800/80 rounded-2xl p-4 sm:p-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800/80 pb-2">
-              <h3 className="text-xs font-black text-slate-850 dark:text-slate-300 uppercase tracking-wider">
-                {lang === 'en' ? 'Refine Price Range' : 'मूल्य सीमा परिष्कृत करें'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setPriceFilter(absoluteMaxPrice)}
-                className="text-[10px] font-black text-rose-600 dark:text-rose-450 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>{lang === 'en' ? 'Reset Price' : 'मूल्य रीसेट करें'}</span>
-              </button>
-            </div>
-            
-            <div className="space-y-3 text-left">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-zinc-400">
-                <span>Min: ₹0</span>
-                <span className="text-[#5d51e8] font-black text-sm bg-[#5d51e8]/5 px-3 py-1 rounded-full border border-indigo-100/50 dark:border-indigo-950">
-                  Max: ₹{priceFilter.toLocaleString('en-IN')}
-                </span>
+          <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left animate-in slide-in-from-top duration-200">
+            {/* Price range filter */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-wider">
+                <span>{lang === 'en' ? 'Max Budget' : 'अधिकतम मूल्य'}</span>
+                <span className="text-[#5d51e8] dark:text-indigo-400">₹{priceFilter.toLocaleString('en-IN')}</span>
               </div>
-              
               <input
                 type="range"
-                min="0"
+                min={0}
                 max={absoluteMaxPrice}
+                step={50}
                 value={priceFilter}
                 onChange={(e) => setPriceFilter(Number(e.target.value))}
-                className="w-full h-2 bg-slate-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#5d51e8]"
+                className="w-full accent-[#5d51e8] cursor-pointer"
               />
-              
-              <div className="flex flex-wrap gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setPriceFilter(2000)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all border active:scale-95 cursor-pointer ${
-                    priceFilter === 2000
-                      ? 'bg-[#5d51e8] text-white border-transparent'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 text-slate-655 dark:text-slate-300'
-                  }`}
-                >
-                  {lang === 'en' ? 'Under ₹2,000' : '₹2,000 से कम'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPriceFilter(10000)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all border active:scale-95 cursor-pointer ${
-                    priceFilter === 10000
-                      ? 'bg-[#5d51e8] text-white border-transparent'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 text-slate-655 dark:text-slate-300'
-                  }`}
-                >
-                  {lang === 'en' ? 'Under ₹10,000' : '₹10,000 से कम'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPriceFilter(50000)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all border active:scale-95 cursor-pointer ${
-                    priceFilter === 50000
-                      ? 'bg-[#5d51e8] text-white border-transparent'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 text-slate-655 dark:text-slate-300'
-                  }`}
-                >
-                  {lang === 'en' ? 'Under ₹50,000' : '₹50,000 से कम'}
-                </button>
-              </div>
+            </div>
+
+            {/* Reset controls button */}
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setPriceFilter(absoluteMaxPrice);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{lang === 'en' ? 'Reset Filters' : 'फ़िल्टर रीसेट करें'}</span>
+              </button>
             </div>
           </div>
         )}
+
+        {/* Categories scroll area */}
+        <div className="pt-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
+            {['All', 'Electronics', 'Fashion', 'Home & Kitchen', 'Beauty & Care', 'Furniture & Decor', 'Fitness'].map((cat) => {
+              const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer border ${
+                    isActive
+                      ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-md shadow-[#5d51e8]/20'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:border-zinc-800 dark:text-zinc-300'
+                  }`}
+                >
+                  {cat !== 'All' && getProductIcon(cat, "w-3.5 h-3.5")}
+                  <span>{cat === 'All' ? (lang === 'en' ? 'All Catalog' : 'सभी उत्पाद') : cat}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Product Grid */}
+      {/* Main product listings */}
       {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center gap-3">
+        <div className="py-24 flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-10 h-10 animate-spin text-[#5d51e8]" />
-          <p className="text-sm font-bold text-slate-400">Loading catalog...</p>
-        </div>
-      ) : products.length === 0 ? (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-12 text-center">
-          <p className="text-slate-500 dark:text-zinc-400 font-bold">
-            {t('noProductsText')}
+          <p className="text-xs font-bold text-slate-400 dark:text-zinc-550">
+            {lang === 'en' ? 'Fetching products catalog...' : 'सामग्री सूची लोड हो रही है...'}
           </p>
         </div>
-      ) : finalFilteredProducts.length === 0 ? (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-12 text-center">
-          <p className="text-slate-500 dark:text-zinc-400 font-bold">
+      ) : paginatedProducts.length === 0 ? (
+        <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-3xl">
+          <p className="text-sm font-bold text-slate-400 dark:text-zinc-550">
             No products match selected filters or search.
           </p>
         </div>
@@ -297,12 +252,15 @@ export default function ClientProductGrid({
               const isSelected = selectedIds.has(product.id || '');
               const name = product.nameEn;
               const desc = product.descEn;
+              const firstImageUrl = product.images && product.images.length > 0
+                ? product.images[0].url
+                : product.imageUrl;
 
               return (
                 <div 
                   key={product.id}
-                  onClick={() => onToggleProduct(product.id || '')}
-                  className={`group relative bg-white dark:bg-zinc-900 rounded-[2rem] border-2 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden cursor-pointer ${
+                  onClick={() => handleCardClick(product)}
+                  className={`group relative bg-white dark:bg-zinc-900 rounded-[2rem] border-2 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden cursor-pointer text-left ${
                     isSelected 
                       ? 'border-[#5d51e8] ring-4 ring-[#5d51e8]/10' 
                       : 'border-slate-100 dark:border-zinc-850 hover:border-slate-300 dark:hover:border-zinc-700'
@@ -311,7 +269,7 @@ export default function ClientProductGrid({
                   {/* Card Image Banner using ProductPreview molecule but styled */}
                   <div className="h-48 bg-slate-100 dark:bg-zinc-850 relative overflow-hidden flex items-center justify-center">
                     <ProductPreview
-                      imageUrl={product.imageUrl}
+                      imageUrl={firstImageUrl}
                       name={name}
                       category={product.category}
                       className="w-full h-full rounded-none border-none shadow-none"
@@ -361,7 +319,7 @@ export default function ClientProductGrid({
                           {t('priceLabel')}
                         </span>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-xs sm:text-sm font-black text-slate-950 dark:text-white">
+                          <span className="text-xs sm:text-sm font-black text-slate-955 dark:text-white">
                             {getPriceRange(product.price)}
                           </span>
                           <span className="text-[10px] font-extrabold text-slate-400">
@@ -374,7 +332,7 @@ export default function ClientProductGrid({
                       <span className={`text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all ${
                         isSelected 
                           ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/20' 
-                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 group-hover:bg-[#5d51e8]/10 group-hover:text-[#5d51e8]'
+                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-655 dark:text-zinc-300 group-hover:bg-[#5d51e8]/10 group-hover:text-[#5d51e8]'
                       }`}>
                         {isSelected ? (lang === 'en' ? 'Selected' : 'चयनित') : (lang === 'en' ? 'Add' : 'जोड़ें')}
                       </span>
@@ -395,6 +353,21 @@ export default function ClientProductGrid({
           )}
         </div>
       )}
+
+      {/* Product Detail Sheet */}
+      <ProductDetailSheet
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        product={detailProduct}
+        isSelected={detailProduct ? selectedIds.has(detailProduct.id || '') : false}
+        selectedVariantName={undefined}
+        onToggleSelect={(variantName, imageUrl) => {
+          if (detailProduct && detailProduct.id) {
+            onToggleProduct(detailProduct.id, variantName, imageUrl);
+          }
+        }}
+        lang={lang}
+      />
 
       {/* Floating Bottom Sticky Action Bar */}
       {selectedIds.size > 0 && (

@@ -806,12 +806,30 @@ export default function OrdersList({
                       {selectedOrder.items.map((item, idx) => (
                         <tr key={idx}>
                           <td className="py-3 px-4">
-                            <p className="font-extrabold text-slate-900 dark:text-white print:text-black">{item.nameEn}</p>
-                            {(item.code || item.design) && (
-                              <p className="text-[9px] text-[#5d51e8] dark:text-indigo-400 font-bold uppercase mt-0.5">
-                                Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-3">
+                              {item.selectedImageUrl && (
+                                <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex-shrink-0">
+                                  <img 
+                                    src={item.selectedImageUrl} 
+                                    alt={item.nameEn} 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-extrabold text-slate-900 dark:text-white print:text-black">{item.nameEn}</p>
+                                {item.selectedVariant && (
+                                  <p className="text-[10px] text-[#5d51e8] dark:text-indigo-300 font-black uppercase mt-0.5">
+                                    Variant: {item.selectedVariant}
+                                  </p>
+                                )}
+                                {(item.code || item.design) && (
+                                  <p className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold uppercase mt-0.5">
+                                    Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-center font-bold">
                             {item.quantity} <span className="text-[10px] text-slate-400 font-semibold uppercase">{item.unit}</span>

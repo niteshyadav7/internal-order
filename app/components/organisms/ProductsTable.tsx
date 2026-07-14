@@ -170,25 +170,10 @@ export default function ProductsTable({
                           <td colSpan={6} className="py-20 text-center text-slate-400">
                             <div className="flex flex-col items-center justify-center gap-4">
                               <p className="font-bold text-sm text-slate-500">
-                                {allProductsList.length === 0 ? "Catalog is empty in Firestore." : "No products match search criteria."}
+                                {allProductsList.length === 0 
+                                  ? "Catalog is currently empty. Use the 'Add New Product' form above to add your first real product!" 
+                                  : "No products match search criteria."}
                               </p>
-                              {allProductsList.length === 0 && (
-                                <button
-                                  type="button"
-                                  onClick={onSeedCatalog}
-                                  disabled={seedingCatalog}
-                                  className="px-4 py-2 bg-indigo-50 hover:bg-indigo-150 text-[#5d51e8] rounded-xl text-xs font-black border border-indigo-150 transition-all flex items-center gap-2 cursor-pointer shadow-sm animate-in fade-in duration-200"
-                                >
-                                  {seedingCatalog ? (
-                                    <Loader2 className="w-4 h-4 animate-spin text-[#5d51e8]" />
-                                  ) : (
-                                    <>
-                                      <Database className="w-4 h-4" />
-                                      <span>Seed 21 Demo Products</span>
-                                    </>
-                                  )}
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>

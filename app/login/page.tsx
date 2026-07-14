@@ -19,6 +19,16 @@ export default function LoginPage() {
   const [lang, setLang] = useState<LangType>('en');
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
+  // Dynamic window/tab title
+  useEffect(() => {
+    const viewTitles: Record<AuthView, string> = {
+      LOGIN: 'Smart Store - Login',
+      REGISTER: 'Smart Store - Registration',
+      FORGOT_PASSWORD: 'Smart Store - Forgot Password'
+    };
+    document.title = viewTitles[view] || 'Smart Store - Sign In';
+  }, [view]);
+
   // Redirect if logged in
   useEffect(() => {
     if (!loading && user) {

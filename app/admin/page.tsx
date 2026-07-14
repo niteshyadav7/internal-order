@@ -18,6 +18,8 @@ import {
   ProfileField,
   Order,
   Product,
+  ProductImage,
+  ProductVariant,
   subscribeToUserProfiles,
   deleteUserProfile,
   updateUserProfile,
@@ -35,7 +37,7 @@ import { signOut } from 'firebase/auth';
 import { compressImage } from '../lib/image';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2 } from 'lucide-react';
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images } from 'lucide-react';
 
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
@@ -58,6 +60,18 @@ export default function AdminDashboard() {
   const router = useRouter();
   
   const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'products' | 'fields' | 'notifications'>('users');
+  
+  // Dynamic window/tab title
+  useEffect(() => {
+    const tabTitles: Record<string, string> = {
+      users: 'Admin - User Approvals',
+      orders: 'Admin - Order Requests',
+      products: 'Admin - Manage Catalog',
+      fields: 'Admin - Profile Settings',
+      notifications: 'Admin - Notifications'
+    };
+    document.title = tabTitles[activeTab] || 'Admin Portal';
+  }, [activeTab]);
   
   // Tab 1: Users
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -136,6 +150,9 @@ export default function AdminDashboard() {
   const [isNewProdCompressing, setIsNewProdCompressing] = useState(false);
   const [newProdCode, setNewProdCode] = useState('');
   const [newProdDesign, setNewProdDesign] = useState('');
+  const [newProdImages, setNewProdImages] = useState<ProductImage[]>([]);
+  const [newProdVariants, setNewProdVariants] = useState<ProductVariant[]>([]);
+  const [newProdImageUrlInput, setNewProdImageUrlInput] = useState('');
 
   // Tab 4: Dynamic Fields
   const [fieldsList, setFieldsList] = useState<ProfileField[]>([]);
@@ -187,6 +204,8 @@ export default function AdminDashboard() {
   const [editProdInStock, setEditProdInStock] = useState(true);
   const [editProdCode, setEditProdCode] = useState('');
   const [editProdDesign, setEditProdDesign] = useState('');
+  const [editProdImages, setEditProdImages] = useState<ProductImage[]>([]);
+  const [editProdVariants, setEditProdVariants] = useState<ProductVariant[]>([]);
   const [savingEditedProduct, setSavingEditedProduct] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
@@ -799,6 +818,8 @@ export default function AdminDashboard() {
     setEditProdInStock(product.inStock !== false);
     setEditProdCode(product.code || '');
     setEditProdDesign(product.design || '');
+    setEditProdImages(product.images || []);
+    setEditProdVariants(product.variants || []);
   };
 
   const handleSaveEditedProduct = async (e: React.FormEvent) => {
@@ -818,10 +839,12 @@ export default function AdminDashboard() {
         price: parseFloat(editProdPrice),
         unit: editProdUnit,
         category: editProdCategory,
-        imageUrl: editProdImageUrl,
+        imageUrl: editProdImages.length > 0 ? editProdImages[0].url : editProdImageUrl,
         inStock: editProdInStock,
         code: editProdCode,
-        design: editProdDesign
+        design: editProdDesign,
+        images: editProdImages,
+        variants: editProdVariants
       });
       setProductsList(prev => prev.map(p => p.id === editingProduct.id ? {
         ...p,
@@ -832,10 +855,12 @@ export default function AdminDashboard() {
         price: parseFloat(editProdPrice),
         unit: editProdUnit,
         category: editProdCategory,
-        imageUrl: editProdImageUrl,
+        imageUrl: editProdImages.length > 0 ? editProdImages[0].url : editProdImageUrl,
         inStock: editProdInStock,
         code: editProdCode,
-        design: editProdDesign
+        design: editProdDesign,
+        images: editProdImages,
+        variants: editProdVariants
       } : p));
       setEditingProduct(null);
     } catch (err) {
@@ -847,18 +872,27 @@ export default function AdminDashboard() {
   };
 
   const handleNewProdFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsNewProdCompressing(true);
     try {
-      const compressed = await compressImage(file);
-      setNewProdImageUrl(compressed);
+      for (let i = 0; i < files.length; i++) {
+        const compressed = await compressImage(files[i]);
+        setNewProdImages(prev => {
+          const newImages = [...prev, { url: compressed, label: `Image ${prev.length + 1}` }];
+          // Also set imageUrl to the first image for backward compat
+          if (newImages.length === 1) setNewProdImageUrl(compressed);
+          return newImages;
+        });
+      }
     } catch (err) {
       console.error("Compression error:", err);
       alert("Failed to compress and upload image.");
     } finally {
       setIsNewProdCompressing(false);
+      // Reset file input
+      e.target.value = '';
     }
   };
 
@@ -878,6 +912,7 @@ export default function AdminDashboard() {
     }
     setAddingProduct(true);
     try {
+      const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : newProdImageUrl;
       const addedProduct = await createProduct({
         nameEn: newProdNameEn,
         nameHi: newProdNameEn,
@@ -886,10 +921,12 @@ export default function AdminDashboard() {
         price: parseFloat(newProdPrice),
         unit: newProdUnit,
         category: newProdCategory,
-        imageUrl: newProdImageUrl,
+        imageUrl: mainImageUrl,
         inStock: newProdInStock,
         code: newProdCode,
-        design: newProdDesign
+        design: newProdDesign,
+        images: newProdImages,
+        variants: newProdVariants
       });
       if (addedProduct) {
         setProductsList(prev => [addedProduct, ...prev]);
@@ -902,6 +939,8 @@ export default function AdminDashboard() {
         setNewProdInStock(true);
         setNewProdCode('');
         setNewProdDesign('');
+        setNewProdImages([]);
+        setNewProdVariants([]);
       }
     } catch (err) {
       console.error("Failed to add product:", err);
@@ -958,19 +997,25 @@ export default function AdminDashboard() {
   };
 
   const handleDownloadCSVTemplate = () => {
-    const headers = ['nameEn', 'nameHi', 'descEn', 'descHi', 'price', 'unit', 'category', 'imageUrl'];
+    const hints = [
+      '# HINT: imageUrl = Primary main thumbnail image shown on storefront grid (essential for backward compatibility).',
+      '# HINT: images = Semicolon-separated list of gallery image URLs (e.g. url1;url2;url3) showing inside the product detail gallery.',
+      '# HINT: variants = Semicolon-separated list of variant/model names mapped to image index (e.g. Red:0;Blue:1;Green:2).',
+      '# HINT: category = One of: Electronics, Fashion, Home & Kitchen, Beauty & Care, Furniture & Decor, Fitness.'
+    ];
+    const headers = ['nameEn', 'descEn', 'price', 'unit', 'category', 'imageUrl', 'images', 'variants'];
     const sampleRow = [
-      '"iPhone 15 Pro (128GB)"',
-      '"आईफोन 15 प्रो (128GB)"',
-      '"Super Retina XDR display, advanced pro camera system"',
-      '"सुपर रेटिना एक्सडीआर डिस्प्ले, उन्नत प्रो कैमरा सिस्टम"',
-      '129999',
+      '"iPhone 15 Pro Max"',
+      '"Sleek Titanium design featuring A17 Pro chip"',
+      '159900',
       '"Piece"',
       '"Electronics"',
-      '"https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=500&auto-format&fit=crop&q=60"'
+      '"https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&q=80"',
+      '"https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&q=80;https://images.unsplash.com/photo-1695048132924-607213e4b7bf?w=600&q=80;https://images.unsplash.com/photo-1695048704763-23e59048a12e?w=600&q=80"',
+      '"Natural Titanium:0;Blue Titanium:1;White Titanium:2"'
     ];
-    const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csvContent = [...hints, headers.join(','), sampleRow.join(',')].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -983,14 +1028,24 @@ export default function AdminDashboard() {
   const parseCSV = (text: string) => {
     const lines = text.split('\n');
     if (lines.length <= 1) return [];
-    const headers = lines[0]
+    
+    // Find the first non-comment line as the header row
+    let headerLineIdx = 0;
+    while (headerLineIdx < lines.length && lines[headerLineIdx].trim().startsWith('#')) {
+      headerLineIdx++;
+    }
+    
+    if (headerLineIdx >= lines.length) return [];
+
+    const headers = lines[headerLineIdx]
       .replace(/^\uFEFF/, '')
       .split(',')
       .map(h => h.trim().replace(/^["']|["']$/g, ''));
+      
     const results: any[] = [];
-    for (let i = 1; i < lines.length; i++) {
+    for (let i = headerLineIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line) continue;
+      if (!line || line.startsWith('#')) continue;
       const values: string[] = [];
       let current = '';
       let inQuotes = false;
@@ -1056,7 +1111,34 @@ export default function AdminDashboard() {
         const unit = item.unit || 'Piece';
         const descEn = item.descEn || item.description || '';
         const descHi = item.descHi || descEn;
-        const imageUrl = item.imageUrl || item.image || 'gradient-indigo';
+        const code = item.code || '';
+        const design = item.design || '';
+
+        let images: ProductImage[] = [];
+        if (item.images) {
+          const urlList = item.images.split(';').map((url: string) => url.trim()).filter(Boolean);
+          images = urlList.map((url: string, idx: number) => ({
+            url,
+            label: `Image ${idx + 1}`
+          }));
+        }
+
+        let variants: ProductVariant[] = [];
+        if (item.variants) {
+          const varList = item.variants.split(';').map((v: string) => v.trim()).filter(Boolean);
+          variants = varList.map((v: string) => {
+            const parts = v.split(':');
+            const name = parts[0].trim();
+            const imageIndex = parts[1] ? parseInt(parts[1].trim()) : 0;
+            return {
+              id: `v_csv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+              name,
+              imageIndex: isNaN(imageIndex) ? 0 : imageIndex
+            };
+          });
+        }
+
+        const mainImageUrl = images.length > 0 ? images[0].url : (item.imageUrl || item.image || 'gradient-indigo');
         
         if (!nameEn || isNaN(price)) {
           console.warn("Skipping invalid CSV product record:", item);
@@ -1069,8 +1151,12 @@ export default function AdminDashboard() {
           descHi,
           price,
           unit,
-          imageUrl,
-          category
+          imageUrl: mainImageUrl,
+          category,
+          code,
+          design,
+          images,
+          variants
         });
         successCount++;
       }
@@ -1635,101 +1721,161 @@ export default function AdminDashboard() {
                           <option value="Furniture & Decor">Furniture & Decor</option>
                           <option value="Fitness">Fitness</option>
                         </Select>
-                        <Select
-                          label="Image Source"
-                          value={newProdImageUrl.startsWith('data:image/') || newProdImageUrl === 'upload-placeholder' ? 'upload' : (newProdImageUrl.startsWith('http') ? 'custom' : newProdImageUrl)}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === 'custom') {
-                              setNewProdImageUrl('https://');
-                            } else if (val === 'upload') {
-                              setNewProdImageUrl('upload-placeholder');
-                            } else {
-                              setNewProdImageUrl(val);
-                            }
-                          }}
-                        >
-                          <option value="gradient-indigo">Indigo Theme</option>
-                          <option value="gradient-emerald">Emerald Theme</option>
-                          <option value="gradient-purple">Purple Theme</option>
-                          <option value="gradient-cyan">Cyan Theme</option>
-                          <option value="gradient-rose">Rose Theme</option>
-                          <option value="custom">Web Image URL</option>
-                          <option value="upload">Upload Local Image</option>
-                        </Select>
                       </div>
 
-                      {newProdImageUrl.startsWith('http') && !newProdImageUrl.startsWith('data:image/') && (
-                        <div className="animate-in fade-in duration-200">
-                          <Input
-                            label="Image URL"
-                            type="url"
-                            required
-                            value={newProdImageUrl}
-                            onChange={(e) => setNewProdImageUrl(e.target.value)}
-                            placeholder="https://images.unsplash.com/..."
-                          />
-                        </div>
-                      )}
+                      {/* Multi-Image Upload Section */}
+                      <div className="space-y-2 animate-in fade-in duration-200">
+                        <label className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-1.5">
+                          <Images className="w-3 h-3" />
+                          Product Images ({newProdImages.length}/8)
+                        </label>
 
-                      {(newProdImageUrl.startsWith('data:image/') || newProdImageUrl === 'upload-placeholder') && (
-                        <div className="space-y-1 animate-in fade-in duration-200">
-                          <label className="text-[10px] uppercase font-black text-slate-400">Upload Image</label>
-                          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-2xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors relative group min-h-[140px]">
-                            {isNewProdCompressing ? (
-                              <div className="flex flex-col items-center space-y-2">
-                                <Loader2 className="w-8 h-8 animate-spin text-[#5d51e8]" />
-                                <span className="text-xs font-bold text-slate-500">Compressing & optimizing image...</span>
-                              </div>
-                            ) : newProdImageUrl.startsWith('data:image/') ? (
-                              <div className="flex flex-col items-center space-y-3 w-full">
-                                <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-inner group">
-                                  <img src={newProdImageUrl} alt="Uploaded preview" className="w-full h-full object-cover" />
+                        {/* Uploaded Images Grid */}
+                        {newProdImages.length > 0 && (
+                          <div className="flex flex-wrap gap-3 p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-2xl">
+                            {newProdImages.map((img, idx) => (
+                              <div key={idx} className="relative group flex flex-col items-center gap-1.5">
+                                <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-slate-200 dark:border-zinc-700 shadow-sm">
+                                  <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
                                   <button
                                     type="button"
-                                    onClick={() => setNewProdImageUrl('upload-placeholder')}
-                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-xl cursor-pointer"
-                                    title="Remove Image"
+                                    onClick={() => {
+                                      setNewProdImages(prev => {
+                                        const updated = prev.filter((_, i) => i !== idx);
+                                        // Re-label all images
+                                        return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
+                                      });
+                                    }}
+                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white cursor-pointer"
                                   >
-                                    <Trash2 className="w-5 h-5" />
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
-                                <div className="text-center">
-                                  <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Image Ready</p>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                                    Compressed size: ~{Math.round((newProdImageUrl.length * 3) / 4 / 1024)} KB
-                                  </p>
+                                <span className="text-[9px] font-black text-slate-400 uppercase">{img.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Upload Zone */}
+                        {newProdImages.length < 8 && (
+                          <div className="space-y-3">
+                            <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-2xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors group">
+                              {isNewProdCompressing ? (
+                                <div className="flex flex-col items-center space-y-2 py-2">
+                                  <Loader2 className="w-7 h-7 animate-spin text-[#5d51e8]" />
+                                  <span className="text-xs font-bold text-slate-500">Compressing & optimizing...</span>
                                 </div>
-                                <label className="px-3.5 py-1.5 bg-slate-150 hover:bg-slate-200 dark:bg-zinc-850 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-200 font-extrabold text-[10px] rounded-lg cursor-pointer transition-all active:scale-95 border border-slate-200 dark:border-zinc-700">
-                                  <span>Change Image</span>
+                              ) : (
+                                <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full py-2">
+                                  <div className="p-2 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
+                                    <Upload className="w-5 h-5" />
+                                  </div>
+                                  <div className="text-center">
+                                    <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload images</span>
+                                    <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">JPG, PNG, WebP • Max 8 images • Auto-compressed</span>
+                                  </div>
                                   <input
                                     type="file"
                                     accept="image/*"
+                                    multiple
                                     onChange={handleNewProdFileChange}
                                     className="hidden"
                                   />
                                 </label>
-                              </div>
-                            ) : (
-                              <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full h-full py-4">
-                                <div className="p-2.5 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
-                                  <Upload className="w-6 h-6" />
-                                </div>
-                                <div className="text-center">
-                                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload image</span>
-                                  <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">Supports JPG, PNG, WebP (auto-compressed)</span>
-                                </div>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleNewProdFileChange}
-                                  className="hidden"
-                                />
-                              </label>
-                            )}
+                              )}
+                            </div>
+
+                            {/* URL paste input */}
+                            <div className="flex gap-2">
+                              <input
+                                type="url"
+                                placeholder="Or paste image URL here..."
+                                value={newProdImageUrlInput}
+                                onChange={(e) => setNewProdImageUrlInput(e.target.value)}
+                                className="flex-grow px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-450"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (newProdImageUrlInput.trim()) {
+                                    setNewProdImages(prev => [
+                                      ...prev,
+                                      { url: newProdImageUrlInput.trim(), label: `Image ${prev.length + 1}` }
+                                    ]);
+                                    setNewProdImageUrlInput('');
+                                  }
+                                }}
+                                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-100 dark:border-indigo-900/40 cursor-pointer transition-all active:scale-95"
+                              >
+                                Add URL
+                              </button>
+                            </div>
                           </div>
+                        )}
+                      </div>
+
+                      {/* Variants / Models Section */}
+                      <div className="space-y-2 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] uppercase font-black text-slate-400">
+                            Variants / Models ({newProdVariants.length})
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewProdVariants(prev => [...prev, {
+                                id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                                name: '',
+                                imageIndex: 0
+                              }]);
+                            }}
+                            className="flex items-center gap-1 text-[10px] font-black text-[#5d51e8] hover:text-[#4b3fd3] cursor-pointer transition-colors"
+                          >
+                            <Plus className="w-3 h-3" /> Add Variant
+                          </button>
                         </div>
-                      )}
+
+                        {newProdVariants.length > 0 && (
+                          <div className="space-y-2 p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-2xl">
+                            {newProdVariants.map((variant, idx) => (
+                              <div key={variant.id} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={variant.name}
+                                  onChange={(e) => {
+                                    setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, name: e.target.value } : v));
+                                  }}
+                                  placeholder={`e.g. Model-${String.fromCharCode(65 + idx)}, Red, 128GB`}
+                                  className="flex-1 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                                />
+                                <select
+                                  value={variant.imageIndex}
+                                  onChange={(e) => {
+                                    setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, imageIndex: parseInt(e.target.value) } : v));
+                                  }}
+                                  className="w-28 px-2 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800"
+                                >
+                                  {newProdImages.length > 0 ? (
+                                    newProdImages.map((img, imgIdx) => (
+                                      <option key={imgIdx} value={imgIdx}>{img.label}</option>
+                                    ))
+                                  ) : (
+                                    <option value={0}>No images</option>
+                                  )}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewProdVariants(prev => prev.filter((_, i) => i !== idx))}
+                                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="pt-1 animate-in fade-in duration-200">
                         <Checkbox
@@ -1741,7 +1887,7 @@ export default function AdminDashboard() {
 
                       <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
                         <Button type="button" variant="secondary" onClick={() => setAddingProduct(false)}>Cancel</Button>
-                        <Button type="submit" disabled={newProdImageUrl === 'upload-placeholder' || isNewProdCompressing}>Create Product</Button>
+                        <Button type="submit" disabled={isNewProdCompressing}>Create Product</Button>
                       </div>
                     </form>
                   )}
@@ -2001,8 +2147,10 @@ export default function AdminDashboard() {
         onUnitChange={setEditProdUnit}
         category={editProdCategory}
         onCategoryChange={setEditProdCategory}
-        imageUrl={editProdImageUrl}
-        onImageUrlChange={setEditProdImageUrl}
+        images={editProdImages}
+        onImagesChange={setEditProdImages}
+        variants={editProdVariants}
+        onVariantsChange={setEditProdVariants}
         inStock={editProdInStock}
         onInStockChange={setEditProdInStock}
         code={editProdCode}

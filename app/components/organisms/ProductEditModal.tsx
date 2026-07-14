@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Loader2, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
-import { Product } from '../../lib/db';
+import { Loader2, Upload, Trash2, Plus, Images } from 'lucide-react';
+import { Product, ProductImage, ProductVariant } from '../../lib/db';
 import { compressImage } from '../../lib/image';
 
 interface ProductEditModalProps {
@@ -17,8 +17,10 @@ interface ProductEditModalProps {
   onUnitChange: (val: string) => void;
   category: string;
   onCategoryChange: (val: string) => void;
-  imageUrl: string;
-  onImageUrlChange: (val: string) => void;
+  images: ProductImage[];
+  onImagesChange: (val: ProductImage[]) => void;
+  variants: ProductVariant[];
+  onVariantsChange: (val: ProductVariant[]) => void;
   inStock: boolean;
   onInStockChange: (val: boolean) => void;
   code: string;
@@ -43,8 +45,10 @@ export default function ProductEditModal({
   onUnitChange,
   category,
   onCategoryChange,
-  imageUrl,
-  onImageUrlChange,
+  images,
+  onImagesChange,
+  variants,
+  onVariantsChange,
   inStock,
   onInStockChange,
   code,
@@ -55,20 +59,27 @@ export default function ProductEditModal({
   saving
 }: ProductEditModalProps) {
   const [isCompressing, setIsCompressing] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState('');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsCompressing(true);
     try {
-      const compressed = await compressImage(file);
-      onImageUrlChange(compressed);
+      const newImages = [...images];
+      for (let i = 0; i < files.length; i++) {
+        const compressed = await compressImage(files[i]);
+        newImages.push({ url: compressed, label: `Image ${newImages.length + 1}` });
+      }
+      onImagesChange(newImages);
     } catch (err) {
       console.error("Compression error:", err);
       alert("Failed to compress and upload image.");
     } finally {
       setIsCompressing(false);
+      // Reset input element
+      e.target.value = '';
     }
   };
 
@@ -157,124 +168,175 @@ export default function ProductEditModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-black text-slate-400">Category</label>
-              <select
-                value={category}
-                onChange={(e) => onCategoryChange(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800"
-              >
-                <option value="Electronics">Electronics</option>
-                <option value="Fashion">Fashion</option>
-                <option value="Home & Kitchen">Home & Kitchen</option>
-                <option value="Beauty & Care">Beauty & Care</option>
-                <option value="Furniture & Decor">Furniture & Decor</option>
-                <option value="Fitness">Fitness</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-black text-slate-400">Image Source</label>
-              <select
-                value={imageUrl.startsWith('data:image/') || imageUrl === 'upload-placeholder' ? 'upload' : (imageUrl.startsWith('http') ? 'custom' : imageUrl)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'custom') {
-                    onImageUrlChange('https://');
-                  } else if (val === 'upload') {
-                    onImageUrlChange('upload-placeholder');
-                  } else {
-                    onImageUrlChange(val);
-                  }
-                }}
-                className="w-full px-3 py-2 bg-slate-55 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800"
-              >
-                <option value="gradient-indigo">Indigo Theme</option>
-                <option value="gradient-emerald">Emerald Theme</option>
-                <option value="gradient-purple">Purple Theme</option>
-                <option value="gradient-cyan">Cyan Theme</option>
-                <option value="gradient-rose">Rose Theme</option>
-                <option value="custom">Web Image URL</option>
-                <option value="upload">Upload Local Image</option>
-              </select>
-            </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-black text-slate-400">Category</label>
+            <select
+              value={category}
+              onChange={(e) => onCategoryChange(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800"
+            >
+              <option value="Electronics">Electronics</option>
+              <option value="Fashion">Fashion</option>
+              <option value="Home & Kitchen">Home & Kitchen</option>
+              <option value="Beauty & Care">Beauty & Care</option>
+              <option value="Furniture & Decor">Furniture & Decor</option>
+              <option value="Fitness">Fitness</option>
+            </select>
           </div>
 
-          {imageUrl.startsWith('http') && !imageUrl.startsWith('data:image/') && (
-            <div className="space-y-1 animate-in fade-in duration-200">
-              <label className="text-[10px] uppercase font-black text-slate-400">Image URL</label>
-              <input
-                type="url"
-                required
-                value={imageUrl}
-                onChange={(e) => onImageUrlChange(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3.5 py-2.5 bg-slate-55 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
-              />
-            </div>
-          )}
+          {/* Multi-Image Upload Section */}
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-1.5">
+              <Images className="w-3 h-3" />
+              Product Images ({images.length}/8)
+            </label>
 
-          {(imageUrl.startsWith('data:image/') || imageUrl === 'upload-placeholder') && (
-            <div className="space-y-1 animate-in fade-in duration-200">
-              <label className="text-[10px] uppercase font-black text-slate-400">Upload Image</label>
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-2xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors relative group min-h-[140px]">
-                {isCompressing ? (
-                  <div className="flex flex-col items-center space-y-2">
-                    <Loader2 className="w-8 h-8 animate-spin text-[#5d51e8]" />
-                    <span className="text-xs font-bold text-slate-500">Compressing & optimizing image...</span>
-                  </div>
-                ) : imageUrl.startsWith('data:image/') ? (
-                  <div className="flex flex-col items-center space-y-3 w-full">
-                    <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-inner group">
-                      <img src={imageUrl} alt="Uploaded preview" className="w-full h-full object-cover" />
+            {images.length > 0 && (
+              <div className="flex flex-wrap gap-2.5 p-2 bg-slate-50 dark:bg-zinc-955/20 border border-slate-200 dark:border-zinc-800 rounded-2xl">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative group flex flex-col items-center gap-1">
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-700 shadow-sm">
+                      <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => onImageUrlChange('upload-placeholder')}
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-xl cursor-pointer"
-                        title="Remove Image"
+                        onClick={() => {
+                          const updated = images.filter((_, i) => i !== idx);
+                          onImagesChange(updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` })));
+                        }}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white cursor-pointer"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Image Ready</p>
-                      <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                        Compressed size: ~{Math.round((imageUrl.length * 3) / 4 / 1024)} KB
-                      </p>
+                    <span className="text-[8px] font-black text-slate-400 uppercase">{img.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {images.length < 8 && (
+              <div className="space-y-2.5">
+                <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-2xl p-3 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors group">
+                  {isCompressing ? (
+                    <div className="flex flex-col items-center space-y-1.5 py-1">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#5d51e8]" />
+                      <span className="text-[10px] font-bold text-slate-500">Compressing...</span>
                     </div>
-                    <label className="px-3.5 py-1.5 bg-slate-150 hover:bg-slate-200 dark:bg-zinc-850 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-200 font-extrabold text-[10px] rounded-lg cursor-pointer transition-all active:scale-95 border border-slate-200 dark:border-zinc-700">
-                      <span>Change Image</span>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center space-y-1 cursor-pointer w-full py-1">
+                      <div className="p-1.5 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-lg group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
+                        <Upload className="w-4 h-4" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-350 block">Upload more images</span>
+                      </div>
                       <input
                         type="file"
                         accept="image/*"
+                        multiple
                         onChange={handleFileChange}
                         className="hidden"
                       />
                     </label>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full h-full py-4">
-                    <div className="p-2.5 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
-                      <Upload className="w-6 h-6" />
-                    </div>
-                    <div className="text-center">
-                      <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload image</span>
-                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">Supports JPG, PNG, WebP (auto-compressed)</span>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-          )}
+                  )}
+                </div>
 
-          <div className="pt-1 animate-in fade-in duration-200">
+                {/* URL Paste Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="Or paste image URL here..."
+                    value={imageUrlInput}
+                    onChange={(e) => setImageUrlInput(e.target.value)}
+                    className="flex-grow px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-450"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (imageUrlInput.trim()) {
+                        onImagesChange([
+                          ...images,
+                          { url: imageUrlInput.trim(), label: `Image ${images.length + 1}` }
+                        ]);
+                        setImageUrlInput('');
+                      }
+                    }}
+                    className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-100 dark:border-indigo-900/40 cursor-pointer transition-all active:scale-95"
+                  >
+                    Add URL
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Variants Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] uppercase font-black text-slate-400">
+                Variants / Models ({variants.length})
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  onVariantsChange([...variants, {
+                    id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                    name: '',
+                    imageIndex: 0
+                  }]);
+                }}
+                className="flex items-center gap-1 text-[10px] font-black text-[#5d51e8] hover:text-[#4b3fd3] cursor-pointer transition-colors"
+              >
+                <Plus className="w-3 h-3" /> Add Variant
+              </button>
+            </div>
+
+            {variants.length > 0 && (
+              <div className="space-y-2 p-2 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-2xl max-h-[160px] overflow-y-auto">
+                {variants.map((variant, idx) => (
+                  <div key={variant.id} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={variant.name}
+                      onChange={(e) => {
+                        const updated = variants.map((v, i) => i === idx ? { ...v, name: e.target.value } : v);
+                        onVariantsChange(updated);
+                      }}
+                      placeholder={`e.g. Model-${String.fromCharCode(65 + idx)}, Red`}
+                      className="flex-1 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                    />
+                    <select
+                      value={variant.imageIndex}
+                      onChange={(e) => {
+                        const updated = variants.map((v, i) => i === idx ? { ...v, imageIndex: parseInt(e.target.value) } : v);
+                        onVariantsChange(updated);
+                      }}
+                      className="w-24 px-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-850 dark:text-slate-150"
+                    >
+                      {images.length > 0 ? (
+                        images.map((img, imgIdx) => (
+                          <option key={imgIdx} value={imgIdx}>{img.label}</option>
+                        ))
+                      ) : (
+                        <option value={0}>No images</option>
+                      )}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onVariantsChange(variants.filter((_, i) => i !== idx));
+                      }}
+                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-1">
             <label className="flex items-center justify-between border border-slate-200 dark:border-zinc-800 rounded-xl p-3 bg-slate-50 dark:bg-zinc-950/20 cursor-pointer w-full">
               <span className="text-xs font-bold text-slate-600 dark:text-slate-350">In Stock Available</span>
               <input
@@ -298,7 +360,7 @@ export default function ProductEditModal({
             </button>
             <button
               type="submit"
-              disabled={saving || imageUrl === 'upload-placeholder' || isCompressing}
+              disabled={saving || isCompressing}
               className="w-full bg-[#5d51e8] hover:bg-[#4b3fd3] text-white font-extrabold text-xs py-3 px-4 rounded-full shadow-md shadow-[#5d51e8]/10 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70"
             >
               {saving ? (

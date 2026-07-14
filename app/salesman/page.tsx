@@ -30,6 +30,16 @@ export default function SalesmanPortal() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
+
+  // Dynamic window/tab title
+  useEffect(() => {
+    const tabTitles: Record<string, string> = {
+      available: 'Sales - Available Orders',
+      active: 'Sales - My Active Orders',
+      completed: 'Sales - Completed Orders'
+    };
+    document.title = tabTitles[activeTab] || 'Salesman Portal';
+  }, [activeTab]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Authenticate user and restrict access to Salesmen only
