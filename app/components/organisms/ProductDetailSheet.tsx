@@ -204,21 +204,38 @@ export default function ProductDetailSheet({
                     </span>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {product.variants.map((v) => {
                     const isVarSelected = activeVariant?.id === v.id;
+                    const varImg = imagesList[v.imageIndex];
+                    const varImgUrl = varImg ? transformImageUrl(varImg.url) : '';
+                    const isVarImgWeb = varImgUrl && (varImgUrl.startsWith('http') || varImgUrl.startsWith('https') || varImgUrl.startsWith('data:image/'));
+
                     return (
                       <button
                         key={v.id}
                         type="button"
                         onClick={() => handleVariantSelect(v)}
-                        className={`px-4 py-2 text-xs font-black rounded-xl border-2 transition-all cursor-pointer ${
+                        className={`flex-shrink-0 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${
                           isVarSelected
-                            ? 'border-[#5d51e8] bg-[#5d51e8]/10 text-[#5d51e8]'
-                            : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-600 dark:text-zinc-350 hover:border-slate-200 dark:hover:border-zinc-700'
+                            ? 'w-11 h-11 rounded-full ring-2 ring-[#5d51e8] scale-110 shadow-lg'
+                            : 'w-9 h-9 rounded-full opacity-60 hover:opacity-100 border border-slate-200 dark:border-zinc-800'
                         }`}
+                        title={v.name}
                       >
-                        {v.name}
+                        {isVarImgWeb ? (
+                          <img
+                            src={varImgUrl}
+                            alt={v.name}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-[10px] font-black text-white uppercase">
+                            {v.name}
+                          </div>
+                        )}
+                        {/* Subtle inner border overlay */}
+                        <div className="absolute inset-0 rounded-full border border-black/5 pointer-events-none" />
                       </button>
                     );
                   })}

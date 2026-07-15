@@ -574,21 +574,21 @@ export default function ProductCatalog() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col font-sans pb-36 sm:pb-24 transition-colors duration-300">
+    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${activeView === 'products' ? 'bg-black md:bg-slate-50 md:dark:bg-zinc-950 pb-0 md:pb-24' : 'bg-slate-50 dark:bg-zinc-950 pb-36 sm:pb-24'}`}>
       
       {/* Visual Header */}
-      <header className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 dark:border-zinc-800 shadow-sm py-3 px-4 sm:py-4 sm:px-6 flex items-center justify-between">
+      <header className={`sticky top-0 z-40 py-3 px-4 sm:py-4 sm:px-6 flex items-center justify-between backdrop-blur-md transition-all ${activeView === 'products' ? 'bg-black/50 md:bg-white/80 md:dark:bg-zinc-900/80 border-b border-white/10 md:border-slate-200 md:dark:border-zinc-800 md:shadow-sm' : 'bg-white/80 dark:bg-zinc-900/80 border-b border-slate-200 dark:border-zinc-800 shadow-sm'}`}>
         
         {/* Brand */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="bg-[#5d51e8] p-2 sm:p-2.5 rounded-xl sm:rounded-2xl text-white shadow-md shadow-[#5d51e8]/20 animate-pulse">
+          <div className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl text-white shadow-md animate-pulse ${activeView === 'products' ? 'bg-white/20 md:bg-[#5d51e8] shadow-white/10 md:shadow-[#5d51e8]/20' : 'bg-[#5d51e8] shadow-[#5d51e8]/20'}`}>
             <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h1 className="font-black text-base sm:text-xl text-slate-955 dark:text-white tracking-tight leading-none">
+            <h1 className={`font-black text-base sm:text-xl tracking-tight leading-none ${activeView === 'products' ? 'text-white md:text-slate-955 md:dark:text-white' : 'text-slate-955 dark:text-white'}`}>
               Balaji Textiles
             </h1>
-            <span className="text-[8px] sm:text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30 px-2 py-0.5 rounded-full mt-0.5 sm:mt-1 inline-block">
+            <span className={`text-[8px] sm:text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full mt-0.5 sm:mt-1 inline-block ${activeView === 'products' ? 'text-emerald-300 bg-emerald-900/30 md:text-emerald-600 md:bg-emerald-50 md:dark:bg-emerald-955/30' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30'}`}>
               Premium Storefront
             </span>
           </div>
@@ -658,10 +658,14 @@ export default function ProductCatalog() {
           <button
             type="button"
             onClick={() => setShowMobileMenu(true)}
-            className="md:hidden w-10 h-10 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+            className={`md:hidden w-10 h-10 border rounded-full flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer ${
+              activeView === 'products' 
+                ? 'bg-white/10 border-white/20 backdrop-blur-md' 
+                : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'
+            }`}
             title="Menu"
           >
-            <Menu className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+            <Menu className={`w-5 h-5 ${activeView === 'products' ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`} />
           </button>
         </div>
       </header>
@@ -768,7 +772,7 @@ export default function ProductCatalog() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-grow max-w-5xl w-full mx-auto p-5 sm:p-8 space-y-6">
+      <main className={`flex-grow w-full mx-auto ${activeView === 'products' ? 'max-w-none p-0 md:max-w-5xl md:p-5 md:sm:p-8 md:space-y-6' : 'max-w-5xl p-5 sm:p-8 space-y-6'}`}>
         
         {activeView === 'profile' ? (
           <ClientProfileTab
