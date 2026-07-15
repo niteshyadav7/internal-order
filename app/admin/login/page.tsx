@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Toast, { ToastType } from '../../components/ui/Toast';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import { auth } from '../../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -47,28 +47,45 @@ export default function AdminLoginPage() {
 
     setLoading(true);
     try {
+      let idToken = '';
+      if (auth) {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          idToken = await userCredential.user.getIdToken();
+        } catch (firebaseErr: any) {
+          console.warn('Firebase Auth admin sign-in failed, trying to auto-create user:', firebaseErr);
+          if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-credential') {
+            try {
+              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+              idToken = await userCredential.user.getIdToken();
+            } catch (createErr: any) {
+              console.error('Failed to auto-create admin in Firebase Auth:', createErr);
+              if (createErr.code === 'auth/email-already-in-use') {
+                showToast('Email already in use with a different password. Please enter the correct Firebase Auth password or click Reset Password below.', 'error');
+                setLoading(false);
+                return;
+              } else {
+                showToast(`Firebase registration error: ${createErr.message || createErr.code}`, 'error');
+                setLoading(false);
+                return;
+              }
+            }
+          } else {
+            showToast(`Firebase authentication error: ${firebaseErr.message || firebaseErr.code}`, 'error');
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, idToken })
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        if (auth) {
-          try {
-            await signInWithEmailAndPassword(auth, email, password);
-          } catch (firebaseErr: any) {
-            console.warn('Firebase Auth admin sign-in failed, trying to auto-create user:', firebaseErr);
-            if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-credential') {
-              try {
-                await createUserWithEmailAndPassword(auth, email, password);
-              } catch (createErr) {
-                console.error('Failed to auto-create admin in Firebase Auth:', createErr);
-              }
-            }
-          }
-        }
         showToast('Successfully authenticated as administrator.', 'success');
         router.push('/admin');
       } else {
@@ -147,7 +164,31 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <div className="text-center pt-2">
+        <div className="flex flex-col items-center gap-2 pt-2 text-center">
+          <button
+            type="button"
+            onClick={async () => {
+              if (!email) {
+                showToast('Please enter your admin email above first.', 'warning');
+                return;
+              }
+              setLoading(true);
+              try {
+                await sendPasswordResetEmail(auth!, email);
+                showToast('Password reset email sent successfully! Please check your inbox.', 'success');
+              } catch (err: any) {
+                console.error('Password reset failed:', err);
+                showToast(`Failed to send reset email: ${err.message || err.code}`, 'error');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="text-xs font-bold text-[#5d51e8] hover:underline cursor-pointer"
+          >
+            Forgot Password / Reset Admin Password
+          </button>
+          
           <button
             onClick={() => router.push('/login')}
             className="text-xs font-bold text-slate-400 hover:text-[#1c2c80] dark:hover:text-indigo-400 transition-colors cursor-pointer"
