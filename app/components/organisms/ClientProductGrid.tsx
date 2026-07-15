@@ -155,7 +155,7 @@ function ReelProductCard({
       </button>
 
       {/* Bottom overlay with product info */}
-      <div className="absolute bottom-0 left-0 right-0 z-40 p-5 pb-28 flex flex-col max-h-[60dvh]">
+      <div className="absolute bottom-0 left-0 right-0 z-40 p-5 pb-6 flex flex-col max-h-[60dvh]">
         
         {/* Scrollable product details wrapper (name, desc, variants) */}
         <div className="overflow-y-auto scrollbar-none space-y-2.5 mb-2.5 pr-1">
