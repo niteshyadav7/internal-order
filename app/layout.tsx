@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Store",
+  title: "Balaji Textiles",
   description: "Premium E-Commerce Logistics Storefront",
 };
 

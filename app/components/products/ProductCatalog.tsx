@@ -332,11 +332,11 @@ export default function ProductCatalog() {
   // Dynamic window/tab title
   useEffect(() => {
     const viewTitles: Record<string, string> = {
-      products: 'Smart Store - Shop Products',
-      orders: 'Smart Store - My Orders',
-      profile: 'Smart Store - My Profile'
+      products: 'Balaji Textiles - Shop Products',
+      orders: 'Balaji Textiles - My Orders',
+      profile: 'Balaji Textiles - My Profile'
     };
-    document.title = viewTitles[activeView] || 'Smart Store';
+    document.title = viewTitles[activeView] || 'Balaji Textiles';
   }, [activeView]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -586,7 +586,7 @@ export default function ProductCatalog() {
           </div>
           <div>
             <h1 className="font-black text-base sm:text-xl text-slate-955 dark:text-white tracking-tight leading-none">
-              Smart Store
+              Balaji Textiles
             </h1>
             <span className="text-[8px] sm:text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30 px-2 py-0.5 rounded-full mt-0.5 sm:mt-1 inline-block">
               Premium Storefront
@@ -683,7 +683,7 @@ export default function ProductCatalog() {
                 <div className="bg-[#5d51e8] p-2 rounded-xl text-white shadow-md shadow-[#5d51e8]/20">
                   <ShoppingCart className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Smart Store</h3>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">Balaji Textiles</h3>
               </div>
               <button
                 type="button"

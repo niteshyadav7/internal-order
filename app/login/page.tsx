@@ -22,11 +22,11 @@ export default function LoginPage() {
   // Dynamic window/tab title
   useEffect(() => {
     const viewTitles: Record<AuthView, string> = {
-      LOGIN: 'Smart Store - Login',
-      REGISTER: 'Smart Store - Registration',
-      FORGOT_PASSWORD: 'Smart Store - Forgot Password'
+      LOGIN: 'Balaji Textiles - Login',
+      REGISTER: 'Balaji Textiles - Registration',
+      FORGOT_PASSWORD: 'Balaji Textiles - Forgot Password'
     };
-    document.title = viewTitles[view] || 'Smart Store - Sign In';
+    document.title = viewTitles[view] || 'Balaji Textiles - Sign In';
   }, [view]);
 
   // Redirect if logged in

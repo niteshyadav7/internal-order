@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    document.title = 'Smart Store Admin - Login';
+    document.title = 'Balaji Textiles Admin - Login';
   }, []);
 
   useEffect(() => {
