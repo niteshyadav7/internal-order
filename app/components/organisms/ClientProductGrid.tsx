@@ -263,13 +263,6 @@ function ReelProductCard({
         </button>
       </div>
 
-      {/* Scroll hint on first product */}
-      {idx === 0 && totalProducts > 1 && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 animate-bounce pointer-events-none">
-          <ChevronUp className="w-5 h-5 text-white/40" />
-          <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">Swipe up</span>
-        </div>
-      )}
     </div>
   );
 }
