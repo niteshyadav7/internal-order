@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@logistics.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@gmail.com';
 
     // Calculate total value
     const totalValue = order.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);

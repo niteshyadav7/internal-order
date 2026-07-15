@@ -7,7 +7,7 @@ export async function GET() {
     const session = cookieStore.get('admin_session');
 
     if (session && session.value === 'authenticated') {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@logistics.com';
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@gmail.com';
       return NextResponse.json({ success: true, authenticated: true, adminEmail });
     }
 

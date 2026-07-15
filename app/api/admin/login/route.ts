@@ -4,8 +4,8 @@ export async function POST(request: Request) {
   try {
     const { email, password, idToken } = await request.json();
 
-    const expectedEmail = process.env.ADMIN_EMAIL || 'admin@logistics.com';
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123';
+    const expectedEmail = process.env.ADMIN_EMAIL || 'admin@gmail.com';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     let isAuthenticated = false;

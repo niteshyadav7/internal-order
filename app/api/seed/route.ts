@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     // 3. Seed Default Admin/System User Profile
     log.push('Checking System Admin user profile...');
     const users = await getAllUserProfiles();
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@logistics.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@gmail.com';
     const existingAdmin = users.find(u => u.email.toLowerCase() === adminEmail.toLowerCase());
 
     if (!existingAdmin) {
