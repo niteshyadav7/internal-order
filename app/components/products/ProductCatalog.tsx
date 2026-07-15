@@ -479,20 +479,21 @@ export default function ProductCatalog() {
   };
 
   const handleToggleProduct = (id: string, variantName?: string, imageUrl?: string) => {
+    const cartKey = id + '|' + (variantName || '');
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(cartKey)) {
+        next.delete(cartKey);
         setSelectedVariants(prevVars => {
           const nextVars = { ...prevVars };
-          delete nextVars[id];
+          delete nextVars[cartKey];
           return nextVars;
         });
       } else {
-        next.add(id);
+        next.add(cartKey);
         setSelectedVariants(prevVars => ({
           ...prevVars,
-          [id]: { variantName, imageUrl }
+          [cartKey]: { variantName, imageUrl }
         }));
       }
       return next;
@@ -505,10 +506,11 @@ export default function ProductCatalog() {
 
     try {
       const items: OrderItem[] = [];
-      selectedIds.forEach(id => {
+      selectedIds.forEach(cartKey => {
+        const [id, variantName] = cartKey.split('|');
         const product = products.find(p => p.id === id);
         if (product) {
-          const details = selectedVariants[id];
+          const details = selectedVariants[cartKey];
           items.push({
             productId: product.id || '',
             nameEn: product.nameEn,
@@ -518,7 +520,7 @@ export default function ProductCatalog() {
             quantity: 1,
             code: product.code || '',
             design: product.design || '',
-            selectedVariant: details?.variantName,
+            selectedVariant: details?.variantName || variantName || undefined,
             selectedImageUrl: details?.imageUrl || product.imageUrl
           });
         }

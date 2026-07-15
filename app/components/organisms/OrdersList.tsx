@@ -390,9 +390,9 @@ export default function OrdersList({
                                     <p className="font-extrabold truncate text-slate-800 dark:text-slate-200" title={item.nameEn}>
                                       {item.nameEn}
                                     </p>
-                                    {(item.code || item.design) && (
+                                    {(item.selectedVariant || item.code || item.design) && (
                                       <p className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold uppercase tracking-wider mt-0.5">
-                                        Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
+                                        {item.selectedVariant && `Variant: ${item.selectedVariant} | `}Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
                                       </p>
                                     )}
                                   </div>
@@ -536,9 +536,9 @@ export default function OrdersList({
                             <span className="w-1.5 h-1.5 rounded-full bg-[#5d51e8] mt-1.5 flex-shrink-0"></span>
                             <div className="min-w-0 text-left">
                               <p className="font-extrabold truncate text-slate-800 dark:text-slate-200">{item.nameEn}</p>
-                              {(item.code || item.design) && (
+                              {(item.selectedVariant || item.code || item.design) && (
                                 <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold uppercase mt-0.5">
-                                  Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
+                                  {item.selectedVariant && `Variant: ${item.selectedVariant} | `}Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
                                 </p>
                               )}
                             </div>

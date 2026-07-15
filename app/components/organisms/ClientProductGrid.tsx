@@ -13,7 +13,7 @@ function ReelProductCard({
   product,
   idx,
   totalProducts,
-  isSelected,
+  selectedIds,
   onToggleProduct,
   getProductIcon,
   lang,
@@ -27,7 +27,7 @@ function ReelProductCard({
   product: Product;
   idx: number;
   totalProducts: number;
-  isSelected: boolean;
+  selectedIds: Set<string>;
   onToggleProduct: (id: string, variantName?: string, imageUrl?: string) => void;
   getProductIcon: (category: string, size?: string) => React.ReactNode;
   lang: 'en' | 'hi';
@@ -53,6 +53,8 @@ function ReelProductCard({
   // Find which variant matches the current image index
   const activeVariant: ProductVariant | undefined =
     product.variants?.find(v => v.imageIndex === activeImgIdx) || undefined;
+
+  const isSelected = selectedIds.has((product.id || '') + '|' + (activeVariant?.name || ''));
 
   // Touch handlers for horizontal swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -84,13 +86,9 @@ function ReelProductCard({
   const isWeb = currentImageUrl.startsWith('http') || currentImageUrl.startsWith('https') || currentImageUrl.startsWith('data:image/');
 
   const handleAddToCart = () => {
-    if (isSelected) {
-      onToggleProduct(product.id || '');
-    } else {
-      const variantName = activeVariant?.name;
-      const selectUrl = imagesList[activeImgIdx]?.url || product.imageUrl;
-      onToggleProduct(product.id || '', variantName, selectUrl);
-    }
+    const variantName = activeVariant?.name;
+    const selectUrl = imagesList[activeImgIdx]?.url || product.imageUrl;
+    onToggleProduct(product.id || '', variantName, selectUrl);
   };
 
   return (
@@ -599,7 +597,7 @@ export default function ClientProductGrid({
               product={product}
               idx={idx}
               totalProducts={finalFilteredProducts.length}
-              isSelected={selectedIds.has(product.id || '')}
+              selectedIds={selectedIds}
               onToggleProduct={onToggleProduct}
               getProductIcon={getProductIcon}
               lang={lang}
@@ -775,7 +773,8 @@ export default function ClientProductGrid({
         <div className="space-y-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {paginatedProducts.map((product) => {
-              const isSelected = selectedIds.has(product.id || '');
+              const selectedCount = Array.from(selectedIds).filter(key => key.startsWith((product.id || '') + '|')).length;
+              const isSelected = selectedCount > 0;
               const name = product.nameEn;
               const desc = product.descEn;
               const firstImageUrl = product.images && product.images.length > 0
@@ -823,7 +822,7 @@ export default function ClientProductGrid({
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white leading-snug group-hover:text-[#5d51e8] transition-colors line-clamp-1">
                         {name}
                       </h3>
-                      <p className="text-xs text-slate-400 dark:text-zinc-500 font-bold line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-slate-400 dark:text-zinc-550 font-bold line-clamp-2 leading-relaxed">
                         {desc}
                       </p>
                     </div>
@@ -846,7 +845,7 @@ export default function ClientProductGrid({
                         ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/20'
                         : 'bg-slate-100 dark:bg-zinc-800 text-slate-655 dark:text-zinc-300 group-hover:bg-[#5d51e8]/10 group-hover:text-[#5d51e8]'
                         }`}>
-                        {isSelected ? (lang === 'en' ? 'Selected' : 'चयनित') : (lang === 'en' ? 'Add' : 'जोड़ें')}
+                        {isSelected ? (lang === 'en' ? `Selected (${selectedCount})` : `चयनित (${selectedCount})`) : (lang === 'en' ? 'Add' : 'जोड़ें')}
                       </span>
                     </div>
                   </div>
@@ -870,7 +869,7 @@ export default function ClientProductGrid({
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         product={detailProduct}
-        isSelected={detailProduct ? selectedIds.has(detailProduct.id || '') : false}
+        selectedIds={selectedIds}
         selectedVariantName={undefined}
         onToggleSelect={(variantName, imageUrl) => {
           if (detailProduct && detailProduct.id) {

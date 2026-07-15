@@ -3,24 +3,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import { 
-  Order, 
-  subscribeToOrders, 
-  claimOrder, 
-  completeOrder, 
-  releaseOrder, 
-  getPriceRange 
+import {
+  Order,
+  subscribeToOrders,
+  claimOrder,
+  completeOrder,
+  releaseOrder,
+  getPriceRange
 } from '../lib/db';
-import { 
-  ShoppingBag, 
-  CheckCircle, 
-  Clock, 
-  User, 
-  LogOut, 
-  Calendar, 
-  Truck, 
-  Sparkles, 
-  Loader2 
+import {
+  ShoppingBag,
+  CheckCircle,
+  Clock,
+  User,
+  LogOut,
+  Calendar,
+  Truck,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import Button from '../components/atoms/Button';
 
@@ -179,7 +179,7 @@ export default function SalesmanPortal() {
           </div>
         </div>
 
-        <button 
+        <button
           onClick={handleLogout}
           className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-550 dark:text-zinc-450 hover:text-rose-600 dark:hover:text-rose-450 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
         >
@@ -190,28 +190,26 @@ export default function SalesmanPortal() {
 
       {/* Main Grid View */}
       <main className="max-w-4xl w-full mx-auto p-6 space-y-6">
-        
+
         {/* Navigation Tabs */}
         <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-[1.5rem] border border-slate-150 dark:border-zinc-800 shadow-sm flex gap-1">
           <button
             onClick={() => setActiveTab('available')}
-            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === 'available'
+            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'available'
                 ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
                 : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
-            }`}
+              }`}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Available ({availableOrders.length})</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab('active')}
-            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === 'active'
+            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'active'
                 ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
                 : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
-            }`}
+              }`}
           >
             <Clock className="w-4 h-4" />
             <span>My Active ({myActiveOrders.length})</span>
@@ -219,11 +217,10 @@ export default function SalesmanPortal() {
 
           <button
             onClick={() => setActiveTab('completed')}
-            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === 'completed'
+            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'completed'
                 ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
                 : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
-            }`}
+              }`}
           >
             <CheckCircle className="w-4 h-4" />
             <span>Finished ({myCompletedOrders.length})</span>
@@ -249,9 +246,9 @@ export default function SalesmanPortal() {
                 </div>
               ) : (
                 availableOrders.map(order => (
-                  <OrderCard 
-                    key={order.id} 
-                    order={order} 
+                  <OrderCard
+                    key={order.id}
+                    order={order}
                     primaryActionText="Claim & Start Preparing"
                     onPrimaryAction={handleClaim}
                     actionLoading={actionLoading}
@@ -268,9 +265,9 @@ export default function SalesmanPortal() {
                 </div>
               ) : (
                 myActiveOrders.map(order => (
-                  <OrderCard 
-                    key={order.id} 
-                    order={order} 
+                  <OrderCard
+                    key={order.id}
+                    order={order}
                     primaryActionText="Complete & Dispatch"
                     onPrimaryAction={handleComplete}
                     secondaryActionText="Release Order"
@@ -289,9 +286,9 @@ export default function SalesmanPortal() {
                 </div>
               ) : (
                 myCompletedOrders.map(order => (
-                  <OrderCard 
-                    key={order.id} 
-                    order={order} 
+                  <OrderCard
+                    key={order.id}
+                    order={order}
                     isCompleted={true}
                   />
                 ))
@@ -352,7 +349,7 @@ function OrderCard({
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 hover:shadow-md transition-shadow text-left">
-      
+
       {/* Client details */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
         <div className="space-y-1">
@@ -382,12 +379,17 @@ function OrderCard({
         <h5 className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Ordered Items</h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {order.items.map((item, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/40 dark:border-zinc-850 p-2.5 rounded-xl flex items-center justify-between"
             >
               <div className="text-left space-y-0.5 max-w-[70%]">
                 <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
+                {item.selectedVariant && (
+                  <p className="text-[10px] text-indigo-500 dark:text-indigo-455 font-extrabold uppercase">
+                    Variant: {item.selectedVariant}
+                  </p>
+                )}
                 <p className="text-[9px] text-[#5d51e8] dark:text-indigo-400 font-bold uppercase">
                   {(item.code || item.design) ? `C: ${item.code || 'N/A'} | D: ${item.design || 'N/A'}` : 'No Code/Design'}
                 </p>

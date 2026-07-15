@@ -25,9 +25,9 @@ export default function ClientOrdersList({
     setEditItems(JSON.parse(JSON.stringify(order.items))); // deep clone
   };
 
-  const handleQtyChange = (productId: string, delta: number) => {
+  const handleQtyChange = (productId: string, variantName: string | undefined, delta: number) => {
     setEditItems(prev => prev.map(item => {
-      if (item.productId === productId) {
+      if (item.productId === productId && item.selectedVariant === variantName) {
         const nextQty = Math.max(1, item.quantity + delta);
         return { ...item, quantity: nextQty };
       }
@@ -35,8 +35,8 @@ export default function ClientOrdersList({
     }));
   };
 
-  const handleRemoveItem = (productId: string) => {
-    setEditItems(prev => prev.filter(item => item.productId !== productId));
+  const handleRemoveItem = (productId: string, variantName: string | undefined) => {
+    setEditItems(prev => prev.filter(item => !(item.productId === productId && item.selectedVariant === variantName)));
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -136,7 +136,12 @@ export default function ClientOrdersList({
                           <Truck className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 line-clamp-1">{item.nameEn}</p>
+                          <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 line-clamp-1">
+                            {item.nameEn}
+                            {item.selectedVariant && (
+                              <span className="text-[10px] text-[#5d51e8] dark:text-indigo-400 font-extrabold ml-1.5 uppercase">({item.selectedVariant})</span>
+                            )}
+                          </p>
                           <p className="text-[10px] text-slate-400 font-bold">
                             Qty: {item.quantity}
                             {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
@@ -196,9 +201,14 @@ export default function ClientOrdersList({
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
                 {editItems.map((item) => (
-                  <div key={item.productId} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
+                  <div key={item.productId + '_' + (item.selectedVariant || '')} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
                     <div className="space-y-0.5 text-left max-w-[55%]">
-                      <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
+                      <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">
+                        {item.nameEn}
+                        {item.selectedVariant && (
+                          <span className="text-[10px] text-[#5d51e8] dark:text-indigo-400 font-extrabold ml-1.5 uppercase">({item.selectedVariant})</span>
+                        )}
+                      </p>
                       <p className="text-[10px] text-slate-400 font-bold">
                         {getPriceRange(item.price)} / {item.unit}
                         {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
@@ -209,7 +219,7 @@ export default function ClientOrdersList({
                       <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-0.5">
                         <button
                           type="button"
-                          onClick={() => handleQtyChange(item.productId, -1)}
+                          onClick={() => handleQtyChange(item.productId, item.selectedVariant, -1)}
                           className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded text-slate-500"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -219,7 +229,7 @@ export default function ClientOrdersList({
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleQtyChange(item.productId, 1)}
+                          onClick={() => handleQtyChange(item.productId, item.selectedVariant, 1)}
                           className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded text-slate-500"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -228,7 +238,7 @@ export default function ClientOrdersList({
 
                       <button
                         type="button"
-                        onClick={() => handleRemoveItem(item.productId)}
+                        onClick={() => handleRemoveItem(item.productId, item.selectedVariant)}
                         className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-955/20 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4" />

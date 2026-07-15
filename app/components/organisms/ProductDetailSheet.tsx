@@ -7,7 +7,7 @@ interface ProductDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
-  isSelected: boolean;
+  selectedIds: Set<string>;
   selectedVariantName?: string;
   onToggleSelect: (variantName?: string, imageUrl?: string) => void;
   lang: 'en' | 'hi';
@@ -17,7 +17,7 @@ export default function ProductDetailSheet({
   isOpen,
   onClose,
   product,
-  isSelected,
+  selectedIds,
   selectedVariantName,
   onToggleSelect,
   lang
@@ -45,6 +45,9 @@ export default function ProductDetailSheet({
     }
   }, [product, isOpen, selectedVariantName]);
 
+  // Derive selection state from the active variant key
+  const isSelected = product ? selectedIds.has((product.id || '') + '|' + (activeVariant?.name || '')) : false;
+
   if (!isOpen || !product) return null;
 
   const imagesList = product.images && product.images.length > 0
@@ -69,15 +72,9 @@ export default function ProductDetailSheet({
   };
 
   const handleActionClick = () => {
-    if (isSelected) {
-      // Toggle off
-      onToggleSelect();
-    } else {
-      // Select product
-      const variantName = activeVariant ? activeVariant.name : undefined;
-      const selectUrl = imagesList[activeImageIdx] ? imagesList[activeImageIdx].url : product.imageUrl;
-      onToggleSelect(variantName, selectUrl);
-    }
+    const variantName = activeVariant ? activeVariant.name : undefined;
+    const selectUrl = imagesList[activeImageIdx] ? imagesList[activeImageIdx].url : product.imageUrl;
+    onToggleSelect(variantName, selectUrl);
     onClose();
   };
 
@@ -266,12 +263,12 @@ export default function ProductDetailSheet({
             {isSelected ? (
               <>
                 <Check className="w-4 h-4" />
-                <span>Selected (Remove)</span>
+                <span>Remove{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
               </>
             ) : (
               <>
                 <ShoppingCart className="w-4 h-4" />
-                <span>Add to Order Request</span>
+                <span>Add{activeVariant ? ` · ${activeVariant.name}` : ''} to Order</span>
               </>
             )}
           </button>
