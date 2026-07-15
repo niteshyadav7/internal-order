@@ -17,6 +17,12 @@ function ReelProductCard({
   onToggleProduct,
   getProductIcon,
   lang,
+  showFiltersPanel,
+  setShowFiltersPanel,
+  selectedCategory,
+  searchQuery,
+  priceFilter,
+  absoluteMaxPrice,
 }: {
   product: Product;
   idx: number;
@@ -25,6 +31,12 @@ function ReelProductCard({
   onToggleProduct: (id: string, variantName?: string, imageUrl?: string) => void;
   getProductIcon: (category: string, size?: string) => React.ReactNode;
   lang: 'en' | 'hi';
+  showFiltersPanel: boolean;
+  setShowFiltersPanel: React.Dispatch<React.SetStateAction<boolean>>;
+  selectedCategory: string;
+  searchQuery: string;
+  priceFilter: number;
+  absoluteMaxPrice: number;
 }) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const touchStartX = useRef(0);
@@ -111,7 +123,44 @@ function ReelProductCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
 
+      {/* ── Left Sidebar Action Buttons (like Insta likes, comments) ── */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-45 flex flex-col gap-5">
+        {/* Search/Filter Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowFiltersPanel(!showFiltersPanel);
+          }}
+          className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all active:scale-90 shadow-lg cursor-pointer ${
+            showFiltersPanel
+              ? 'bg-[#5d51e8] border-[#5d51e8] text-white shadow-[#5d51e8]/30'
+              : 'bg-black/40 backdrop-blur-md border-white/15 text-white/80'
+          }`}
+        >
+          {showFiltersPanel ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+          <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Filter</span>
+          {/* Active filter dot */}
+          {(selectedCategory !== 'All' || searchQuery || priceFilter < absoluteMaxPrice) && !showFiltersPanel && (
+            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#5d51e8] rounded-full border-2 border-black animate-pulse" />
+          )}
+        </button>
 
+        {/* Select Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddToCart();
+          }}
+          className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
+            isSelected
+              ? 'bg-[#5d51e8] text-white border-[#5d51e8] scale-110 shadow-lg shadow-[#5d51e8]/40'
+              : 'bg-black/40 backdrop-blur-md border-white/15 text-white/80 hover:text-white'
+          }`}
+        >
+          <Check className="w-4 h-4 stroke-[3]" />
+          <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Select</span>
+        </button>
+      </div>
 
       {/* Left/Right tap zones for image navigation */}
       {hasMultipleImages && (
@@ -142,17 +191,6 @@ function ReelProductCard({
         </div>
       )}
 
-      {/* Select Indicator — top right */}
-      <button
-        onClick={handleAddToCart}
-        className={`absolute top-20 right-4 z-40 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all cursor-pointer ${
-          isSelected
-            ? 'bg-[#5d51e8] text-white border-[#5d51e8] scale-110 shadow-lg shadow-[#5d51e8]/40'
-            : 'bg-black/30 backdrop-blur-md border-white/40 text-transparent'
-        }`}
-      >
-        <Check className="w-5 h-5 stroke-[3]" />
-      </button>
 
       {/* Bottom overlay with product info */}
       <div className="absolute bottom-0 left-0 right-0 z-40 p-5 pb-6 flex flex-col max-h-[60dvh]">
@@ -441,23 +479,6 @@ export default function ClientProductGrid({
 
     return (
       <>
-        {/* ── Floating Filter Icon (hidden by default, tap to reveal) ── */}
-        <div className="fixed top-16 left-4 z-50 flex items-center gap-2">
-          <button
-            onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all active:scale-90 shadow-lg ${showFiltersPanel
-              ? 'bg-[#5d51e8] border-[#5d51e8] text-white shadow-[#5d51e8]/30'
-              : 'bg-black/40 backdrop-blur-xl border-white/15 text-white/80'
-              }`}
-          >
-            {showFiltersPanel ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
-            {/* Active filter dot */}
-            {(selectedCategory !== 'All' || searchQuery || priceFilter < absoluteMaxPrice) && !showFiltersPanel && (
-              <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#5d51e8] rounded-full border-2 border-black animate-pulse" />
-            )}
-          </button>
-        </div>
-
         {/* Product Counter — top right */}
         <div className="fixed top-16 right-4 z-50 bg-black/40 backdrop-blur-xl text-white text-[10px] font-black px-2.5 py-1.5 rounded-full border border-white/15 shadow-lg tabular-nums">
           {activeReelIdx + 1} / {finalFilteredProducts.length}
@@ -582,6 +603,12 @@ export default function ClientProductGrid({
               onToggleProduct={onToggleProduct}
               getProductIcon={getProductIcon}
               lang={lang}
+              showFiltersPanel={showFiltersPanel}
+              setShowFiltersPanel={setShowFiltersPanel}
+              selectedCategory={selectedCategory}
+              searchQuery={searchQuery}
+              priceFilter={priceFilter}
+              absoluteMaxPrice={absoluteMaxPrice}
             />
           ))}
         </div>
