@@ -5,9 +5,9 @@
  */
 export function compressImage(
   file: File,
-  maxWidth = 800,
-  maxHeight = 800,
-  quality = 0.7
+  maxWidth = 1600,
+  maxHeight = 1600,
+  quality = 0.9
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // If we're on the server, skip compression
@@ -101,7 +101,7 @@ export function transformImageUrl(url: string): string {
 
     if (fileId) {
       // Using drive.google.com/thumbnail endpoint is fast and extremely reliable for embedding in standard <img> tags
-      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
     }
   }
 

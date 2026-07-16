@@ -117,6 +117,7 @@ export default function SalesmanPortal() {
   const [prepIndex, setPrepIndex] = useState(0);   // Current item index
   const [prepStates, setPrepStates] = useState<Record<number, PrepStatus>>({}); // item index -> status
   const [prepSubmitting, setPrepSubmitting] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const startPreparation = (order: Order) => {
     setPrepOrder(order);
@@ -437,17 +438,26 @@ export default function SalesmanPortal() {
                     </div>
 
                     {/* Full Size Design Image */}
-                    <div className="relative group max-w-md mx-auto">
+                    <div className="relative group max-w-2xl mx-auto">
                       {item.selectedImageUrl ? (
-                        <div className="w-full h-80 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 shadow-inner flex items-center justify-center">
+                        <div 
+                          onClick={() => setLightboxUrl(item.selectedImageUrl || null)}
+                          className="w-full h-[500px] rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 shadow-inner flex items-center justify-center cursor-zoom-in group/img transition-all hover:border-[#5d51e8] hover:shadow-lg relative"
+                          title="Click to view full screen"
+                        >
                           <img 
                             src={item.selectedImageUrl} 
                             alt={item.nameEn}
                             className="max-w-full max-h-full object-contain"
                           />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity duration-200">
+                            <span className="bg-black/60 backdrop-blur-sm text-white text-xs font-black px-4 py-2 rounded-xl border border-white/10 shadow-lg">
+                              🔍 Click to Zoom Fullscreen
+                            </span>
+                          </div>
                         </div>
                       ) : (
-                        <div className="w-full h-85 rounded-2xl border border-dashed border-slate-250 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center text-slate-400 p-6">
+                        <div className="w-full h-[500px] rounded-2xl border border-dashed border-slate-250 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center text-slate-400 p-6">
                           <ShoppingBag className="w-12 h-12 stroke-[1.5] mb-2" />
                           <p className="text-xs font-bold">No Image Available for this Product</p>
                         </div>
@@ -620,6 +630,27 @@ export default function SalesmanPortal() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal for High Resolution Design Inspection */}
+      {lightboxUrl && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-200">
+          <button 
+            type="button"
+            onClick={() => setLightboxUrl(null)} 
+            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg"
+            title="Close Zoom"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="max-w-5xl max-h-[85vh] p-2 flex items-center justify-center">
+            <img 
+              src={lightboxUrl} 
+              alt="High-resolution design" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200"
+            />
           </div>
         </div>
       )}
