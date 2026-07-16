@@ -12,11 +12,13 @@ function getAdminApp() {
   // Try service account file path first
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
   if (serviceAccountPath) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const serviceAccount = require(serviceAccountPath.startsWith('.')
-      ? require('path').resolve(process.cwd(), serviceAccountPath)
-      : serviceAccountPath
-    );
+    const fs = require('fs');
+    const path = require('path');
+    const resolvedPath = serviceAccountPath.startsWith('.')
+      ? path.resolve(process.cwd(), serviceAccountPath)
+      : serviceAccountPath;
+    const fileContent = fs.readFileSync(resolvedPath, 'utf8');
+    const serviceAccount = JSON.parse(fileContent);
     return initializeApp({
       credential: cert(serviceAccount),
     });
