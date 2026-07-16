@@ -11,6 +11,7 @@ interface ProductDetailSheetProps {
   selectedVariantName?: string;
   onToggleSelect: (variantName?: string, imageUrl?: string) => void;
   lang: 'en' | 'hi';
+  priceRangePct?: number;
 }
 
 export default function ProductDetailSheet({
@@ -20,7 +21,8 @@ export default function ProductDetailSheet({
   selectedIds,
   selectedVariantName,
   onToggleSelect,
-  lang
+  lang,
+  priceRangePct = 5
 }: ProductDetailSheetProps) {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
@@ -172,7 +174,7 @@ export default function ProductDetailSheet({
               </h2>
               <div className="flex items-baseline gap-1 pt-1">
                 <span className="text-lg font-black text-[#5d51e8] dark:text-indigo-400">
-                  {getPriceRange(product.price)}
+                  {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
                 </span>
                 <span className="text-xs font-extrabold text-slate-400">
                   / {product.unit}
@@ -247,7 +249,7 @@ export default function ProductDetailSheet({
           <div className="text-left">
             <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">Total Price</span>
             <p className="text-base font-black text-slate-900 dark:text-white leading-none mt-0.5">
-              {getPriceRange(product.price)}
+              {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
             </p>
           </div>
 

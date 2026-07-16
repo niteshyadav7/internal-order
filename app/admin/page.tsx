@@ -29,15 +29,19 @@ import {
   updateOrder,
   subscribeToOrders,
   syncAdminProfile,
-  preRegisterUserProfile
+  preRegisterUserProfile,
+  getGlobalSettings,
+  updateGlobalSettings,
+  GlobalSettings
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { compressImage } from '../lib/image';
+import { useAuth } from '../context/AuthContext';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images } from 'lucide-react';
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal } from 'lucide-react';
 
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
@@ -58,6 +62,7 @@ import Button from '../components/atoms/Button';
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { userProfile } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'products' | 'fields' | 'notifications'>('users');
   
@@ -219,6 +224,28 @@ export default function AdminDashboard() {
   const [csvProductsToImport, setCsvProductsToImport] = useState<any[]>([]);
   const [adminToast, setAdminToast] = useState<{ message: string; type: ToastType; onClick?: () => void } | null>(null);
 
+  // Global B2B Settings
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsCategories, setSettingsCategories] = useState<string[]>([]);
+  const [settingsNewCategory, setSettingsNewCategory] = useState('');
+  const [settingsPriceRangePct, setSettingsPriceRangePct] = useState('5');
+  
+  // Product price range inputs (overrides)
+  const [newProdPriceRangePct, setNewProdPriceRangePct] = useState('');
+  const [newProdMinPrice, setNewProdMinPrice] = useState('');
+  const [newProdMaxPrice, setNewProdMaxPrice] = useState('');
+  const [isAddingCustomCategory, setIsAddingCustomCategory] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+
+  // Editing product states
+  const [editProdPriceRangePct, setEditProdPriceRangePct] = useState('');
+  const [editProdMinPrice, setEditProdMinPrice] = useState('');
+  const [editProdMaxPrice, setEditProdMaxPrice] = useState('');
+  const [isEditingCustomCategory, setIsEditingCustomCategory] = useState(false);
+  const [editCustomCategoryInput, setEditCustomCategoryInput] = useState('');
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
@@ -284,7 +311,7 @@ export default function AdminDashboard() {
         syncAdminProfile(currentUser.uid, currentUser.email || adminEmail);
       }
     }
-  }, [isAdmin, isFirebaseLoaded, adminEmail, router]);
+  }, [isAdmin, isFirebaseLoaded, adminEmail, router, auth?.currentUser]);
 
   // Real-time user profiles listener
   useEffect(() => {
@@ -406,9 +433,28 @@ export default function AdminDashboard() {
     };
   }, [isAdmin, isFirebaseLoaded]);
 
+  const fetchSettings = async () => {
+    setLoadingSettings(true);
+    try {
+      const settings = await getGlobalSettings();
+      setGlobalSettings(settings);
+      const cats = settings.categories || [];
+      setSettingsCategories(cats);
+      setSettingsPriceRangePct(String(settings.priceRangePct || 5));
+      if (cats.length > 0) {
+        setNewProdCategory(cats[0]);
+      }
+    } catch (err) {
+      console.error("Failed to load settings:", err);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
   useEffect(() => {
     if (isAdmin && isFirebaseLoaded && auth?.currentUser) {
       fetchFields(); // Load fields to resolve custom field IDs to labels
+      fetchSettings(); // Load global settings
       if (activeTab === 'products') {
         fetchProducts();
       } else if (activeTab === 'fields') {
@@ -438,6 +484,77 @@ export default function AdminDashboard() {
     } else {
       setProductSortField(field);
       setProductSortDirection('asc');
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cat = settingsNewCategory.trim();
+    if (!cat) return;
+    if (settingsCategories.map(c => c.toLowerCase()).includes(cat.toLowerCase())) {
+      alert("Category already exists!");
+      return;
+    }
+    const updatedCategories = [...settingsCategories, cat];
+    setSavingSettings(true);
+    try {
+      const success = await updateGlobalSettings({ categories: updatedCategories });
+      if (success) {
+        setSettingsCategories(updatedCategories);
+        setGlobalSettings(prev => prev ? { ...prev, categories: updatedCategories } : null);
+        setSettingsNewCategory('');
+        setAdminToast({ message: `Category "${cat}" added successfully!`, type: "success" });
+      } else {
+        alert("Failed to add category.");
+      }
+    } catch (err) {
+      console.error("Failed to add category:", err);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleRemoveCategory = async (catToRemove: string) => {
+    const confirmRemove = confirm(`Are you sure you want to remove the category "${catToRemove}"? Products in this category will not be deleted, but it will no longer be listed as active.`);
+    if (!confirmRemove) return;
+    const updatedCategories = settingsCategories.filter(c => c !== catToRemove);
+    setSavingSettings(true);
+    try {
+      const success = await updateGlobalSettings({ categories: updatedCategories });
+      if (success) {
+        setSettingsCategories(updatedCategories);
+        setGlobalSettings(prev => prev ? { ...prev, categories: updatedCategories } : null);
+        setAdminToast({ message: `Category "${catToRemove}" removed successfully!`, type: "success" });
+      } else {
+        alert("Failed to remove category.");
+      }
+    } catch (err) {
+      console.error("Failed to remove category:", err);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleSavePriceRangePct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pct = parseInt(settingsPriceRangePct, 10);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      alert("Price variance must be a number between 0 and 100.");
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      const success = await updateGlobalSettings({ priceRangePct: pct });
+      if (success) {
+        setGlobalSettings(prev => prev ? { ...prev, priceRangePct: pct } : null);
+        setAdminToast({ message: `Price range variance set to ±${pct}% successfully!`, type: "success" });
+      } else {
+        alert("Failed to save price range variance.");
+      }
+    } catch (err) {
+      console.error("Failed to save price range variance:", err);
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -789,6 +906,17 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleMarkOutOfStock = async (productId: string) => {
+    try {
+      await updateProduct(productId, { inStock: false });
+      setProductsList(prev => prev.map(p => p.id === productId ? { ...p, inStock: false } : p));
+      setAdminToast({ message: "Product marked as Out of Stock successfully!", type: "success" });
+    } catch (err) {
+      console.error("Failed to mark product out of stock:", err);
+      alert("Error marking product as out of stock.");
+    }
+  };
+
   const handleDeleteProduct = (id: string) => {
     setDeletingProductId(id);
   };
@@ -807,7 +935,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const startEditingProduct = (product: Product) => {
+  const startEditingProduct = (product: Product & { minPrice?: number; maxPrice?: number }) => {
     setEditingProduct(product);
     setEditProdNameEn(product.nameEn);
     setEditProdDescEn(product.descEn);
@@ -820,6 +948,9 @@ export default function AdminDashboard() {
     setEditProdDesign(product.design || '');
     setEditProdImages(product.images || []);
     setEditProdVariants(product.variants || []);
+    setEditProdPriceRangePct(product.priceRangePct !== undefined ? product.priceRangePct.toString() : '');
+    setEditProdMinPrice(product.minPrice !== undefined ? product.minPrice.toString() : '');
+    setEditProdMaxPrice(product.maxPrice !== undefined ? product.maxPrice.toString() : '');
   };
 
   const handleSaveEditedProduct = async (e: React.FormEvent) => {
@@ -844,7 +975,10 @@ export default function AdminDashboard() {
         code: editProdCode,
         design: editProdDesign,
         images: editProdImages,
-        variants: editProdVariants
+        variants: editProdVariants,
+        priceRangePct: editProdPriceRangePct.trim() ? parseFloat(editProdPriceRangePct) : (null as any),
+        minPrice: editProdMinPrice.trim() ? parseFloat(editProdMinPrice) : (null as any),
+        maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : (null as any)
       });
       setProductsList(prev => prev.map(p => p.id === editingProduct.id ? {
         ...p,
@@ -860,7 +994,10 @@ export default function AdminDashboard() {
         code: editProdCode,
         design: editProdDesign,
         images: editProdImages,
-        variants: editProdVariants
+        variants: editProdVariants,
+        priceRangePct: editProdPriceRangePct.trim() ? parseFloat(editProdPriceRangePct) : undefined,
+        minPrice: editProdMinPrice.trim() ? parseFloat(editProdMinPrice) : undefined,
+        maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : undefined
       } : p));
       setEditingProduct(null);
     } catch (err) {
@@ -926,8 +1063,11 @@ export default function AdminDashboard() {
         code: newProdCode,
         design: newProdDesign,
         images: newProdImages,
-        variants: newProdVariants
-      });
+        variants: newProdVariants,
+        priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
+        minPrice: newProdMinPrice.trim() ? parseFloat(newProdMinPrice) : undefined,
+        maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
+      } as any);
       if (addedProduct) {
         setProductsList(prev => [addedProduct, ...prev]);
         setNewProdNameEn('');
@@ -935,12 +1075,15 @@ export default function AdminDashboard() {
         setNewProdPrice('');
         setNewProdUnit('Trip');
         setNewProdImageUrl('gradient-indigo');
-        setNewProdCategory('Electronics');
+        setNewProdCategory(settingsCategories[0] || 'Electronics');
         setNewProdInStock(true);
         setNewProdCode('');
         setNewProdDesign('');
         setNewProdImages([]);
         setNewProdVariants([]);
+        setNewProdPriceRangePct('');
+        setNewProdMinPrice('');
+        setNewProdMaxPrice('');
       }
     } catch (err) {
       console.error("Failed to add product:", err);
@@ -1001,9 +1144,12 @@ export default function AdminDashboard() {
       '# HINT: imageUrl = Primary main thumbnail image shown on storefront grid (essential for backward compatibility).',
       '# HINT: images = Semicolon-separated list of gallery image URLs (e.g. url1;url2;url3) showing inside the product detail gallery.',
       '# HINT: variants = Semicolon-separated list of variant/model names mapped to image index (e.g. Red:0;Blue:1;Green:2).',
-      '# HINT: category = One of: Electronics, Fashion, Home & Kitchen, Beauty & Care, Furniture & Decor, Fitness.'
+      '# HINT: category = One of your active dynamic categories. If a new category is imported, it will automatically register in the system.',
+      '# HINT: priceRangePct = Custom price range variance percentage override for this product (optional).',
+      '# HINT: minPrice = Custom absolute minimum price range override (optional).',
+      '# HINT: maxPrice = Custom absolute maximum price range override (optional).'
     ];
-    const headers = ['nameEn', 'descEn', 'price', 'unit', 'category', 'imageUrl', 'images', 'variants'];
+    const headers = ['nameEn', 'descEn', 'price', 'unit', 'category', 'imageUrl', 'images', 'variants', 'priceRangePct', 'minPrice', 'maxPrice'];
     const sampleRow = [
       '"iPhone 15 Pro Max"',
       '"Sleek Titanium design featuring A17 Pro chip"',
@@ -1012,7 +1158,10 @@ export default function AdminDashboard() {
       '"Electronics"',
       '"https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&q=80"',
       '"https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&q=80;https://images.unsplash.com/photo-1695048132924-607213e4b7bf?w=600&q=80;https://images.unsplash.com/photo-1695048704763-23e59048a12e?w=600&q=80"',
-      '"Natural Titanium:0;Blue Titanium:1;White Titanium:2"'
+      '"Natural Titanium:0;Blue Titanium:1;White Titanium:2"',
+      '""',
+      '""',
+      '""'
     ];
     const csvContent = [...hints, headers.join(','), sampleRow.join(',')].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1114,6 +1263,14 @@ export default function AdminDashboard() {
         const code = item.code || '';
         const design = item.design || '';
 
+        // Auto-register category if not exists
+        if (category && !settingsCategories.includes(category)) {
+          const updatedCategories = [...settingsCategories, category];
+          await updateGlobalSettings({ categories: updatedCategories });
+          settingsCategories.push(category);
+          setSettingsCategories([...settingsCategories]);
+        }
+
         let images: ProductImage[] = [];
         if (item.images) {
           const urlList = item.images.split(';').map((url: string) => url.trim()).filter(Boolean);
@@ -1144,6 +1301,11 @@ export default function AdminDashboard() {
           console.warn("Skipping invalid CSV product record:", item);
           continue;
         }
+
+        const priceRangePctVal = item.priceRangePct ? parseFloat(item.priceRangePct) : undefined;
+        const minPriceVal = item.minPrice ? parseFloat(item.minPrice) : undefined;
+        const maxPriceVal = item.maxPrice ? parseFloat(item.maxPrice) : undefined;
+
         await createProduct({
           nameEn,
           nameHi,
@@ -1156,8 +1318,11 @@ export default function AdminDashboard() {
           code,
           design,
           images,
-          variants
-        });
+          variants,
+          priceRangePct: isNaN(priceRangePctVal as any) ? undefined : priceRangePctVal,
+          minPrice: isNaN(minPriceVal as any) ? undefined : minPriceVal,
+          maxPrice: isNaN(maxPriceVal as any) ? undefined : maxPriceVal
+        } as any);
         successCount++;
       }
       alert(`Successfully imported ${successCount} products!`);
@@ -1363,8 +1528,39 @@ export default function AdminDashboard() {
 
   const filteredUsers = getFilteredAndSortedUsers();
 
-  if (checkingSession || !isAdmin || !isFirebaseLoaded) {
+  if (checkingSession || !isAdmin || !isFirebaseLoaded || (auth?.currentUser && !userProfile)) {
     return <Loader fullscreen text="Verifying administrator credentials..." />;
+  }
+
+  // Deny access if user is not an admin
+  if (userProfile && userProfile.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 p-6 font-sans">
+        <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl text-center space-y-6 animate-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 bg-rose-100 dark:bg-rose-955/20 text-rose-605 rounded-full flex items-center justify-center mx-auto border border-rose-200/50 dark:border-rose-900/50">
+            <XCircle className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-slate-905 dark:text-white">Access Denied</h2>
+            <p className="text-xs font-semibold text-slate-450 dark:text-zinc-550 leading-relaxed">
+              Your account does not have administrator privileges. Only administrators can access the admin panel.
+            </p>
+          </div>
+          <Button variant="danger" className="w-full" onClick={async () => {
+            try {
+              await fetch('/api/admin/logout', { method: 'POST' });
+              if (auth) await signOut(auth);
+              router.push('/admin/login');
+            } catch (err) {
+              console.error(err);
+              router.push('/admin/login');
+            }
+          }}>
+            Log Out & Go Back
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1409,7 +1605,7 @@ export default function AdminDashboard() {
                   <div className="text-left">
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">Firebase Authentication Inactive</h4>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
-                      This domain (<code className="bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-[10px]">balajitextiles.phyteam.com</code>) is not authorized in your Firebase Console. Database actions (Approve, Reject, Delete) will fail until authorized.
+                      This domain (<code className="bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-[10px]">{typeof window !== 'undefined' ? window.location.hostname : ''}</code>) is not authorized in your Firebase Console. Database actions (Approve, Reject, Delete) will fail until authorized.
                     </p>
                   </div>
                 </div>
@@ -1641,6 +1837,8 @@ export default function AdminDashboard() {
                   onDeleteOrder={handleDeleteOrder}
                   onUpdateOrder={handleUpdateOrderDetails}
                   getFieldLabel={getFieldLabel}
+                  onMarkOutOfStock={handleMarkOutOfStock}
+                  productsList={productsList}
                 />
               </div>
             )}
@@ -1648,6 +1846,7 @@ export default function AdminDashboard() {
             {/* Tab 3: Catalog/Products Management View */}
             {activeTab === 'products' && (
               <div className="space-y-6 animate-in fade-in duration-300">
+
                 {/* Add Product Form Inline Header */}
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-md">
                   <div className="flex justify-between items-center cursor-pointer select-none" onClick={() => setAddingProduct(!addingProduct)}>
@@ -1661,228 +1860,549 @@ export default function AdminDashboard() {
                   </div>
 
                   {addingProduct && (
-                    <form onSubmit={handleAddProduct} className="space-y-4 mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800/80 animate-in slide-in-from-top-4 duration-300">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input
-                          label="Product Name"
-                          required
-                          value={newProdNameEn}
-                          onChange={(e) => setNewProdNameEn(e.target.value)}
-                          placeholder="e.g. iPhone 15 Pro"
-                        />
-                        <Input
-                          label="Description"
-                          value={newProdDescEn}
-                          onChange={(e) => setNewProdDescEn(e.target.value)}
-                          placeholder="Product description..."
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input
-                          label="Product Code"
-                          required
-                          value={newProdCode}
-                          onChange={(e) => setNewProdCode(e.target.value)}
-                          placeholder="e.g. SKU-100"
-                        />
-                        <Input
-                          label="Design Identifier"
-                          required
-                          value={newProdDesign}
-                          onChange={(e) => setNewProdDesign(e.target.value)}
-                          placeholder="e.g. Design-A"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        <Input
-                          label="Price (INR)"
-                          type="number"
-                          required
-                          value={newProdPrice}
-                          onChange={(e) => setNewProdPrice(e.target.value)}
-                          placeholder="₹ Price"
-                        />
-                        <Input
-                          label="Unit"
-                          required
-                          value={newProdUnit}
-                          onChange={(e) => setNewProdUnit(e.target.value)}
-                          placeholder="e.g. Trip, Piece, Box"
-                        />
-                        <Select
-                          label="Category"
-                          value={newProdCategory}
-                          onChange={(e) => setNewProdCategory(e.target.value)}
-                        >
-                          <option value="Electronics">Electronics</option>
-                          <option value="Fashion">Fashion</option>
-                          <option value="Home & Kitchen">Home & Kitchen</option>
-                          <option value="Beauty & Care">Beauty & Care</option>
-                          <option value="Furniture & Decor">Furniture & Decor</option>
-                          <option value="Fitness">Fitness</option>
-                        </Select>
-                      </div>
-
-                      {/* Multi-Image Upload Section */}
-                      <div className="space-y-2 animate-in fade-in duration-200">
-                        <label className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-1.5">
-                          <Images className="w-3 h-3" />
-                          Product Images ({newProdImages.length}/8)
-                        </label>
-
-                        {/* Uploaded Images Grid */}
-                        {newProdImages.length > 0 && (
-                          <div className="flex flex-wrap gap-3 p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-2xl">
-                            {newProdImages.map((img, idx) => (
-                              <div key={idx} className="relative group flex flex-col items-center gap-1.5">
-                                <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-slate-200 dark:border-zinc-700 shadow-sm">
-                                  <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setNewProdImages(prev => {
-                                        const updated = prev.filter((_, i) => i !== idx);
-                                        // Re-label all images
-                                        return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
-                                      });
-                                    }}
-                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white cursor-pointer"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase">{img.label}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Upload Zone */}
-                        {newProdImages.length < 8 && (
-                          <div className="space-y-3">
-                            <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-2xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors group">
-                              {isNewProdCompressing ? (
-                                <div className="flex flex-col items-center space-y-2 py-2">
-                                  <Loader2 className="w-7 h-7 animate-spin text-[#5d51e8]" />
-                                  <span className="text-xs font-bold text-slate-500">Compressing & optimizing...</span>
-                                </div>
-                              ) : (
-                                <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full py-2">
-                                  <div className="p-2 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
-                                    <Upload className="w-5 h-5" />
-                                  </div>
-                                  <div className="text-center">
-                                    <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload images</span>
-                                    <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">JPG, PNG, WebP • Max 8 images • Auto-compressed</span>
-                                  </div>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleNewProdFileChange}
-                                    className="hidden"
-                                  />
-                                </label>
-                              )}
-                            </div>
-
-                            {/* URL paste input */}
-                            <div className="flex gap-2">
-                              <input
-                                type="url"
-                                placeholder="Or paste image URL here..."
-                                value={newProdImageUrlInput}
-                                onChange={(e) => setNewProdImageUrlInput(e.target.value)}
-                                className="flex-grow px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-450"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (newProdImageUrlInput.trim()) {
-                                    setNewProdImages(prev => [
-                                      ...prev,
-                                      { url: newProdImageUrlInput.trim(), label: `Image ${prev.length + 1}` }
-                                    ]);
-                                    setNewProdImageUrlInput('');
-                                  }
-                                }}
-                                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-100 dark:border-indigo-900/40 cursor-pointer transition-all active:scale-95"
-                              >
-                                Add URL
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Variants / Models Section */}
-                      <div className="space-y-2 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] uppercase font-black text-slate-400">
-                            Variants / Models ({newProdVariants.length})
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewProdVariants(prev => [...prev, {
-                                id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-                                name: '',
-                                imageIndex: 0
-                              }]);
-                            }}
-                            className="flex items-center gap-1 text-[10px] font-black text-[#5d51e8] hover:text-[#4b3fd3] cursor-pointer transition-colors"
-                          >
-                            <Plus className="w-3 h-3" /> Add Variant
-                          </button>
+                    <form onSubmit={handleAddProduct} className="space-y-6 mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800/80 animate-in slide-in-from-top-4 duration-300">
+                      
+                      {/* STEP 1: Product Basics */}
+                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-805 rounded-2xl p-5 space-y-4 text-left">
+                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">1</span>
+                          <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Product Basics</h4>
                         </div>
-
-                        {newProdVariants.length > 0 && (
-                          <div className="space-y-2 p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-2xl">
-                            {newProdVariants.map((variant, idx) => (
-                              <div key={variant.id} className="flex items-center gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <Input
+                            label="Product Name"
+                            required
+                            value={newProdNameEn}
+                            onChange={(e) => setNewProdNameEn(e.target.value)}
+                            placeholder="e.g. iPhone 15 Pro"
+                          />
+                          <Input
+                            label="Description"
+                            value={newProdDescEn}
+                            onChange={(e) => setNewProdDescEn(e.target.value)}
+                            placeholder="Product description..."
+                          />
+                        </div>
+                        <div>
+                          {isAddingCustomCategory ? (
+                            <div className="space-y-1 animate-in fade-in duration-200">
+                              <label className="text-[10px] uppercase font-black text-slate-400">Custom Category Name</label>
+                              <div className="flex gap-2">
                                 <input
                                   type="text"
-                                  value={variant.name}
-                                  onChange={(e) => {
-                                    setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, name: e.target.value } : v));
-                                  }}
-                                  placeholder={`e.g. Model-${String.fromCharCode(65 + idx)}, Red, 128GB`}
-                                  className="flex-1 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                                  placeholder="e.g. Textiles, Toys..."
+                                  value={customCategoryInput}
+                                  onChange={(e) => setCustomCategoryInput(e.target.value)}
+                                  className="flex-grow px-3 py-2 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400"
                                 />
-                                <select
-                                  value={variant.imageIndex}
-                                  onChange={(e) => {
-                                    setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, imageIndex: parseInt(e.target.value) } : v));
-                                  }}
-                                  className="w-28 px-2 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800"
-                                >
-                                  {newProdImages.length > 0 ? (
-                                    newProdImages.map((img, imgIdx) => (
-                                      <option key={imgIdx} value={imgIdx}>{img.label}</option>
-                                    ))
-                                  ) : (
-                                    <option value={0}>No images</option>
-                                  )}
-                                </select>
                                 <button
                                   type="button"
-                                  onClick={() => setNewProdVariants(prev => prev.filter((_, i) => i !== idx))}
-                                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
+                                  onClick={async () => {
+                                    const cat = customCategoryInput.trim();
+                                    if (!cat) return;
+                                    if (settingsCategories.map(c => c.toLowerCase()).includes(cat.toLowerCase())) {
+                                      setNewProdCategory(settingsCategories.find(c => c.toLowerCase() === cat.toLowerCase()) || cat);
+                                      setIsAddingCustomCategory(false);
+                                      setCustomCategoryInput('');
+                                      return;
+                                    }
+                                    const updated = [...settingsCategories, cat];
+                                    setSavingSettings(true);
+                                    try {
+                                      await updateGlobalSettings({ categories: updated });
+                                      setSettingsCategories(updated);
+                                      setGlobalSettings(prev => prev ? { ...prev, categories: updated } : null);
+                                      setNewProdCategory(cat);
+                                      setCustomCategoryInput('');
+                                      setIsAddingCustomCategory(false);
+                                      setAdminToast({ message: `Category "${cat}" added successfully!`, type: "success" });
+                                    } catch (err) {
+                                      console.error(err);
+                                    } finally {
+                                      setSavingSettings(false);
+                                    }
+                                  }}
+                                  className="px-3 py-2 bg-[#5d51e8] hover:bg-[#4b3fd3] text-white text-xs font-black rounded-xl cursor-pointer shadow transition-all"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Add
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsAddingCustomCategory(false)}
+                                  className="px-3 py-2 bg-slate-150 hover:bg-slate-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-350 text-xs font-black rounded-xl cursor-pointer transition-all"
+                                >
+                                  Cancel
                                 </button>
                               </div>
-                            ))}
-                          </div>
-                        )}
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-baseline">
+                                <label className="text-[10px] uppercase font-black text-slate-400">Category</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsAddingCustomCategory(true)}
+                                  className="text-[9px] text-[#5d51e8] font-black hover:underline cursor-pointer"
+                                >
+                                  + New Category
+                                </button>
+                              </div>
+                              <select
+                                value={newProdCategory}
+                                onChange={(e) => setNewProdCategory(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 cursor-pointer"
+                              >
+                                {settingsCategories.map((cat) => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="pt-1 animate-in fade-in duration-200">
-                        <Checkbox
-                          label="Available In Stock"
-                          checked={newProdInStock}
-                          onChange={(e) => setNewProdInStock(e.target.checked)}
-                        />
+                      {/* STEP 2: Pricing & B2B Range */}
+                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
+                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">2</span>
+                          <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Pricing & B2B Range</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <Input
+                            label="Price (INR)"
+                            type="number"
+                            required
+                            value={newProdPrice}
+                            onChange={(e) => setNewProdPrice(e.target.value)}
+                            placeholder="₹ Price"
+                          />
+                          <div className="space-y-1">
+                            <Input
+                              label="Unit"
+                              required
+                              value={newProdUnit}
+                              onChange={(e) => setNewProdUnit(e.target.value)}
+                              placeholder="e.g. Trip, Piece, Box"
+                            />
+                            {/* Quick Unit select chips */}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {['Mtr', 'Pcs', 'Kg', 'Box', 'Set', 'Yard', 'Trip'].map(unit => (
+                                <button
+                                  key={unit}
+                                  type="button"
+                                  onClick={() => setNewProdUnit(unit)}
+                                  className={`px-2 py-0.5 text-[9px] font-black rounded border transition-all cursor-pointer ${
+                                    newProdUnit === unit 
+                                      ? 'bg-[#5d51e8] text-white border-[#5d51e8]' 
+                                      : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-zinc-800 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  {unit}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Variance & Custom Range setups */}
+                        <div className="p-4 bg-slate-50/50 dark:bg-zinc-955/10 border border-slate-200/60 dark:border-zinc-850 rounded-xl space-y-4">
+                          <div className="space-y-1">
+                            <h4 className="text-[10px] uppercase font-black text-slate-405 flex items-center gap-1">
+                              <SlidersHorizontal className="w-3 h-3 text-[#5d51e8]" />
+                              B2B Price Range Setup (Optional)
+                            </h4>
+                            <p className="text-[9px] text-slate-400 font-bold leading-normal">
+                              Specify custom variance percentage or absolute Min/Max bounds. Otherwise, defaults to global ±{globalSettings?.priceRangePct || 5}%.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Input
+                              label="Price Variance (%)"
+                              type="number"
+                              value={newProdPriceRangePct}
+                              onChange={(e) => {
+                                setNewProdPriceRangePct(e.target.value);
+                                if (e.target.value) {
+                                  setNewProdMinPrice('');
+                                  setNewProdMaxPrice('');
+                                }
+                              }}
+                              placeholder="e.g. 10"
+                            />
+                            <Input
+                              label="Custom Min Price (INR)"
+                              type="number"
+                              value={newProdMinPrice}
+                              onChange={(e) => {
+                                setNewProdMinPrice(e.target.value);
+                                if (e.target.value) setNewProdPriceRangePct('');
+                              }}
+                              placeholder="Min value override"
+                            />
+                            <Input
+                              label="Custom Max Price (INR)"
+                              type="number"
+                              value={newProdMaxPrice}
+                              onChange={(e) => {
+                                setNewProdMaxPrice(e.target.value);
+                                if (e.target.value) setNewProdPriceRangePct('');
+                              }}
+                              placeholder="Max value override"
+                            />
+                          </div>
+
+                          {/* Dynamic Sliders bounded around the original base price */}
+                          {(() => {
+                            const base = parseFloat(newProdPrice);
+                            if (isNaN(base) || base <= 0) return null;
+
+                            const minLimit = Math.floor(base * 0.5);
+                            const maxLimit = Math.ceil(base * 1.5);
+                            const currentMin = parseFloat(newProdMinPrice) || base;
+                            const currentMax = parseFloat(newProdMaxPrice) || base;
+
+                            return (
+                              <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60">
+                                <span className="text-[10px] font-black text-slate-450 uppercase block">Interactive Range Adjusters</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
+                                      <span>Min Price: ₹{currentMin}</span>
+                                      <span>Limit: ₹{minLimit} - ₹{base}</span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min={minLimit}
+                                      max={base}
+                                      value={currentMin}
+                                      onChange={(e) => {
+                                        setNewProdMinPrice(e.target.value);
+                                        setNewProdPriceRangePct('');
+                                      }}
+                                      className="w-full accent-[#5d51e8] h-1 bg-slate-200 dark:bg-zinc-805 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
+                                      <span>Max Price: ₹{currentMax}</span>
+                                      <span>Limit: ₹{base} - ₹{maxLimit}</span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min={base}
+                                      max={maxLimit}
+                                      value={currentMax}
+                                      onChange={(e) => {
+                                        setNewProdMaxPrice(e.target.value);
+                                        setNewProdPriceRangePct('');
+                                      }}
+                                      className="w-full accent-[#5d51e8] h-1 bg-slate-200 dark:bg-zinc-805 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Live storefront price range preview */}
+                          {(() => {
+                            const price = parseFloat(newProdPrice);
+                            if (isNaN(price) || price <= 0) return null;
+
+                            const minVal = parseFloat(newProdMinPrice);
+                            const maxVal = parseFloat(newProdMaxPrice);
+                            const unit = newProdUnit || 'Unit';
+
+                            let displayRange = '';
+                            let reason = '';
+
+                            if (!isNaN(minVal) && !isNaN(maxVal) && minVal > 0 && maxVal > 0) {
+                              displayRange = `₹${minVal.toLocaleString('en-IN')} - ₹${maxVal.toLocaleString('en-IN')}`;
+                              reason = 'Custom Min/Max overrides';
+                            } else {
+                              const pct = parseFloat(newProdPriceRangePct);
+                              const finalPct = !isNaN(pct) && pct >= 0 && pct <= 100 ? pct : (globalSettings?.priceRangePct || 5);
+                              const factor = finalPct / 100;
+                              const minCalculated = Math.floor(price * (1 - factor));
+                              const maxCalculated = Math.ceil(price * (1 + factor));
+                              displayRange = `₹${minCalculated.toLocaleString('en-IN')} - ₹${maxCalculated.toLocaleString('en-IN')}`;
+                              reason = !isNaN(pct) ? `Custom ±${finalPct}% variance` : `Global default ±${finalPct}%`;
+                            }
+
+                            return (
+                              <div className="mt-2 p-3 bg-emerald-50/50 dark:bg-emerald-955/10 border border-emerald-200/60 dark:border-emerald-900/35 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                                <div className="text-left">
+                                  <span className="text-[9px] uppercase font-black tracking-wider text-emerald-600 dark:text-emerald-400 block">Live Price Range Preview</span>
+                                  <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300">{displayRange} <span className="text-[10px] font-bold text-slate-400">/ {unit}</span></span>
+                                </div>
+                                <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                                  {reason}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* STEP 3: Catalog Codes */}
+                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
+                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">3</span>
+                          <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <Input
+                            label="Product Code"
+                            required
+                            value={newProdCode}
+                            onChange={(e) => setNewProdCode(e.target.value)}
+                            placeholder="e.g. SKU-100"
+                          />
+                          <Input
+                            label="Design Identifier"
+                            required
+                            value={newProdDesign}
+                            onChange={(e) => setNewProdDesign(e.target.value)}
+                            placeholder="e.g. Design-A"
+                          />
+                        </div>
+                        <div className="pt-1">
+                          <Checkbox
+                            label="Available In Stock"
+                            checked={newProdInStock}
+                            onChange={(e) => setNewProdInStock(e.target.checked)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* STEP 4: Media & Variants */}
+                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
+                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">4</span>
+                          <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Product Media & Variants</h4>
+                        </div>
+
+                        {/* Multi-Image Section */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] uppercase font-black text-slate-405 flex items-center gap-1.5">
+                            <Images className="w-3.5 h-3.5 text-[#5d51e8]" />
+                            Product Images ({newProdImages.length})
+                          </label>
+
+                          {/* Uploaded Images Grid */}
+                          {newProdImages.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-slate-50/50 dark:bg-zinc-955/10 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                              {newProdImages.map((img, idx) => (
+                                <div key={idx} className="relative group flex flex-col items-center gap-1.5 p-1 border border-slate-100 dark:border-zinc-850 bg-white dark:bg-zinc-900 rounded-xl animate-in zoom-in-95 duration-200">
+                                  <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                    <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+                                    
+                                    {/* Action: remove image */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setNewProdImages(prev => {
+                                          const updated = prev.filter((_, i) => i !== idx);
+                                          return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
+                                        });
+                                      }}
+                                      className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+                                      title="Delete Image"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {/* Cover photo indicator/swap action */}
+                                    {idx === 0 ? (
+                                      <span className="absolute bottom-1 left-1 bg-emerald-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-sm border border-emerald-400">
+                                        ⭐ Cover
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewProdImages(prev => {
+                                            const updated = [...prev];
+                                            const selected = updated[idx];
+                                            updated.splice(idx, 1);
+                                            updated.unshift(selected);
+                                            return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
+                                          });
+                                        }}
+                                        className="absolute bottom-1 left-1 bg-black/65 hover:bg-[#5d51e8] text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all cursor-pointer border border-white/10"
+                                      >
+                                        Set Cover
+                                      </button>
+                                    )}
+                                  </div>
+                                  <span className="text-[9px] font-black text-slate-400 uppercase truncate max-w-full px-1">{img.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Upload Zone */}
+                          {true && (
+                            <div className="space-y-3">
+                              <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors group">
+                                {isNewProdCompressing ? (
+                                  <div className="flex flex-col items-center space-y-2 py-2">
+                                    <Loader2 className="w-7 h-7 animate-spin text-[#5d51e8]" />
+                                    <span className="text-xs font-bold text-slate-500">Compressing & optimizing...</span>
+                                  </div>
+                                ) : (
+                                  <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full py-2">
+                                    <div className="p-2 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
+                                      <Upload className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-center">
+                                      <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload images</span>
+                                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">JPG, PNG, WebP • Auto-compressed</span>
+                                    </div>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      onChange={handleNewProdFileChange}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                )}
+                              </div>
+
+                              {/* URL paste input */}
+                              <div className="flex gap-2">
+                                <input
+                                  type="url"
+                                  placeholder="Or paste image URL here..."
+                                  value={newProdImageUrlInput}
+                                  onChange={(e) => setNewProdImageUrlInput(e.target.value)}
+                                  className="flex-grow px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-450"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (newProdImageUrlInput.trim()) {
+                                      setNewProdImages(prev => [
+                                        ...prev,
+                                        { url: newProdImageUrlInput.trim(), label: `Image ${prev.length + 1}` }
+                                      ]);
+                                      setNewProdImageUrlInput('');
+                                    }
+                                  }}
+                                  className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-955/20 text-[#5d51e8] dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-100 dark:border-indigo-900/40 cursor-pointer transition-all active:scale-95"
+                                >
+                                  Add URL
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Variants Section */}
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] uppercase font-black text-slate-455 flex items-center gap-1">
+                              Variants / Models ({newProdVariants.length})
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewProdVariants(prev => [...prev, {
+                                  id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                                  name: '',
+                                  imageIndex: 0
+                                }]);
+                              }}
+                              className="flex items-center gap-1 text-[10px] font-black text-[#5d51e8] hover:text-[#4b3fd3] cursor-pointer transition-colors"
+                            >
+                              <Plus className="w-3 h-3" /> Add Variant
+                            </button>
+                          </div>
+
+                          {newProdVariants.length > 0 && (
+                            <div className="space-y-3 p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                              {newProdVariants.map((variant, idx) => (
+                                <div key={variant.id} className="p-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-xl space-y-2.5 animate-in slide-in-from-left-2 duration-200 relative">
+                                  
+                                  {/* Top row: Name input and delete button */}
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 space-y-1">
+                                      <label className="text-[8px] uppercase font-black text-slate-400 block">Variant Name / Spec</label>
+                                      <input
+                                        type="text"
+                                        required
+                                        value={variant.name}
+                                        onChange={(e) => {
+                                          setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, name: e.target.value } : v));
+                                        }}
+                                        placeholder={`e.g. Model-${String.fromCharCode(65 + idx)}, Red, XL`}
+                                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setNewProdVariants(prev => prev.filter((_, i) => i !== idx))}
+                                      className="p-1.5 mt-4 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
+                                      title="Delete Variant"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+
+                                  {/* Suggestion Chips */}
+                                  <div className="flex flex-wrap gap-1">
+                                    {['Red', 'Blue', 'Green', 'Black', 'White', 'S', 'M', 'L', 'XL', 'Standard', 'Premium'].map(chip => (
+                                      <button
+                                        key={chip}
+                                        type="button"
+                                        onClick={() => {
+                                          setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, name: chip } : v));
+                                        }}
+                                        className="px-1.5 py-0.5 text-[8px] font-black rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                                      >
+                                        {chip}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Visual Thumbnail Bar */}
+                                  <div className="space-y-1">
+                                    <span className="text-[8px] uppercase font-black text-slate-400 block">Associate Photo</span>
+                                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                                      {newProdImages.length > 0 ? (
+                                        newProdImages.map((img, imgIdx) => (
+                                          <button
+                                            key={imgIdx}
+                                            type="button"
+                                            onClick={() => {
+                                              setNewProdVariants(prev => prev.map((v, i) => i === idx ? { ...v, imageIndex: imgIdx } : v));
+                                            }}
+                                            className={`relative w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                                              variant.imageIndex === imgIdx 
+                                                ? 'border-[#5d51e8] ring-2 ring-[#5d51e8]/20 scale-95' 
+                                                : 'border-slate-200 dark:border-zinc-800 opacity-60 hover:opacity-100'
+                                            }`}
+                                          >
+                                            <img src={img.url} className="w-full h-full object-cover" alt="" />
+                                            {variant.imageIndex === imgIdx && (
+                                              <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                                                <span className="text-[9px] text-white bg-[#5d51e8] rounded-full w-4 h-4 flex items-center justify-center font-black">✓</span>
+                                              </div>
+                                            )}
+                                          </button>
+                                        ))
+                                      ) : (
+                                        <span className="text-[9px] font-bold text-slate-400 block py-1">Please upload product images above first!</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
@@ -2147,6 +2667,7 @@ export default function AdminDashboard() {
         onUnitChange={setEditProdUnit}
         category={editProdCategory}
         onCategoryChange={setEditProdCategory}
+        categoriesList={settingsCategories}
         images={editProdImages}
         onImagesChange={setEditProdImages}
         variants={editProdVariants}
@@ -2159,6 +2680,12 @@ export default function AdminDashboard() {
         onDesignChange={setEditProdDesign}
         onSave={handleSaveEditedProduct}
         saving={savingEditedProduct}
+        priceRangePct={editProdPriceRangePct}
+        onPriceRangePctChange={setEditProdPriceRangePct}
+        minPrice={editProdMinPrice}
+        onMinPriceChange={setEditProdMinPrice}
+        maxPrice={editProdMaxPrice}
+        onMaxPriceChange={setEditProdMaxPrice}
       />
 
       {adminToast && (

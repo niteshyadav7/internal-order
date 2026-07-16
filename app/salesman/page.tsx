@@ -8,8 +8,10 @@ import {
   subscribeToOrders,
   claimOrder,
   completeOrder,
+  updateOrder,
   releaseOrder,
-  getPriceRange
+  getPriceRange,
+  getGlobalSettings
 } from '../lib/db';
 import {
   ShoppingBag,
@@ -20,7 +22,9 @@ import {
   Calendar,
   Truck,
   Sparkles,
-  Loader2
+  Loader2,
+  X,
+  XCircle
 } from 'lucide-react';
 import Button from '../components/atoms/Button';
 
@@ -41,6 +45,14 @@ export default function SalesmanPortal() {
     document.title = tabTitles[activeTab] || 'Salesman Portal';
   }, [activeTab]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const [priceRangePct, setPriceRangePct] = useState(5);
+
+  useEffect(() => {
+    getGlobalSettings().then(settings => {
+      setPriceRangePct(settings.priceRangePct || 5);
+    });
+  }, []);
 
   // Authenticate user and restrict access to Salesmen only
   useEffect(() => {
@@ -369,7 +381,25 @@ function OrderCard({
           </div>
           <div className="text-right">
             <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">Total Est Range</span>
-            <span className="text-xs font-black text-slate-900 dark:text-white">{getPriceRange(orderTotal)}</span>
+            <span className="text-xs font-black text-slate-900 dark:text-white">
+              {(() => {
+                let minTotal = 0;
+                let maxTotal = 0;
+                order.items.forEach(item => {
+                  const qty = item.quantity || 1;
+                  if (item.minPrice !== undefined && item.maxPrice !== undefined && item.minPrice !== null && item.maxPrice !== null && item.minPrice > 0 && item.maxPrice > 0) {
+                    minTotal += item.minPrice * qty;
+                    maxTotal += item.maxPrice * qty;
+                  } else {
+                    const itemPct = item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct;
+                    const factor = itemPct / 100;
+                    minTotal += item.price * (1 - factor) * qty;
+                    maxTotal += item.price * (1 + factor) * qty;
+                  }
+                });
+                return `₹${Math.floor(minTotal).toLocaleString('en-IN')} - ₹${Math.ceil(maxTotal).toLocaleString('en-IN')}`;
+              })()}
+            </span>
           </div>
         </div>
       </div>

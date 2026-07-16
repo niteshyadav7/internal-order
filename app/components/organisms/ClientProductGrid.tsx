@@ -23,6 +23,8 @@ function ReelProductCard({
   searchQuery,
   priceFilter,
   absoluteMaxPrice,
+  priceRangePct = 5,
+  activeReelIdx,
 }: {
   product: Product;
   idx: number;
@@ -37,6 +39,8 @@ function ReelProductCard({
   searchQuery: string;
   priceFilter: number;
   absoluteMaxPrice: number;
+  priceRangePct?: number;
+  activeReelIdx: number;
 }) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const touchStartX = useRef(0);
@@ -108,7 +112,9 @@ function ReelProductCard({
           src={currentImageUrl}
           alt={product.nameEn}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none select-none"
-          loading={idx < 3 ? 'eager' : 'lazy'}
+          loading={idx === activeReelIdx ? 'eager' : 'lazy'}
+          // @ts-ignore
+          fetchPriority={idx === activeReelIdx ? 'high' : 'auto'}
           draggable={false}
         />
       ) : (
@@ -225,7 +231,7 @@ function ReelProductCard({
           {/* Price — vibrant green accent */}
           <div className="flex items-baseline gap-1.5">
             <span className="text-xl font-black text-emerald-400 drop-shadow-md">
-              {getPriceRange(product.price)}
+              {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
             </span>
             <span className="text-xs font-extrabold text-emerald-400/40">
               / {product.unit}
@@ -317,6 +323,10 @@ interface ClientProductGridProps {
   t: (key: string) => string;
   profileName: string;
   getProductIcon: (category: string, size?: string) => React.ReactNode;
+  categoriesList: string[];
+  priceRangePct: number;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
 }
 
 // Hook for detecting mobile viewport
@@ -344,7 +354,11 @@ export default function ClientProductGrid({
   lang,
   t,
   profileName,
-  getProductIcon
+  getProductIcon,
+  categoriesList = [],
+  priceRangePct = 5,
+  onLoadMore,
+  hasMore = false
 }: ClientProductGridProps) {
   const isMobile = useIsMobile();
   const [visibleCount, setVisibleCount] = useState(12);
@@ -432,8 +446,15 @@ export default function ClientProductGrid({
     const scrollTop = container.scrollTop;
     const height = container.clientHeight;
     const idx = Math.round(scrollTop / height);
-    setActiveReelIdx(Math.min(idx, finalFilteredProducts.length - 1));
-  }, [finalFilteredProducts.length]);
+    
+    const active = Math.min(idx, finalFilteredProducts.length - 1);
+    setActiveReelIdx(active);
+
+    // Trigger loading next batch when close to the bottom
+    if (active >= finalFilteredProducts.length - 3 && hasMore && onLoadMore) {
+      onLoadMore();
+    }
+  }, [finalFilteredProducts.length, hasMore, onLoadMore]);
 
   // Helper: get product image URL
   const getProductImageUrl = (product: Product): string => {
@@ -508,7 +529,7 @@ export default function ClientProductGrid({
             <div>
               <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Category</p>
               <div className="flex flex-wrap gap-1.5">
-                {['All', 'Electronics', 'Fashion', 'Home & Kitchen', 'Beauty & Care', 'Furniture & Decor', 'Fitness'].map((cat) => {
+                {['All', ...categoriesList].map((cat) => {
                   const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
                   return (
                     <button
@@ -591,24 +612,46 @@ export default function ClientProductGrid({
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          {finalFilteredProducts.map((product, idx) => (
-            <ReelProductCard
-              key={product.id}
-              product={product}
-              idx={idx}
-              totalProducts={finalFilteredProducts.length}
-              selectedIds={selectedIds}
-              onToggleProduct={onToggleProduct}
-              getProductIcon={getProductIcon}
-              lang={lang}
-              showFiltersPanel={showFiltersPanel}
-              setShowFiltersPanel={setShowFiltersPanel}
-              selectedCategory={selectedCategory}
-              searchQuery={searchQuery}
-              priceFilter={priceFilter}
-              absoluteMaxPrice={absoluteMaxPrice}
-            />
-          ))}
+          {finalFilteredProducts.map((product, idx) => {
+            const isVisible = Math.abs(idx - activeReelIdx) <= 1;
+
+            if (!isVisible) {
+              return (
+                <div
+                  key={product.id}
+                  style={{
+                    height: '100dvh',
+                    scrollSnapAlign: 'start',
+                    scrollSnapStop: 'always',
+                  }}
+                  className="w-full flex-shrink-0 bg-black/95 flex items-center justify-center"
+                >
+                  <Loader2 className="w-5 h-5 animate-spin text-white/10" />
+                </div>
+              );
+            }
+
+            return (
+              <ReelProductCard
+                key={product.id}
+                product={product}
+                idx={idx}
+                totalProducts={finalFilteredProducts.length}
+                selectedIds={selectedIds}
+                onToggleProduct={onToggleProduct}
+                getProductIcon={getProductIcon}
+                lang={lang}
+                showFiltersPanel={showFiltersPanel}
+                setShowFiltersPanel={setShowFiltersPanel}
+                selectedCategory={selectedCategory}
+                searchQuery={searchQuery}
+                priceFilter={priceFilter}
+                absoluteMaxPrice={absoluteMaxPrice}
+                priceRangePct={priceRangePct}
+                activeReelIdx={activeReelIdx}
+              />
+            );
+          })}
         </div>
 
         {/* Floating Bottom Order Bar */}
@@ -735,7 +778,7 @@ export default function ClientProductGrid({
 
         <div className="pt-1.5">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
-            {['All', 'Electronics', 'Fashion', 'Home & Kitchen', 'Beauty & Care', 'Furniture & Decor', 'Fitness'].map((cat) => {
+            {['All', ...categoriesList].map((cat) => {
               const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
               return (
                 <button
@@ -834,7 +877,7 @@ export default function ClientProductGrid({
                         </span>
                         <div className="flex items-baseline gap-1">
                           <span className="text-xs sm:text-sm font-black text-slate-955 dark:text-white">
-                            {getPriceRange(product.price)}
+                            {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
                           </span>
                           <span className="text-[10px] font-extrabold text-slate-400">
                             / {product.unit}
@@ -877,6 +920,7 @@ export default function ClientProductGrid({
           }
         }}
         lang={lang}
+        priceRangePct={priceRangePct}
       />
 
       {selectedIds.size > 0 && (

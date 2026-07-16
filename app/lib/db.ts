@@ -9,7 +9,12 @@ import {
   query,
   addDoc,
   deleteDoc,
-  onSnapshot
+  onSnapshot,
+  orderBy,
+  limit,
+  startAfter,
+  QueryDocumentSnapshot,
+  DocumentData
 } from 'firebase/firestore';
 import { app } from './firebase';
 
@@ -122,7 +127,8 @@ export async function syncAdminProfile(uid: string, email: string): Promise<void
         name: 'System Admin',
         status: 'approved',
         createdAt: new Date().toISOString(),
-        registrationCompleted: true
+        registrationCompleted: true,
+        role: 'admin'
       }, { merge: true });
     }
   } catch (error) {
@@ -269,6 +275,7 @@ export interface Product {
   design?: string;
   images?: ProductImage[];      // Multiple product images
   variants?: ProductVariant[];  // Model/variant options
+  priceRangePct?: number;       // Custom product price variance % override
 }
 
 // Order Item Interface
@@ -283,13 +290,20 @@ export interface OrderItem {
   design?: string;
   selectedVariant?: string;     // Variant name chosen by user
   selectedImageUrl?: string;    // Image URL of selected variant (for PDF)
+  priceRangePct?: number;       // Snapshot of custom price variance % override
+  minPrice?: number;            // Snapshot of custom min price override
+  maxPrice?: number;            // Snapshot of custom max price override
 }
 
 // Helper to format price range (protects from changing daily rate issues)
-export function getPriceRange(price: number): string {
+export function getPriceRange(price: number, pct: number = 5, minPrice?: number, maxPrice?: number): string {
   if (!price || price <= 0) return 'N/A';
-  let min = price * 0.95;
-  let max = price * 1.05;
+  if (minPrice !== undefined && maxPrice !== undefined && minPrice !== null && maxPrice !== null && minPrice > 0 && maxPrice > 0) {
+    return `₹${minPrice.toLocaleString('en-IN')} - ₹${maxPrice.toLocaleString('en-IN')}`;
+  }
+  const factor = pct / 100;
+  let min = price * (1 - factor);
+  let max = price * (1 + factor);
   if (price >= 10000) {
     min = Math.floor(min / 1000) * 1000;
     max = Math.ceil(max / 1000) * 1000;
@@ -334,6 +348,51 @@ export async function getProducts(): Promise<Product[]> {
   } catch (error) {
     console.error("Error in getProducts:", error);
     return [];
+  }
+}
+
+export interface PaginatedProductsResult {
+  products: Product[];
+  lastVisible: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+}
+
+// Fetch products from Firestore paginated in batches
+export async function getProductsPaginated(
+  lastVisibleDoc: QueryDocumentSnapshot<DocumentData> | null = null,
+  batchSize: number = 15
+): Promise<PaginatedProductsResult> {
+  if (!db) return { products: [], lastVisible: null, hasMore: false };
+  try {
+    const productsRef = collection(db, 'products');
+    let q;
+    if (lastVisibleDoc) {
+      q = query(
+        productsRef,
+        orderBy('createdAt', 'desc'),
+        startAfter(lastVisibleDoc),
+        limit(batchSize)
+      );
+    } else {
+      q = query(
+        productsRef,
+        orderBy('createdAt', 'desc'),
+        limit(batchSize)
+      );
+    }
+    const querySnapshot = await getDocs(q);
+    const products: Product[] = [];
+    querySnapshot.forEach((doc) => {
+      products.push({ id: doc.id, ...doc.data() } as Product);
+    });
+
+    const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
+    const hasMore = querySnapshot.docs.length === batchSize;
+
+    return { products, lastVisible, hasMore };
+  } catch (error) {
+    console.error("Error in getProductsPaginated:", error);
+    return { products: [], lastVisible: null, hasMore: false };
   }
 }
 
@@ -668,5 +727,51 @@ export async function releaseOrder(orderId: string): Promise<void> {
   } catch (error) {
     console.error("Error in releaseOrder:", error);
     throw error;
+  }
+}
+
+// Global Settings Interface
+export interface GlobalSettings {
+  categories: string[];
+  priceRangePct: number;
+}
+
+const DEFAULT_SETTINGS: GlobalSettings = {
+  categories: ['Electronics', 'Fashion', 'Home & Kitchen', 'Beauty & Care', 'Furniture & Decor', 'Fitness'],
+  priceRangePct: 5
+};
+
+// Retrieve Global Settings from Firestore
+export async function getGlobalSettings(): Promise<GlobalSettings> {
+  if (!db) return DEFAULT_SETTINGS;
+  try {
+    const docRef = doc(db, 'settings', 'global');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        categories: data.categories || DEFAULT_SETTINGS.categories,
+        priceRangePct: data.priceRangePct !== undefined ? data.priceRangePct : DEFAULT_SETTINGS.priceRangePct
+      };
+    }
+    // Seed default settings if not exists
+    await setDoc(docRef, DEFAULT_SETTINGS);
+    return DEFAULT_SETTINGS;
+  } catch (err) {
+    console.error("Error fetching global settings:", err);
+    return DEFAULT_SETTINGS;
+  }
+}
+
+// Update Global Settings in Firestore
+export async function updateGlobalSettings(settings: Partial<GlobalSettings>): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, 'settings', 'global');
+    await setDoc(docRef, settings, { merge: true });
+    return true;
+  } catch (err) {
+    console.error("Error updating global settings:", err);
+    return false;
   }
 }

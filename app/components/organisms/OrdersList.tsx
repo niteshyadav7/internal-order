@@ -17,7 +17,7 @@ import {
   ChevronDown,
   XCircle
 } from 'lucide-react';
-import { Order, UserProfile } from '../../lib/db';
+import { Order, UserProfile, Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
 import Badge from '../atoms/Badge';
 
@@ -29,6 +29,59 @@ interface OrdersListProps {
   onDeleteOrder?: (orderId: string) => void;
   onUpdateOrder?: (orderId: string, details: { trackingNumber?: string; adminNotes?: string }) => Promise<void>;
   getFieldLabel: (key: string) => string;
+  onMarkOutOfStock?: (productId: string) => Promise<void>;
+  productsList?: Product[];
+}
+
+// B2B helper function to convert numbers to Indian Rupees in words
+function numberToWords(num: number): string {
+  const a = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const numToWordsLessThanThousand = (n: number): string => {
+    if (n === 0) return '';
+    let temp = '';
+    if (n >= 100) {
+      temp += a[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n > 0) {
+      if (n < 20) {
+        temp += a[n];
+      } else {
+        temp += b[Math.floor(n / 10)] + (n % 10 > 0 ? '-' + a[n % 10] : '');
+      }
+    }
+    return temp.trim();
+  };
+
+  if (num === 0) return 'Zero Rupees Only';
+
+  let words = '';
+  const crore = Math.floor(num / 10000000);
+  num %= 10000000;
+  const lakh = Math.floor(num / 100000);
+  num %= 100000;
+  const thousand = Math.floor(num / 1000);
+  num %= 1000;
+
+  if (crore > 0) {
+    words += numToWordsLessThanThousand(crore) + ' Crore ';
+  }
+  if (lakh > 0) {
+    words += numToWordsLessThanThousand(lakh) + ' Lakh ';
+  }
+  if (thousand > 0) {
+    words += numToWordsLessThanThousand(thousand) + ' Thousand ';
+  }
+  if (num > 0) {
+    words += numToWordsLessThanThousand(num);
+  }
+
+  return (words.trim() + ' Rupees Only').replace(/\s+/g, ' ');
 }
 
 export default function OrdersList({
@@ -38,7 +91,9 @@ export default function OrdersList({
   onStatusChange,
   onDeleteOrder,
   onUpdateOrder,
-  getFieldLabel
+  getFieldLabel,
+  onMarkOutOfStock,
+  productsList = []
 }: OrdersListProps) {
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +114,41 @@ export default function OrdersList({
   const [trackingInput, setTrackingInput] = useState('');
   const [notesInput, setNotesInput] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
+
+  // Lightbox State for Image Previews
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Group order items by product to neatly display variants together
+  const groupedItems = useMemo(() => {
+    if (!selectedOrder) return [];
+    const groups: Record<string, {
+      productId: string;
+      nameEn: string;
+      nameHi: string;
+      code: string;
+      design: string;
+      unit: string;
+      variants: typeof selectedOrder.items;
+    }> = {};
+
+    selectedOrder.items.forEach(item => {
+      const key = item.productId || `${item.nameEn}_${item.code || ''}_${item.design || ''}`;
+      if (!groups[key]) {
+        groups[key] = {
+          productId: item.productId,
+          nameEn: item.nameEn,
+          nameHi: item.nameHi,
+          code: item.code || '',
+          design: item.design || '',
+          unit: item.unit,
+          variants: []
+        };
+      }
+      groups[key].variants.push(item);
+    });
+
+    return Object.values(groups);
+  }, [selectedOrder]);
 
   // Open Details Modal
   const handleOpenDetails = (order: Order) => {
@@ -700,24 +790,24 @@ export default function OrdersList({
       {selectedOrder && (
         <div 
           onClick={() => setSelectedOrder(null)}
-          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-250 print:relative print:inset-auto print:bg-white print:p-0 print:z-0"
+          className="fixed inset-0 bg-black/60 dark:bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-250 print:relative print:inset-auto print:bg-white print:p-0 print:z-0"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-2xl w-full rounded-3xl sm:rounded-[2.2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250 max-h-[95vh] sm:max-h-[90vh] flex flex-col print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none"
+            className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-3xl w-full rounded-3xl sm:rounded-[2.2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250 max-h-[95vh] sm:max-h-[90vh] flex flex-col print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none"
           >
             
             {/* Modal Header */}
-            <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-zinc-950/20 print:border-b-2 print:border-black print:p-2">
+            <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-zinc-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-zinc-950/20 print:border-b-2 print:border-black print:p-2 print:bg-transparent">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] bg-[#5d51e8]/10 text-[#5d51e8] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
-                    Logistics Order
+                  <span className="text-[9px] bg-[#5d51e8]/10 text-[#5d51e8] dark:bg-indigo-955/35 dark:text-indigo-305 font-black px-2 py-0.5 rounded-full uppercase tracking-widest print:hidden">
+                    B2B Logistics Order
                   </span>
-                  <span className="text-xs font-bold text-slate-400">#{selectedOrder.id}</span>
+                  <span className="text-xs font-bold text-slate-450 dark:text-zinc-500 print:text-black">Order ID: #{selectedOrder.id}</span>
                 </div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white print:text-xl">
-                  Order Request Details
+                <h3 className="text-lg font-black text-slate-900 dark:text-white print:text-2xl print:text-black uppercase tracking-tight">
+                  Commercial Order Request
                 </h3>
               </div>
               
@@ -725,7 +815,7 @@ export default function OrdersList({
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="p-2 bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-655 dark:text-slate-200 border border-slate-200 dark:border-zinc-700 rounded-xl flex items-center gap-1.5 text-xs font-black shadow-sm cursor-pointer"
+                  className="p-2 bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-655 dark:text-slate-200 border border-slate-200 dark:border-zinc-700 rounded-xl flex items-center gap-1.5 text-xs font-black shadow-sm cursor-pointer transition-all hover:scale-102 active:scale-98"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print / PDF</span>
@@ -733,7 +823,7 @@ export default function OrdersList({
                 <button
                   type="button"
                   onClick={() => setSelectedOrder(null)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-600 rounded-full transition-colors cursor-pointer"
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-805 text-slate-400 hover:text-slate-655 rounded-full transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -741,35 +831,81 @@ export default function OrdersList({
             </div>
 
             {/* Modal Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 flex-grow print:overflow-y-visible print:p-2 print:space-y-4">
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 flex-grow print:overflow-y-visible print:p-0 print:space-y-5">
               
+              {/* Corporate Header - Printed Only */}
+              <div className="hidden print:flex justify-between items-start border-b border-slate-350 pb-4 mb-4">
+                <div>
+                  <h2 className="text-xl font-black text-black tracking-tight">BALAJI TEXTILES</h2>
+                  <p className="text-[10px] text-slate-600 font-semibold leading-relaxed">
+                    123 Textile Market, Chandni Chowk, Delhi - 110006<br />
+                    GSTIN: 07AAAAA1111A1Z1 | Support: +91 99999 88888
+                  </p>
+                </div>
+                <div className="text-right text-[10px] text-slate-600 space-y-0.5">
+                  <p className="font-extrabold text-black text-xs uppercase">Order Request Logistics</p>
+                  <p>Reference: BT-ORD-{selectedOrder.id?.slice(-6).toUpperCase()}</p>
+                  <p>Date: {new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                  <p>Status: {selectedOrder.status.toUpperCase()}</p>
+                </div>
+              </div>
+
               {/* Customer & Order Metadata Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Customer Details Box */}
-                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-850 p-4 rounded-2xl print:border-none print:p-0">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2.5">Buyer Credentials</h4>
-                  <div className="space-y-1 text-xs">
-                    <p className="font-extrabold text-slate-800 dark:text-slate-200">{selectedOrder.userName}</p>
-                    <p className="font-bold text-slate-500">{selectedOrder.userEmail}</p>
-                    <p className="text-[10px] text-slate-400 pt-1">UID: {selectedOrder.userUid}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Supplier Details Box */}
+                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-850 p-5 rounded-2xl print:border-none print:p-0">
+                  <h4 className="text-[10px] font-black text-slate-400 dark:text-zinc-550 uppercase tracking-widest mb-3 border-b border-slate-100/50 dark:border-zinc-800 pb-1.5 print:text-black print:border-black/20">
+                    Supplier / Dispatcher
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-slate-400 print:text-slate-600">Firm Name:</span>
+                      <span className="font-extrabold text-slate-800 dark:text-slate-200 text-right print:text-black">Balaji Textiles Admin Headquarters</span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-slate-400 print:text-slate-600">GSTIN:</span>
+                      <span className="font-extrabold text-slate-855 dark:text-slate-200 text-right print:text-black">07AAAAA1111A1Z1</span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-slate-400 print:text-slate-600">Address:</span>
+                      <span className="font-bold text-slate-500 text-right print:text-black">123 Textile Market, Delhi - 110006</span>
+                    </div>
+                    <div className="flex items-baseline justify-between border-t border-slate-100/40 dark:border-zinc-800/40 pt-2">
+                      <span className="font-bold text-slate-400 print:text-slate-600">Support Line:</span>
+                      <span className="font-extrabold text-slate-800 dark:text-slate-200 text-right print:text-black">+91 99999 88888</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Registration Metadata (Address/GSTIN etc.) */}
-                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-850 p-4 rounded-2xl print:border-none print:p-0">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2.5">Registration Metadata</h4>
-                  <div className="space-y-1 text-xs">
+                {/* Buyer Credentials Box */}
+                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-850 p-5 rounded-2xl print:border-none print:p-0">
+                  <h4 className="text-[10px] font-black text-slate-400 dark:text-zinc-550 uppercase tracking-widest mb-3 border-b border-slate-100/50 dark:border-zinc-800 pb-1.5 print:text-black print:border-black/20">
+                    Buyer / Consignee
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-slate-400 print:text-slate-600">Contact Person:</span>
+                      <span className="font-extrabold text-slate-800 dark:text-slate-200 text-right print:text-black">{selectedOrder.userName}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-slate-400 print:text-slate-600">Email Address:</span>
+                      <span className="font-bold text-slate-500 text-right print:text-black">{selectedOrder.userEmail}</span>
+                    </div>
                     {(() => {
                       const profileObj = usersList.find(u => u.uid === selectedOrder.userUid);
                       if (profileObj && profileObj.customDetails && Object.keys(profileObj.customDetails).length > 0) {
                         return Object.entries(profileObj.customDetails).map(([key, val]) => (
-                          <div key={key} className="flex justify-between gap-2 border-b border-slate-100/50 dark:border-zinc-850/50 py-0.5">
-                            <span className="font-bold text-slate-400">{getFieldLabel(key)}:</span>
-                            <span className="font-extrabold text-slate-800 dark:text-slate-200 text-right">{val}</span>
+                          <div key={key} className="flex items-baseline justify-between border-t border-slate-100/40 dark:border-zinc-800/40 pt-2">
+                            <span className="font-bold text-slate-400 print:text-slate-600">{getFieldLabel(key)}:</span>
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200 text-right print:text-black">{val}</span>
                           </div>
                         ));
                       }
-                      return <p className="text-slate-400 font-bold italic">No custom metadata registration fields found.</p>;
+                      return (
+                        <div className="pt-2 text-slate-400 dark:text-zinc-555 italic font-bold">
+                          No custom registration fields registered.
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
@@ -778,23 +914,23 @@ export default function OrdersList({
               {/* Order Status & Timestamps */}
               <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-850 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs print:border-none print:p-0">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-bold">Request Logged</span>
-                  <span className="font-extrabold text-slate-700 dark:text-slate-300">
+                  <span className="text-[10px] font-black text-slate-400 dark:text-zinc-550 uppercase tracking-widest block font-bold print:text-slate-600">Request Logged</span>
+                  <span className="font-extrabold text-slate-700 dark:text-slate-300 print:text-black">
                     {new Date(selectedOrder.createdAt).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-400">Current Status:</span>
+                  <span className="font-bold text-slate-400 print:text-slate-600">Current Status:</span>
                   <Badge status={selectedOrder.status} type="order" />
                 </div>
               </div>
 
               {/* Items Table */}
-              <div className="space-y-2.5">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Ordered Product Logistics</h4>
-                <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden print:border-2 print:border-black">
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 dark:text-zinc-555 uppercase tracking-widest print:text-black">Ordered Products & Logistics</h4>
+                <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden print:border print:border-slate-350">
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-450 border-b border-slate-200 dark:border-zinc-800 print:bg-slate-100 print:text-black">
+                    <thead className="bg-slate-50 dark:bg-zinc-955 text-slate-450 border-b border-slate-200 dark:border-zinc-800 print:bg-slate-100 print:text-black print:border-b">
                       <tr>
                         <th className="py-2.5 px-4 font-black">Product Details</th>
                         <th className="py-2.5 px-4 text-center font-black">Quantity</th>
@@ -802,56 +938,172 @@ export default function OrdersList({
                         <th className="py-2.5 px-4 text-right font-black">Total Price</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-150/60 dark:divide-zinc-800/80 text-slate-700 dark:text-slate-300 print:divide-black">
-                      {selectedOrder.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              {item.selectedImageUrl && (
-                                <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex-shrink-0">
-                                  <img 
-                                    src={item.selectedImageUrl} 
-                                    alt={item.nameEn} 
-                                    className="w-full h-full object-cover" 
-                                  />
+                    <tbody className="divide-y divide-slate-150/65 dark:divide-zinc-800/80 text-slate-700 dark:text-slate-300 print:divide-slate-300">
+                      {groupedItems.map((group, gIdx) => (
+                        <React.Fragment key={gIdx}>
+                          {/* Master Product Header Row */}
+                          <tr className="bg-slate-50/70 dark:bg-zinc-950/40 font-black border-y border-slate-100 dark:border-zinc-800/80 print:bg-slate-50 print:border-slate-300">
+                            <td colSpan={4} className="py-2 px-4 print:py-1.5 print:px-3">
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] bg-[#5d51e8]/10 text-[#5d51e8] dark:bg-indigo-950/40 dark:text-indigo-300 font-black px-1.5 py-0.5 rounded uppercase tracking-wider print:border print:border-slate-400 print:text-black">
+                                    Product
+                                  </span>
+                                  <span className="font-extrabold text-slate-900 dark:text-white text-xs print:text-black">
+                                    {group.nameEn} {group.nameHi && <span className="text-slate-400 dark:text-zinc-500 font-medium print:text-slate-600">({group.nameHi})</span>}
+                                  </span>
                                 </div>
-                              )}
-                              <div>
-                                <p className="font-extrabold text-slate-900 dark:text-white print:text-black">{item.nameEn}</p>
-                                {item.selectedVariant && (
-                                  <p className="text-[10px] text-[#5d51e8] dark:text-indigo-300 font-black uppercase mt-0.5">
-                                    Variant: {item.selectedVariant}
-                                  </p>
-                                )}
-                                {(item.code || item.design) && (
-                                  <p className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold uppercase mt-0.5">
-                                    Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
-                                  </p>
+                                {(group.code || group.design) && (
+                                  <span className="text-[9px] text-slate-455 dark:text-zinc-555 font-bold uppercase tracking-wider print:text-black">
+                                    {group.code && `Code: ${group.code}`} {group.code && group.design && '|'} {group.design && `Design: ${group.design}`}
+                                  </span>
                                 )}
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-center font-bold">
-                            {item.quantity} <span className="text-[10px] text-slate-400 font-semibold uppercase">{item.unit}</span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold">
-                            ₹{item.price.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white print:text-black">
-                            ₹{(item.price * item.quantity).toLocaleString()}
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+                          
+                          {/* Variant Rows */}
+                          {group.variants.map((item, vIdx) => (
+                            <tr key={vIdx} className="hover:bg-slate-50/20 dark:hover:bg-zinc-850/5 print:hover:bg-transparent">
+                              <td className="py-2.5 px-4 print:py-2 print:px-3">
+                                <div className="flex items-center gap-3">
+                                  {item.selectedImageUrl && (
+                                    <div className="w-14 h-14 rounded-xl overflow-hidden border border-slate-150 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex-shrink-0 relative group shadow-sm print:shadow-none print:border-slate-300">
+                                      <img 
+                                        src={item.selectedImageUrl} 
+                                        alt={item.nameEn} 
+                                        className="w-full h-full object-cover transition-transform duration-250 group-hover:scale-110 cursor-zoom-in print:cursor-default" 
+                                        onClick={() => setLightboxImage({ url: item.selectedImageUrl!, title: `${item.nameEn} - ${item.selectedVariant || 'Standard'}` })}
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-widest cursor-zoom-in print:hidden">
+                                        Zoom
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="font-extrabold text-slate-800 dark:text-slate-200 text-xs print:text-black flex items-center gap-2 flex-wrap">
+                                      <span>{item.selectedVariant ? `Variant: ${item.selectedVariant}` : 'Standard Variant'}</span>
+                                      {(item as any).prepStatus && (
+                                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider ${
+                                          (item as any).prepStatus === 'found' 
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-250/20' 
+                                            : 'bg-rose-100 text-rose-700 dark:bg-rose-955/40 dark:text-rose-300 border border-rose-300/20'
+                                        }`}>
+                                          {(item as any).prepStatus === 'found' ? '✅ Found' : '❌ Not Found'}
+                                        </span>
+                                      )}
+                                    </p>
+                                    <p className="text-[10px] text-slate-450 dark:text-zinc-500 font-bold mt-0.5 print:text-slate-600">
+                                      SKU: {group.code || 'N/A'}-{item.selectedVariant?.toUpperCase().replace(/\s+/g, '-') || 'STD'}
+                                    </p>
+                                    {(() => {
+                                      if ((item as any).prepStatus === 'not_found' && item.productId) {
+                                        const catalogProduct = productsList.find(p => p.id === item.productId);
+                                        const isCurrentlyInStock = catalogProduct ? catalogProduct.inStock !== false : true;
+                                        if (isCurrentlyInStock && onMarkOutOfStock) {
+                                          return (
+                                            <button
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (confirm(`Mark "${item.nameEn}" as Out of Stock in catalog?`)) {
+                                                  await onMarkOutOfStock(item.productId!);
+                                                }
+                                              }}
+                                              className="mt-1.5 text-[9px] font-black uppercase text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-955/15 dark:hover:bg-rose-955/25 px-2 py-0.5 rounded border border-rose-200/50 dark:border-rose-900/40 cursor-pointer transition-colors active:scale-95 block w-max print:hidden"
+                                            >
+                                              Mark Out of Stock
+                                            </button>
+                                          );
+                                        } else {
+                                          return (
+                                            <span className="mt-1 text-[9px] font-bold text-slate-400 dark:text-zinc-550 block">
+                                              Already Out of Stock in Catalog
+                                            </span>
+                                          );
+                                        }
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-4 text-center font-extrabold text-xs print:py-2 print:px-3 print:text-black">
+                                {item.quantity} <span className="text-[9px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-bold">{group.unit}</span>
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-extrabold text-xs print:py-2 print:px-3 print:text-black">
+                                ₹{item.price.toLocaleString()}
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-black text-slate-900 dark:text-white text-xs print:py-2 print:px-3 print:text-black">
+                                ₹{(item.price * item.quantity).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       ))}
                     </tbody>
-                    <tfoot className="bg-slate-50/50 dark:bg-zinc-950/50 font-black border-t border-slate-200 dark:border-zinc-800 print:bg-white print:border-t-2 print:border-black">
-                      <tr>
-                        <td colSpan={3} className="py-3 px-4 text-right text-slate-450">Grand Total Logistics:</td>
-                        <td className="py-3 px-4 text-right text-base text-[#5d51e8] dark:text-indigo-400 print:text-black font-extrabold">
-                          ₹{selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}
+                    <tfoot className="bg-slate-50/50 dark:bg-zinc-950/50 font-black border-t border-slate-200 dark:border-zinc-800 print:bg-white print:border-t-2 print:border-slate-400">
+                      {/* Subtotal */}
+                      <tr className="border-b border-slate-100 dark:border-zinc-850/60 print:border-slate-200">
+                        <td colSpan={3} className="py-2 px-4 text-right text-xs text-slate-450 print:text-slate-700 font-extrabold">Subtotal:</td>
+                        <td className="py-2 px-4 text-right text-xs text-slate-805 dark:text-slate-200 print:text-black font-extrabold">
+                          ₹{orderTotal.toLocaleString()}
+                        </td>
+                      </tr>
+                      {/* B2B GST Breakdown */}
+                      <tr className="border-b border-slate-100 dark:border-zinc-850/60 print:border-slate-200">
+                        <td colSpan={3} className="py-1.5 px-4 text-right text-[10px] text-slate-400 dark:text-zinc-550 print:text-slate-500 font-bold">CGST (2.5%):</td>
+                        <td className="py-1.5 px-4 text-right text-[10px] text-slate-550 dark:text-zinc-400 print:text-black font-bold">
+                          ₹{Math.round(orderTotal * 0.025).toLocaleString()}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-slate-200 dark:border-zinc-800 print:border-slate-300">
+                        <td colSpan={3} className="py-1.5 px-4 text-right text-[10px] text-slate-400 dark:text-zinc-555 print:text-slate-500 font-bold">SGST (2.5%):</td>
+                        <td className="py-1.5 px-4 text-right text-[10px] text-slate-550 dark:text-zinc-400 print:text-black font-bold">
+                          ₹{Math.round(orderTotal * 0.025).toLocaleString()}
+                        </td>
+                      </tr>
+                      {/* Grand Total */}
+                      <tr className="bg-slate-100/50 dark:bg-zinc-950/80 print:bg-slate-100 print:border-b-2 print:border-slate-400">
+                        <td colSpan={3} className="py-3 px-4 text-right text-xs text-slate-900 dark:text-white print:text-black font-black uppercase tracking-wider">Grand Total (Inclusive of GST):</td>
+                        <td className="py-3 px-4 text-right text-sm text-[#5d51e8] dark:text-indigo-400 print:text-black font-black">
+                          ₹{finalTotal.toLocaleString()}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+              </div>
+
+              {/* Amount in words */}
+              <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-855 p-4 rounded-2xl text-xs space-y-1 print:border-none print:p-0">
+                <span className="text-[10px] font-black text-slate-400 dark:text-zinc-550 uppercase tracking-widest block print:text-slate-500">Amount in Words</span>
+                <span className="font-extrabold text-slate-805 dark:text-slate-200 capitalize italic print:text-black">
+                  {numberToWords(finalTotal)}
+                </span>
+              </div>
+
+              {/* Signatures & Terms Block */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-zinc-800/80 print:border-slate-300 print:pt-6">
+                {/* Terms and Conditions */}
+                <div className="text-[10px] text-slate-400 dark:text-zinc-550 space-y-1 text-left print:text-black">
+                  <span className="font-black uppercase tracking-wider block text-slate-500 print:text-black">Terms & Conditions</span>
+                  <ul className="list-disc pl-4 space-y-0.5 font-bold leading-normal text-slate-450 dark:text-zinc-455 print:text-black">
+                    <li>All disputes are subject to New Delhi jurisdiction only.</li>
+                    <li>Goods once sold will not be accepted back or exchanged.</li>
+                    <li>This is a system-generated commercial order request logistics form.</li>
+                  </ul>
+                </div>
+                
+                {/* Signatures */}
+                <div className="flex justify-between items-end h-20 px-4 pt-2 print:h-16">
+                  <div className="text-center">
+                    <div className="w-32 border-b border-slate-305 dark:border-zinc-700 print:border-black"></div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1 block print:text-black">Receiver Signature</span>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-32 border-b border-slate-305 dark:border-zinc-700 print:border-black"></div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1 block print:text-black">Authorized Signatory</span>
+                  </div>
                 </div>
               </div>
 
@@ -862,12 +1114,42 @@ export default function OrdersList({
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-250 font-extrabold text-xs rounded-xl transition-all active:scale-95 cursor-pointer border border-slate-200 dark:border-zinc-700"
+                className="px-5 py-2.5 bg-slate-105 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-250 font-extrabold text-xs rounded-xl transition-all active:scale-95 cursor-pointer border border-slate-200 dark:border-zinc-700"
               >
                 Close details
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200 print:hidden cursor-zoom-out"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl max-h-[85vh] w-full flex flex-col items-center gap-3.5 select-none animate-in zoom-in-95 duration-200"
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-12 right-0 p-2.5 bg-white/15 hover:bg-white/25 text-white hover:scale-105 active:scale-95 rounded-full transition-all cursor-pointer shadow-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-full max-h-[75vh] overflow-hidden rounded-2xl border border-white/10 shadow-2xl flex items-center justify-center bg-zinc-950">
+              <img 
+                src={lightboxImage.url} 
+                alt={lightboxImage.title} 
+                className="max-w-full max-h-[75vh] object-contain transition-transform duration-300 hover:scale-105 cursor-zoom-out" 
+                onClick={() => setLightboxImage(null)}
+              />
+            </div>
+            <p className="text-white text-xs font-black tracking-widest uppercase bg-black/55 backdrop-blur-md px-4 py-1.5 rounded-full shadow border border-white/5">{lightboxImage.title}</p>
           </div>
         </div>
       )}
@@ -888,12 +1170,25 @@ export default function OrdersList({
             width: 100%;
             height: auto;
             overflow: visible;
+            background: white !important;
+            color: black !important;
           }
           .print\\:hidden {
             display: none !important;
           }
           .print\\:block {
             display: block !important;
+          }
+          /* High quality print details */
+          .bg-slate-50\\/50, .bg-slate-50, .bg-slate-105\\/50, .bg-slate-105, .bg-zinc-955, .bg-zinc-955\\/20, .bg-zinc-955\\/80, .bg-zinc-955\\/50, .bg-slate-50\\/80 {
+            background-color: transparent !important;
+            background: transparent !important;
+          }
+          .border, .border-y, .border-t, .border-b, .border-slate-100, .border-slate-205, .border-zinc-800 {
+            border-color: #cbd5e1 !important;
+          }
+          tr {
+            page-break-inside: avoid;
           }
         }
       `}</style>

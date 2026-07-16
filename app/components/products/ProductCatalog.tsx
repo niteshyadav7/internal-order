@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { 
   getProducts, 
+  getProductsPaginated,
   createOrder, 
   getProfileFields, 
   completeUserProfileRegistration, 
@@ -31,7 +32,9 @@ import {
   getOrders,
   updateOrder,
   deleteOrder,
-  Order
+  Order,
+  getGlobalSettings,
+  GlobalSettings
 } from '../../lib/db';
 import { getTranslation, LangType } from '../../lib/translations';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -319,6 +322,10 @@ export default function ProductCatalog() {
   };
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [lastVisible, setLastVisible] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -416,12 +423,18 @@ export default function ProductCatalog() {
     }
   };
 
-  // Load products from database
+  // Load products from database paginated
   useEffect(() => {
     async function loadProducts() {
       try {
-        const dbProducts = await getProducts();
-        setProducts(dbProducts);
+        const [res, settings] = await Promise.all([
+          getProductsPaginated(null, 15),
+          getGlobalSettings()
+        ]);
+        setProducts(res.products);
+        setLastVisible(res.lastVisible);
+        setHasMore(res.hasMore);
+        setGlobalSettings(settings);
       } catch (err) {
         console.error("Error loading products:", err);
         setProducts([]);
@@ -431,6 +444,21 @@ export default function ProductCatalog() {
     }
     loadProducts();
   }, []);
+
+  const handleLoadMoreProducts = async () => {
+    if (loadingMore || !hasMore || !lastVisible) return;
+    setLoadingMore(true);
+    try {
+      const res = await getProductsPaginated(lastVisible, 15);
+      setProducts(prev => [...prev, ...res.products]);
+      setLastVisible(res.lastVisible);
+      setHasMore(res.hasMore);
+    } catch (err) {
+      console.error("Error loading more products:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const fetchUserOrders = async () => {
     if (!user) return;
@@ -521,7 +549,10 @@ export default function ProductCatalog() {
             code: product.code || '',
             design: product.design || '',
             selectedVariant: details?.variantName || variantName || undefined,
-            selectedImageUrl: details?.imageUrl || product.imageUrl
+            selectedImageUrl: details?.imageUrl || product.imageUrl,
+            priceRangePct: product.priceRangePct !== undefined ? product.priceRangePct : undefined,
+            minPrice: (product as any).minPrice !== undefined ? (product as any).minPrice : undefined,
+            maxPrice: (product as any).maxPrice !== undefined ? (product as any).maxPrice : undefined
           });
         }
       });
@@ -798,6 +829,7 @@ export default function ProductCatalog() {
             orders={userOrders}
             onCancelOrder={handleCancelOrder}
             onUpdateOrder={handleUpdateOrder}
+            priceRangePct={globalSettings?.priceRangePct || 5}
           />
         ) : (
           <ClientProductGrid
@@ -814,6 +846,10 @@ export default function ProductCatalog() {
             t={t}
             profileName={profileName}
             getProductIcon={getProductIcon}
+            categoriesList={globalSettings?.categories || []}
+            priceRangePct={globalSettings?.priceRangePct || 5}
+            onLoadMore={handleLoadMoreProducts}
+            hasMore={hasMore}
           />
         )}
       </main>

@@ -8,12 +8,14 @@ interface ClientOrdersListProps {
   orders: Order[];
   onCancelOrder: (orderId: string) => void;
   onUpdateOrder: (orderId: string, items: OrderItem[]) => void;
+  priceRangePct?: number;
 }
 
 export default function ClientOrdersList({
   orders,
   onCancelOrder,
-  onUpdateOrder
+  onUpdateOrder,
+  priceRangePct = 5
 }: ClientOrdersListProps) {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
@@ -119,7 +121,23 @@ export default function ClientOrdersList({
                   <div className="text-right">
                     <span className="text-xs font-bold text-slate-400">Total Value Range: </span>
                     <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                      {getPriceRange(orderTotal)}
+                      {(() => {
+                        let minTotal = 0;
+                        let maxTotal = 0;
+                        order.items.forEach(item => {
+                          const qty = item.quantity || 1;
+                          if (item.minPrice !== undefined && item.maxPrice !== undefined && item.minPrice !== null && item.maxPrice !== null && item.minPrice > 0 && item.maxPrice > 0) {
+                            minTotal += item.minPrice * qty;
+                            maxTotal += item.maxPrice * qty;
+                          } else {
+                            const itemPct = item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct;
+                            const factor = itemPct / 100;
+                            minTotal += item.price * (1 - factor) * qty;
+                            maxTotal += item.price * (1 + factor) * qty;
+                          }
+                        });
+                        return `₹${Math.floor(minTotal).toLocaleString('en-IN')} - ₹${Math.ceil(maxTotal).toLocaleString('en-IN')}`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -149,7 +167,7 @@ export default function ClientOrdersList({
                         </div>
                       </div>
                       <span className="text-xs font-black text-slate-900 dark:text-white whitespace-nowrap ml-2">
-                        {getPriceRange(item.price * item.quantity)}
+                        {getPriceRange(item.price * item.quantity, item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct, item.minPrice ? item.minPrice * item.quantity : undefined, item.maxPrice ? item.maxPrice * item.quantity : undefined)}
                       </span>
                     </div>
                   ))}
@@ -201,7 +219,7 @@ export default function ClientOrdersList({
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
                 {editItems.map((item) => (
-                  <div key={item.productId + '_' + (item.selectedVariant || '')} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
+                  <div key={item.productId + '_' + (item.selectedVariant || '')} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-955 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
                     <div className="space-y-0.5 text-left max-w-[55%]">
                       <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">
                         {item.nameEn}
@@ -210,7 +228,7 @@ export default function ClientOrdersList({
                         )}
                       </p>
                       <p className="text-[10px] text-slate-400 font-bold">
-                        {getPriceRange(item.price)} / {item.unit}
+                        {getPriceRange(item.price, item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct, item.minPrice, item.maxPrice)} / {item.unit}
                         {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
                       </p>
                     </div>

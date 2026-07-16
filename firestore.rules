@@ -36,5 +36,11 @@ service cloud.firestore {
     match /metadata/{metadataId} {
       allow read, write: if request.auth != null;
     }
+
+    // Settings collection - any authenticated user can read, only admin can write
+    match /settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
   }
 }
