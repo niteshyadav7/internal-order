@@ -306,17 +306,17 @@ export default function SalesmanPortal() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-[1.5rem] border border-slate-150 dark:border-zinc-800 shadow-sm flex gap-1">
+        <div className="bg-white dark:bg-zinc-900 p-1 rounded-[1.25rem] sm:p-1.5 sm:rounded-[1.5rem] border border-slate-150 dark:border-zinc-800 shadow-sm flex gap-1 animate-in fade-in duration-300">
           <button
             onClick={() => setActiveTab('available')}
-            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'available'
+            className={`w-full py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] min-[375px]:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${activeTab === 'available'
                 ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
                 : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
               }`}
           >
-            <ShoppingBag className="w-4 h-4" />
+            <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4 hidden sm:inline" />
             <span>Available</span>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+            <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full transition-all ${
               activeTab === 'available'
                 ? 'bg-white text-[#5d51e8] scale-105'
                 : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350'
@@ -327,14 +327,14 @@ export default function SalesmanPortal() {
 
           <button
             onClick={() => setActiveTab('active')}
-            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'active'
+            className={`w-full py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] min-[375px]:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${activeTab === 'active'
                 ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
                 : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
               }`}
           >
-            <Clock className="w-4 h-4" />
-            <span>My Active</span>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 hidden sm:inline" />
+            <span>Active</span>
+            <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full transition-all ${
               activeTab === 'active'
                 ? 'bg-white text-[#5d51e8] scale-105'
                 : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350'
@@ -345,14 +345,14 @@ export default function SalesmanPortal() {
 
           <button
             onClick={() => setActiveTab('completed')}
-            className={`w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'completed'
+            className={`w-full py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] min-[375px]:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${activeTab === 'completed'
                 ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
                 : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
               }`}
           >
-            <CheckCircle className="w-4 h-4" />
+            <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 hidden sm:inline" />
             <span>Finished</span>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+            <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full transition-all ${
               activeTab === 'completed'
                 ? 'bg-white text-[#5d51e8] scale-105'
                 : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350'
@@ -703,7 +703,7 @@ export default function SalesmanPortal() {
           <button 
             type="button"
             onClick={() => setLightboxUrl(null)} 
-            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg z-[120]"
+            className="absolute top-3 right-3 sm:top-6 sm:right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg z-[120]"
             title="Close Zoom"
           >
             <X className="w-6 h-6" />
