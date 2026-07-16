@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
@@ -368,10 +368,20 @@ export default function ClientProductGrid({
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Dynamically calculate maximum price in catalog
-  const absoluteMaxPrice = products.length > 0
-    ? Math.max(...products.map(p => p.price))
-    : 150000;
+  // Dynamically calculate minimum and maximum price in catalog in a single O(N) pass
+  const { absoluteMinPrice, absoluteMaxPrice } = useMemo(() => {
+    if (products.length === 0) {
+      return { absoluteMinPrice: 0, absoluteMaxPrice: 150000 };
+    }
+    let min = products[0].price;
+    let max = products[0].price;
+    for (let i = 1; i < products.length; i++) {
+      const p = products[i].price;
+      if (p < min) min = p;
+      if (p > max) max = p;
+    }
+    return { absoluteMinPrice: min, absoluteMaxPrice: max };
+  }, [products]);
 
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [priceFilter, setPriceFilter] = useState(absoluteMaxPrice);
@@ -384,9 +394,9 @@ export default function ClientProductGrid({
   // Reset price range when products list changes
   useEffect(() => {
     if (products.length > 0) {
-      setPriceFilter(Math.max(...products.map(p => p.price)));
+      setPriceFilter(absoluteMaxPrice);
     }
-  }, [products]);
+  }, [products, absoluteMaxPrice]);
 
   // Combined product filtering logic
   const finalFilteredProducts = products.filter(product => {
@@ -557,7 +567,7 @@ export default function ClientProductGrid({
               </div>
               <input
                 type="range"
-                min={0}
+                min={absoluteMinPrice}
                 max={absoluteMaxPrice}
                 step={50}
                 value={priceFilter}
@@ -565,7 +575,7 @@ export default function ClientProductGrid({
                 className="w-full accent-[#5d51e8] cursor-pointer"
               />
               <div className="flex justify-between text-[9px] font-bold text-white/20">
-                <span>₹0</span>
+                <span>₹{absoluteMinPrice.toLocaleString('en-IN')}</span>
                 <span>₹{absoluteMaxPrice.toLocaleString('en-IN')}</span>
               </div>
             </div>
@@ -751,13 +761,17 @@ export default function ClientProductGrid({
               </div>
               <input
                 type="range"
-                min={0}
+                min={absoluteMinPrice}
                 max={absoluteMaxPrice}
                 step={50}
                 value={priceFilter}
                 onChange={(e) => setPriceFilter(Number(e.target.value))}
                 className="w-full accent-[#5d51e8] cursor-pointer"
               />
+              <div className="flex justify-between text-[10px] font-bold text-slate-350 dark:text-zinc-600">
+                <span>₹{absoluteMinPrice.toLocaleString('en-IN')}</span>
+                <span>₹{absoluteMaxPrice.toLocaleString('en-IN')}</span>
+              </div>
             </div>
 
             <div className="flex items-end">

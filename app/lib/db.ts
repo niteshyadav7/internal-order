@@ -276,6 +276,8 @@ export interface Product {
   images?: ProductImage[];      // Multiple product images
   variants?: ProductVariant[];  // Model/variant options
   priceRangePct?: number;       // Custom product price variance % override
+  minPrice?: number;            // Custom product minimum price override
+  maxPrice?: number;            // Custom product maximum price override
 }
 
 // Order Item Interface
@@ -293,6 +295,7 @@ export interface OrderItem {
   priceRangePct?: number;       // Snapshot of custom price variance % override
   minPrice?: number;            // Snapshot of custom min price override
   maxPrice?: number;            // Snapshot of custom max price override
+  prepStatus?: 'found' | 'hold' | 'not_found'; // Salesman packing status
 }
 
 // Helper to format price range (protects from changing daily rate issues)

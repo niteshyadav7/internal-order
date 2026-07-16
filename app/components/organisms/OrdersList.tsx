@@ -787,15 +787,18 @@ export default function OrdersList({
       )}
 
       {/* 4. Production-Grade Order Details Modal */}
-      {selectedOrder && (
-        <div 
-          onClick={() => setSelectedOrder(null)}
-          className="fixed inset-0 bg-black/60 dark:bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-250 print:relative print:inset-auto print:bg-white print:p-0 print:z-0"
-        >
+      {selectedOrder && (() => {
+        const orderTotal = selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const finalTotal = orderTotal + Math.round(orderTotal * 0.025) * 2;
+        return (
           <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-3xl w-full rounded-3xl sm:rounded-[2.2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250 max-h-[95vh] sm:max-h-[90vh] flex flex-col print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none"
+            onClick={() => setSelectedOrder(null)}
+            className="fixed inset-0 bg-black/60 dark:bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-250 print:relative print:inset-auto print:bg-white print:p-0 print:z-0"
           >
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-3xl w-full rounded-3xl sm:rounded-[2.2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250 max-h-[95vh] sm:max-h-[90vh] flex flex-col print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none"
+            >
             
             {/* Modal Header */}
             <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-zinc-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-zinc-950/20 print:border-b-2 print:border-black print:p-2 print:bg-transparent">
@@ -1122,7 +1125,8 @@ export default function OrdersList({
 
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Lightbox Modal */}
       {lightboxImage && (
