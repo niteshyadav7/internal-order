@@ -55,6 +55,7 @@ import DynamicFieldsList from '../components/organisms/DynamicFieldsList';
 import UserEditModal from '../components/organisms/UserEditModal';
 import UserCreateModal from '../components/organisms/UserCreateModal';
 import ProductEditModal from '../components/organisms/ProductEditModal';
+import StaffManagement from '../components/organisms/StaffManagement';
 
 // Atoms for Form Components
 import { Input, Checkbox, Select } from '../components/atoms/Input';
@@ -64,12 +65,13 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { userProfile } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'products' | 'fields' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications'>('users');
   
   // Dynamic window/tab title
   useEffect(() => {
     const tabTitles: Record<string, string> = {
       users: 'Admin - User Approvals',
+      staff: 'Admin - Staff Management',
       orders: 'Admin - Order Requests',
       products: 'Admin - Manage Catalog',
       fields: 'Admin - Profile Settings',
@@ -1391,25 +1393,20 @@ export default function AdminDashboard() {
   );
 
   // Stats calculation
-  const totalUsers = usersList.length;
-  const approvedUsers = usersList.filter(u => u.status === 'approved').length;
-  const pendingUsers = usersList.filter(u => u.status === 'pending').length;
-  const rejectedUsers = usersList.filter(u => u.status === 'rejected').length;
+  // Stats only count client users (staff managed separately)
+  const clientUsers = usersList.filter(u => !u.role || u.role === 'client');
+  const totalUsers = clientUsers.length;
+  const approvedUsers = clientUsers.filter(u => u.status === 'approved').length;
+  const pendingUsers = clientUsers.filter(u => u.status === 'pending').length;
+  const rejectedUsers = clientUsers.filter(u => u.status === 'rejected').length;
 
   const getFilteredAndSortedUsers = () => {
-    let result = [...usersList];
+    // Only show clients in User Approvals tab (staff are managed in Staff Management tab)
+    let result = usersList.filter(u => !u.role || u.role === 'client');
     
     // Status Filter
     if (statusFilter !== 'all') {
       result = result.filter(u => u.status === statusFilter);
-    }
-    
-    // Role Filter
-    if (roleFilter !== 'all') {
-      result = result.filter(u => {
-        const uRole = u.role || 'client';
-        return uRole === roleFilter;
-      });
     }
     
     // Search Filter
@@ -1824,6 +1821,18 @@ export default function AdminDashboard() {
                   actionLoading={actionLoading}
                 />
               </div>
+            )}
+
+            {/* Tab: Staff Management */}
+            {activeTab === 'staff' && (
+              <StaffManagement
+                staffList={usersList.filter(u => u.role === 'salesman' || u.role === 'admin')}
+                loading={loadingData}
+                onRefresh={() => {
+                  // Staff data comes from the same usersList subscription,
+                  // so it auto-refreshes. This is a manual trigger if needed.
+                }}
+              />
             )}
 
             {/* Tab 2: Orders Request View */}

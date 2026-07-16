@@ -43,6 +43,7 @@ export interface UserProfile {
   registrationCompleted?: boolean;
   requestedFirmName?: string;
   role?: 'client' | 'salesman' | 'admin';
+  plainPassword?: string;  // Only for staff accounts created directly by admin
 }
 
 // Create or retrieve user profile in Firestore

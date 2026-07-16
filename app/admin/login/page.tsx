@@ -165,29 +165,8 @@ export default function AdminLoginPage() {
         </form>
 
         <div className="flex flex-col items-center gap-2 pt-2 text-center">
-          <button
-            type="button"
-            onClick={async () => {
-              if (!email) {
-                showToast('Please enter your admin email above first.', 'warning');
-                return;
-              }
-              setLoading(true);
-              try {
-                await sendPasswordResetEmail(auth!, email);
-                showToast('Password reset email sent successfully! Please check your inbox.', 'success');
-              } catch (err: any) {
-                console.error('Password reset failed:', err);
-                showToast(`Failed to send reset email: ${err.message || err.code}`, 'error');
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
-            className="text-xs font-bold text-[#5d51e8] hover:underline cursor-pointer"
-          >
-            Forgot Password / Reset Admin Password
-          </button>
+
+
           
           <button
             onClick={() => router.push('/login')}

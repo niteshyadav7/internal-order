@@ -2,7 +2,7 @@ import React from 'react';
 import { Menu, LogOut, Bell } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'users' | 'orders' | 'products' | 'fields' | 'notifications';
+  activeTab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications';
   onMenuClick: () => void;
   onLogout: () => void;
   onNotificationClick?: () => void;
@@ -20,6 +20,7 @@ export default function Header({
     switch (tab) {
       case 'fields': return 'Profile Settings';
       case 'users': return 'User Approvals';
+      case 'staff': return 'Staff Management';
       case 'orders': return 'Order Requests';
       case 'products': return 'Manage Catalog';
       case 'notifications': return 'Notifications';

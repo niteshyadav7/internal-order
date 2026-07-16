@@ -1,6 +1,7 @@
 import { 
   Shield, 
   Users, 
+  UserCog,
   ShoppingBag, 
   Database, 
   Settings, 
@@ -12,8 +13,8 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  activeTab: 'users' | 'orders' | 'products' | 'fields' | 'notifications';
-  onTabChange: (tab: 'users' | 'orders' | 'products' | 'fields' | 'notifications') => void;
+  activeTab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications';
+  onTabChange: (tab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications') => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   isMobileOpen: boolean;
@@ -79,6 +80,20 @@ export default function Sidebar({
             >
               <Users className="w-4 h-4 flex-shrink-0" />
               {!isCollapsed && <span className="animate-in fade-in duration-300">User Approvals</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { onTabChange('staff'); onCloseMobile(); }}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'staff'
+                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
+              title="Staff Management"
+            >
+              <UserCog className="w-4 h-4 flex-shrink-0" />
+              {!isCollapsed && <span className="animate-in fade-in duration-300">Staff Management</span>}
             </button>
 
             <button

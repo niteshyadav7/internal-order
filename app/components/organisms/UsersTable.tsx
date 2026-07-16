@@ -70,16 +70,6 @@ export default function UsersTable({
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <select
-            value={roleFilter}
-            onChange={(e) => onRoleFilterChange(e.target.value as any)}
-            className="px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-black outline-none focus:border-[#5d51e8] text-slate-700 dark:text-zinc-300"
-          >
-            <option value="all">All Roles</option>
-            <option value="client">Clients Only</option>
-            <option value="salesman">Salesmen Only</option>
-            <option value="admin">Admins Only</option>
-          </select>
           <SearchInput
             placeholder="Search name, email, details..."
             value={searchQuery}
