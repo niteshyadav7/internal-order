@@ -715,7 +715,7 @@ export default function SalesmanPortal() {
             <img 
               src={lightboxUrl} 
               alt="High-resolution design" 
-              className="w-full h-full object-contain animate-in zoom-in-95 duration-200"
+              className="w-full h-full object-cover animate-in zoom-in-95 duration-200"
             />
           </div>
         </div>
