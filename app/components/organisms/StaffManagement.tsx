@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { UserProfile } from '../../lib/db';
 import {
   Plus,
@@ -14,11 +14,14 @@ import {
   Search,
   X,
   Copy,
-  Check
+  Check,
+  UserPlus,
+  Globe
 } from 'lucide-react';
 
 interface StaffManagementProps {
   staffList: UserProfile[];
+  usersList: UserProfile[];
   loading: boolean;
   onRefresh: () => void;
 }
@@ -33,7 +36,7 @@ function generatePassword(length = 10): string {
   return password;
 }
 
-export default function StaffManagement({ staffList, loading, onRefresh }: StaffManagementProps) {
+export default function StaffManagement({ staffList, usersList, loading, onRefresh }: StaffManagementProps) {
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -48,7 +51,8 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
-  const [editRole, setEditRole] = useState<'salesman' | 'admin'>('salesman');
+  const [editRole, setEditRole] = useState<'salesman' | 'admin' | 'client'>('salesman');
+  const isEditGoogleUser = editUser ? !editUser.plainPassword : false;
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -61,6 +65,32 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
   const [roleFilter, setRoleFilter] = useState<'all' | 'salesman' | 'admin'>('all');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
+
+  // Promote modal state
+  const [showPromote, setShowPromote] = useState(false);
+  const [promoteSearch, setPromoteSearch] = useState('');
+  const [promoteSelectedUid, setPromoteSelectedUid] = useState<string | null>(null);
+  const [promoteRole, setPromoteRole] = useState<'salesman' | 'admin'>('salesman');
+  const [promoting, setPromoting] = useState(false);
+  const [promoteError, setPromoteError] = useState('');
+
+  // Client list for promotion (excludes existing staff)
+  const clientsForPromotion = useMemo(() => {
+    const staffUids = new Set(staffList.map(s => s.uid));
+    return usersList.filter(u => {
+      if (staffUids.has(u.uid)) return false;
+      const role = u.role || 'client';
+      return role === 'client';
+    });
+  }, [usersList, staffList]);
+
+  const filteredClientsForPromotion = useMemo(() => {
+    if (!promoteSearch.trim()) return clientsForPromotion;
+    const q = promoteSearch.toLowerCase();
+    return clientsForPromotion.filter(u =>
+      u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    );
+  }, [clientsForPromotion, promoteSearch]);
 
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -149,7 +179,7 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
     setEditName(user.name);
     setEditEmail(user.email);
     setEditPassword(user.plainPassword || '');
-    setEditRole((user.role as 'salesman' | 'admin') || 'salesman');
+    setEditRole((user.role as 'salesman' | 'admin' | 'client') || 'salesman');
     setEditError('');
   };
 
@@ -158,8 +188,12 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
     if (!editUser) return;
     setEditError('');
 
-    if (!editName.trim() || !editEmail.trim()) {
-      setEditError('Name and email are required');
+    if (!editName.trim()) {
+      setEditError('Name is required');
+      return;
+    }
+    if (!isEditGoogleUser && !editEmail.trim()) {
+      setEditError('Email is required');
       return;
     }
 
@@ -168,11 +202,14 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
       const body: any = {
         uid: editUser.uid,
         name: editName.trim(),
-        email: editEmail.trim(),
         role: editRole,
       };
-      // Only include password if changed
-      if (editPassword && editPassword !== editUser.plainPassword) {
+      // Only include email if not a Google user
+      if (!isEditGoogleUser) {
+        body.email = editEmail.trim();
+      }
+      // Only include password if changed and not a Google user
+      if (!isEditGoogleUser && editPassword && editPassword !== editUser.plainPassword) {
         if (editPassword.length < 6) {
           setEditError('Password must be at least 6 characters');
           setEditing(false);
@@ -312,6 +349,19 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
             </div>
             <button
               onClick={() => {
+                setShowPromote(true);
+                setPromoteSearch('');
+                setPromoteSelectedUid(null);
+                setPromoteRole('salesman');
+                setPromoteError('');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              Promote Client
+            </button>
+            <button
+              onClick={() => {
                 setShowCreate(true);
                 setCreatePassword(generatePassword());
               }}
@@ -372,20 +422,20 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-lg">
-                          {visiblePasswords.has(user.uid)
-                            ? (user.plainPassword || '••••••••')
-                            : '••••••••'}
-                        </code>
-                        <button
-                          onClick={() => togglePasswordVisibility(user.uid)}
-                          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
-                          title={visiblePasswords.has(user.uid) ? 'Hide' : 'Show'}
-                        >
-                          {visiblePasswords.has(user.uid) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                        {user.plainPassword && (
+                      {user.plainPassword ? (
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-lg">
+                            {visiblePasswords.has(user.uid)
+                              ? user.plainPassword
+                              : '••••••••'}
+                          </code>
+                          <button
+                            onClick={() => togglePasswordVisibility(user.uid)}
+                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                            title={visiblePasswords.has(user.uid) ? 'Hide' : 'Show'}
+                          >
+                            {visiblePasswords.has(user.uid) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
                           <button
                             onClick={() => copyPassword(user.uid, user.plainPassword!)}
                             className="p-1 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
@@ -393,8 +443,13 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
                           >
                             {copiedUid === user.uid ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                          <Globe className="w-3 h-3" />
+                          Google Account
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-xs font-bold text-slate-400">
                       {new Date(user.createdAt).toLocaleDateString()}
@@ -568,27 +623,48 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={editEmail}
-                  onChange={e => setEditEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 text-sm font-bold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-900 dark:text-white"
-                  required
-                />
-              </div>
+              {!isEditGoogleUser ? (
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={e => setEditEmail(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm font-bold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-900 dark:text-white"
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Email</label>
+                  <div className="w-full px-4 py-2.5 text-sm font-bold bg-slate-100 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl text-slate-500 dark:text-zinc-400 flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-blue-500" />
+                    {editEmail}
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400 mt-1">Google account — email managed by Google</p>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Password (leave blank to keep current)</label>
-                <input
-                  type="text"
-                  value={editPassword}
-                  onChange={e => setEditPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 text-sm font-mono font-bold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-900 dark:text-white"
-                  placeholder="Enter new password or leave as-is"
-                />
-              </div>
+              {!isEditGoogleUser ? (
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Password (leave blank to keep current)</label>
+                  <input
+                    type="text"
+                    value={editPassword}
+                    onChange={e => setEditPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm font-mono font-bold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-900 dark:text-white"
+                    placeholder="Enter new password or leave as-is"
+                  />
+                </div>
+              ) : (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-xl">
+                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5" />
+                    Google Account
+                  </p>
+                  <p className="text-[10px] font-bold text-blue-500/70 dark:text-blue-400/60 mt-0.5">Password is managed via Google Sign-In and cannot be changed here.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Role</label>
@@ -615,6 +691,19 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
                   >
                     Admin
                   </button>
+                  {isEditGoogleUser && (
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('client')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
+                        editRole === 'client'
+                          ? 'border-slate-500 bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                          : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-slate-400'
+                      }`}
+                    >
+                      Client
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -664,6 +753,149 @@ export default function StaffManagement({ staffList, loading, onRefresh }: Staff
                   <Trash2 className="w-4 h-4" />
                 )}
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PROMOTE CLIENT MODAL ── */}
+      {showPromote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowPromote(false)} />
+          <div className="relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-emerald-600" />
+                Promote Client to Staff
+              </h3>
+              <button onClick={() => setShowPromote(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {promoteError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl text-xs font-bold text-red-600 dark:text-red-400">
+                  {promoteError}
+                </div>
+              )}
+
+              {/* Search clients */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search clients by name or email..."
+                  value={promoteSearch}
+                  onChange={e => setPromoteSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 text-sm font-bold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Client list */}
+              <div className="max-h-52 overflow-y-auto space-y-1 border border-slate-100 dark:border-zinc-800 rounded-xl p-1">
+                {filteredClientsForPromotion.length === 0 ? (
+                  <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 text-center py-6">No clients found</p>
+                ) : (
+                  filteredClientsForPromotion.map(client => (
+                    <button
+                      key={client.uid}
+                      type="button"
+                      onClick={() => setPromoteSelectedUid(client.uid)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                        promoteSelectedUid === client.uid
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800'
+                          : 'hover:bg-slate-50 dark:hover:bg-zinc-800/50 border border-transparent'
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-zinc-700 flex items-center justify-center text-xs font-black text-slate-600 dark:text-zinc-300">
+                        {client.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{client.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 truncate">{client.email}</p>
+                      </div>
+                      {promoteSelectedUid === client.uid && (
+                        <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Role selection */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Assign Role</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPromoteRole('salesman')}
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
+                      promoteRole === 'salesman'
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
+                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-amber-300'
+                    }`}
+                  >
+                    Salesman
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPromoteRole('admin')}
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
+                      promoteRole === 'admin'
+                        ? 'border-red-500 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-red-300'
+                    }`}
+                  >
+                    Admin
+                  </button>
+                </div>
+              </div>
+
+              {/* Promote button */}
+              <button
+                type="button"
+                disabled={!promoteSelectedUid || promoting}
+                onClick={async () => {
+                  if (!promoteSelectedUid) return;
+                  setPromoting(true);
+                  setPromoteError('');
+                  try {
+                    const client = clientsForPromotion.find(c => c.uid === promoteSelectedUid);
+                    if (!client) throw new Error('Client not found');
+                    const res = await fetch('/api/admin/staff', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        uid: client.uid,
+                        name: client.name,
+                        role: promoteRole,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to promote');
+                    showToast(`"${client.name}" promoted to ${promoteRole} successfully!`, 'success');
+                    setShowPromote(false);
+                    onRefresh();
+                  } catch (err: any) {
+                    setPromoteError(err.message);
+                  } finally {
+                    setPromoting(false);
+                  }
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {promoting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Promoting...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Promote to {promoteRole === 'admin' ? 'Admin' : 'Salesman'}
+                  </>
+                )}
               </button>
             </div>
           </div>

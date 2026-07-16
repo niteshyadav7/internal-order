@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
     if (name) profileUpdate.name = name;
     if (email) profileUpdate.email = email;
     if (password) profileUpdate.plainPassword = password;
-    if (role && ['salesman', 'admin'].includes(role)) profileUpdate.role = role;
+    if (role && ['salesman', 'admin', 'client'].includes(role)) profileUpdate.role = role;
 
     if (Object.keys(profileUpdate).length > 0) {
       await adminDb.collection('users').doc(uid).update(profileUpdate);

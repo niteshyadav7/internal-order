@@ -1837,6 +1837,7 @@ export default function AdminDashboard() {
             {activeTab === 'staff' && (
               <StaffManagement
                 staffList={usersList.filter(u => u.role === 'salesman' || u.role === 'admin')}
+                usersList={usersList}
                 loading={loadingData}
                 onRefresh={() => {
                   // Staff data comes from the same usersList subscription,
