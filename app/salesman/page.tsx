@@ -696,16 +696,22 @@ export default function SalesmanPortal() {
 
       {/* Lightbox Modal for High Resolution Design Inspection */}
       {lightboxUrl && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-200">
+        <div 
+          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
+        >
           <button 
             type="button"
             onClick={() => setLightboxUrl(null)} 
-            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg"
+            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg z-[120]"
             title="Close Zoom"
           >
             <X className="w-6 h-6" />
           </button>
-          <div className="max-w-5xl max-h-[85vh] p-2 flex items-center justify-center">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-5xl max-h-[85vh] p-2 flex items-center justify-center cursor-default"
+          >
             <img 
               src={lightboxUrl} 
               alt="High-resolution design" 
