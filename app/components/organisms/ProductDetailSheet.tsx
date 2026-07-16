@@ -12,6 +12,7 @@ interface ProductDetailSheetProps {
   onToggleSelect: (variantName?: string, imageUrl?: string) => void;
   lang: 'en' | 'hi';
   priceRangePct?: number;
+  readOnly?: boolean;
 }
 
 export default function ProductDetailSheet({
@@ -22,7 +23,8 @@ export default function ProductDetailSheet({
   selectedVariantName,
   onToggleSelect,
   lang,
-  priceRangePct = 5
+  priceRangePct = 5,
+  readOnly = false
 }: ProductDetailSheetProps) {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
@@ -245,36 +247,54 @@ export default function ProductDetailSheet({
         </div>
 
         {/* Sticky Action Footer */}
-        <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/60 flex-shrink-0 flex items-center justify-between gap-4">
-          <div className="text-left">
-            <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">Total Price</span>
-            <p className="text-base font-black text-slate-900 dark:text-white leading-none mt-0.5">
-              {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
-            </p>
-          </div>
+        {!readOnly ? (
+          <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/60 flex-shrink-0 flex items-center justify-between gap-4">
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">Total Price</span>
+              <p className="text-base font-black text-slate-900 dark:text-white leading-none mt-0.5">
+                {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleActionClick}
-            className={`flex-grow sm:flex-grow-0 px-6 py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] ${
-              isSelected
-                ? 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50'
-                : 'bg-[#5d51e8] hover:bg-[#4b3fd3] text-white shadow-lg shadow-[#5d51e8]/20'
-            }`}
-          >
-            {isSelected ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Remove{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="w-4 h-4" />
-                <span>Add{activeVariant ? ` · ${activeVariant.name}` : ''} to Order</span>
-              </>
-            )}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleActionClick}
+              className={`flex-grow sm:flex-grow-0 px-6 py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] ${
+                isSelected
+                  ? 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50'
+                  : 'bg-[#5d51e8] hover:bg-[#4b3fd3] text-white shadow-lg shadow-[#5d51e8]/20'
+              }`}
+            >
+              {isSelected ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Remove{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Add{activeVariant ? ` · ${activeVariant.name}` : ''} to Order</span>
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/60 flex-shrink-0 flex items-center justify-between gap-4">
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">Price Range</span>
+              <p className="text-base font-black text-slate-900 dark:text-white leading-none mt-0.5">
+                {getPriceRange(product.price, product.priceRangePct !== undefined ? product.priceRangePct : priceRangePct, (product as any).minPrice, (product as any).maxPrice)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3.5 rounded-2xl text-xs font-black bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-200 transition-all active:scale-[0.97] cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -11,7 +11,9 @@ import {
   updateOrder,
   releaseOrder,
   getPriceRange,
-  getGlobalSettings
+  getGlobalSettings,
+  getProducts,
+  Product
 } from '../lib/db';
 import {
   ShoppingBag,
@@ -24,23 +26,40 @@ import {
   Sparkles,
   Loader2,
   X,
-  XCircle
+  XCircle,
+  Smartphone,
+  Shirt,
+  Bed,
+  Activity,
+  Package,
+  Home as HomeIcon
 } from 'lucide-react';
 import Button from '../components/atoms/Button';
+import ClientProductGrid from '../components/organisms/ClientProductGrid';
+import { getTranslation, LangType } from '../lib/translations';
 
 export default function SalesmanPortal() {
   const { user, userProfile, loading, logout } = useAuth();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
-  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
+  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'products'>('available');
+
+  // Catalog and translation states
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [productsList, setProductsList] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productsSearchQuery, setProductsSearchQuery] = useState('');
+  const [lang, setLang] = useState<LangType>('en');
+  const t = (key: any) => getTranslation(lang, key);
 
   // Dynamic window/tab title
   useEffect(() => {
     const tabTitles: Record<string, string> = {
       available: 'Sales - Available Orders',
       active: 'Sales - My Active Orders',
-      completed: 'Sales - Completed Orders'
+      completed: 'Sales - Completed Orders',
+      products: 'Sales - Products Catalog'
     };
     document.title = tabTitles[activeTab] || 'Salesman Portal';
   }, [activeTab]);
@@ -50,6 +69,7 @@ export default function SalesmanPortal() {
 
   useEffect(() => {
     getGlobalSettings().then(settings => {
+      setGlobalSettings(settings);
       setPriceRangePct(settings.priceRangePct || 5);
     });
   }, []);
@@ -73,6 +93,40 @@ export default function SalesmanPortal() {
     });
     return () => unsubscribe();
   }, [user, userProfile]);
+
+  // Fetch products on demand when products tab is opened
+  useEffect(() => {
+    if (activeTab === 'products' && productsList.length === 0) {
+      setLoadingProducts(true);
+      getProducts().then(prods => {
+        setProductsList(prods);
+        setLoadingProducts(false);
+      }).catch(err => {
+        console.error("Error fetching products:", err);
+        setLoadingProducts(false);
+      });
+    }
+  }, [activeTab, productsList.length]);
+
+  // Helper to get Category/Product Icons for Retail Store
+  const getProductIcon = (category: string, size = "w-6 h-6") => {
+    switch (category.toLowerCase()) {
+      case 'electronics':
+        return <Smartphone className={size} />;
+      case 'fashion':
+        return <Shirt className={size} />;
+      case 'home & kitchen':
+        return <HomeIcon className={size} />;
+      case 'beauty & care':
+        return <Sparkles className={size} />;
+      case 'furniture & decor':
+        return <Bed className={size} />;
+      case 'fitness':
+        return <Activity className={size} />;
+      default:
+        return <Package className={size} />;
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -360,13 +414,43 @@ export default function SalesmanPortal() {
               {myCompletedOrders.length}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`w-full py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] min-[375px]:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-2 cursor-pointer ${activeTab === 'products'
+                ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/10'
+                : 'text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
+              }`}
+          >
+            <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 hidden sm:inline" />
+            <span>Products</span>
+          </button>
         </div>
 
         {/* Content list */}
-        {loadingOrders ? (
+        {activeTab === 'products' ? (
+          <ClientProductGrid
+            products={productsList}
+            filteredProducts={productsList}
+            loading={loadingProducts}
+            searchQuery={productsSearchQuery}
+            onSearchChange={setProductsSearchQuery}
+            selectedIds={new Set<string>()}
+            onToggleProduct={() => {}}
+            onPlaceOrder={() => {}}
+            submittingOrder={false}
+            lang={lang}
+            t={t}
+            profileName={userProfile?.name || 'Salesman'}
+            getProductIcon={getProductIcon}
+            categoriesList={globalSettings?.categories || []}
+            priceRangePct={priceRangePct}
+            readOnly={true}
+          />
+        ) : loadingOrders ? (
           <div className="py-20 text-center flex flex-col items-center gap-3">
             <Loader2 className="animate-spin h-8 w-8 text-[#5d51e8]" />
-            <p className="text-xs font-bold text-slate-400">Loading live orders feed...</p>
+            <p className="text-xs font-bold text-slate-400">Loading live orders feed Feed...</p>
           </div>
         ) : (
           <div className="space-y-4">

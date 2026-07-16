@@ -327,6 +327,7 @@ interface ClientProductGridProps {
   priceRangePct: number;
   onLoadMore?: () => void;
   hasMore?: boolean;
+  readOnly?: boolean;
 }
 
 // Hook for detecting mobile viewport
@@ -358,7 +359,8 @@ export default function ClientProductGrid({
   categoriesList = [],
   priceRangePct = 5,
   onLoadMore,
-  hasMore = false
+  hasMore = false,
+  readOnly = false
 }: ClientProductGridProps) {
   const isMobile = useIsMobile();
   const [visibleCount, setVisibleCount] = useState(12);
@@ -855,12 +857,14 @@ export default function ClientProductGrid({
                       className="w-full h-full rounded-none border-none shadow-none"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-80" />
-                    <div className={`absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all z-10 ${isSelected
-                      ? 'bg-[#5d51e8] text-white border-[#5d51e8] scale-110 shadow-lg'
-                      : 'bg-black/30 border-white/60 text-transparent group-hover:border-white'
-                      }`}>
-                      <Check className="w-4 h-4 stroke-[4]" />
-                    </div>
+                    {!readOnly && (
+                      <div className={`absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all z-10 ${isSelected
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] scale-110 shadow-lg'
+                        : 'bg-black/30 border-white/60 text-transparent group-hover:border-white'
+                        }`}>
+                        <Check className="w-4 h-4 stroke-[4]" />
+                      </div>
+                    )}
                     <div className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl px-3 py-1 flex items-center gap-1.5 z-10">
                       {getProductIcon(product.category, "w-3.5 h-3.5")}
                       <span className="text-[10px] font-black uppercase tracking-wider">
@@ -935,9 +939,10 @@ export default function ClientProductGrid({
         }}
         lang={lang}
         priceRangePct={priceRangePct}
+        readOnly={readOnly}
       />
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && !readOnly && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 shadow-2xl z-40 transition-transform duration-300 animate-in slide-in-from-bottom duration-300">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
