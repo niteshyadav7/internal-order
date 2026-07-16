@@ -40,6 +40,47 @@ export async function POST(request: Request) {
         password === expectedPassword
       ) {
         isAuthenticated = true;
+      } else {
+        // Query Firestore users collection for custom Admin roles
+        try {
+          const { adminDb } = require('../../../lib/firebaseAdmin');
+          const usersRef = adminDb.collection('users');
+          const snapshot = await usersRef.where('email', '==', email.trim()).get();
+          
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            
+            if (userData.role === 'admin') {
+              if (userData.status !== 'approved') {
+                return NextResponse.json(
+                  { success: false, error: 'Your admin account is pending approval or disabled' },
+                  { status: 403 }
+                );
+              }
+              if (userData.plainPassword === password) {
+                isAuthenticated = true;
+              } else {
+                return NextResponse.json(
+                  { success: false, error: 'Invalid administrator password' },
+                  { status: 401 }
+                );
+              }
+            } else if (userData.role === 'salesman') {
+              return NextResponse.json(
+                { success: false, error: 'Access denied: Salesman accounts cannot login to the Admin Panel. Please use the Customer/Salesman Login page.' },
+                { status: 403 }
+              );
+            } else {
+              return NextResponse.json(
+                { success: false, error: 'Access denied: Client accounts cannot login to the Admin Panel.' },
+                { status: 403 }
+              );
+            }
+          }
+        } catch (dbErr) {
+          console.error('Error verifying custom admin in Firestore:', dbErr);
+        }
       }
     }
 
