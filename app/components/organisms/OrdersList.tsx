@@ -15,7 +15,9 @@ import {
   AlertCircle, 
   Bookmark,
   ChevronDown,
-  XCircle
+  XCircle,
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import { Order, UserProfile, Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
@@ -912,6 +914,76 @@ export default function OrdersList({
                     })()}
                   </div>
                 </div>
+              </div>
+
+              {/* Salesman Packing Notes & Admin Logistics Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 print:hidden">
+                {/* Left: Salesman packing feedback */}
+                <div className="bg-amber-50/60 dark:bg-amber-955/10 border border-amber-200/60 dark:border-amber-900/35 p-5 rounded-2xl space-y-2 text-left">
+                  <h4 className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Salesman Packing Notes
+                  </h4>
+                  {selectedOrder.salesmanNotes ? (
+                    <p className="text-xs font-bold text-slate-700 dark:text-zinc-300 bg-white/70 dark:bg-zinc-900/50 p-3 rounded-xl border border-amber-100/50 dark:border-amber-900/10 leading-relaxed shadow-sm">
+                      {selectedOrder.salesmanNotes}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-405 dark:text-zinc-555 italic font-bold">
+                      No packing notes submitted by salesman.
+                    </p>
+                  )}
+                </div>
+
+                {/* Right: Admin editable logistics notes */}
+                <form onSubmit={handleSaveDetails} className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-105 dark:border-zinc-850 p-5 rounded-2xl space-y-4 text-left">
+                  <h4 className="text-[10px] font-black text-slate-450 dark:text-zinc-550 uppercase tracking-widest pb-1 border-b border-slate-100/40 dark:border-zinc-800/40">
+                    Internal Logistics & Admin Notes
+                  </h4>
+                  
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="block text-[9px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider mb-1">
+                        Tracking Reference / Bill No.
+                      </label>
+                      <input
+                        type="text"
+                        value={trackingInput}
+                        onChange={(e) => setTrackingInput(e.target.value)}
+                        placeholder="e.g. TRK987654321 / Speed Post"
+                        className="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-zinc-900 border border-slate-205 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#5d51e8] text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider mb-1">
+                        Private Admin Notes
+                      </label>
+                      <textarea
+                        value={notesInput}
+                        onChange={(e) => setNotesInput(e.target.value)}
+                        placeholder="Internal packaging details, dispatch remarks, customer follow-up notes..."
+                        rows={2}
+                        className="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-zinc-900 border border-slate-205 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#5d51e8] text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingDetails || (trackingInput === (selectedOrder.trackingNumber || '') && notesInput === (selectedOrder.adminNotes || ''))}
+                    className="w-full py-2 bg-[#5d51e8] hover:bg-[#4a3ecc] disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/10 cursor-pointer active:scale-97 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    {savingDetails ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Saving Logistics...
+                      </>
+                    ) : (
+                      'Save Logistics Info'
+                    )}
+                  </button>
+                </form>
               </div>
 
               {/* Order Status & Timestamps */}

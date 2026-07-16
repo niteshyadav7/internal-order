@@ -328,6 +328,8 @@ interface ClientProductGridProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   readOnly?: boolean;
+  onFlagStock?: (product: Product) => void;
+  flaggingProductId?: string | null;
 }
 
 // Hook for detecting mobile viewport
@@ -360,7 +362,9 @@ export default function ClientProductGrid({
   priceRangePct = 5,
   onLoadMore,
   hasMore = false,
-  readOnly = false
+  readOnly = false,
+  onFlagStock,
+  flaggingProductId = null
 }: ClientProductGridProps) {
   const isMobile = useIsMobile();
   const [visibleCount, setVisibleCount] = useState(12);
@@ -902,12 +906,40 @@ export default function ClientProductGrid({
                           </span>
                         </div>
                       </div>
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all ${isSelected
-                        ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/20'
-                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-655 dark:text-zinc-300 group-hover:bg-[#5d51e8]/10 group-hover:text-[#5d51e8]'
-                        }`}>
-                        {isSelected ? (lang === 'en' ? `Selected (${selectedCount})` : `चयनित (${selectedCount})`) : (lang === 'en' ? 'Add' : 'जोड़ें')}
-                      </span>
+                      {readOnly ? (
+                        onFlagStock ? (
+                          product.inStock === false ? (
+                            <span className="text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 px-3 py-1.5 rounded-xl border border-rose-100 dark:border-rose-900/30">
+                              Out of Stock
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onFlagStock(product);
+                              }}
+                              disabled={flaggingProductId === product.id}
+                              className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              {flaggingProductId === product.id ? 'Flagging...' : 'Flag Out Stock'}
+                            </button>
+                          )
+                        ) : (
+                          product.inStock === false && (
+                            <span className="text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 px-3 py-1.5 rounded-xl border border-rose-100 dark:border-rose-900/30">
+                              Out of Stock
+                            </span>
+                          )
+                        )
+                      ) : (
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all ${isSelected
+                          ? 'bg-[#5d51e8] text-white shadow-md shadow-[#5d51e8]/20'
+                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-655 dark:text-zinc-300 group-hover:bg-[#5d51e8]/10 group-hover:text-[#5d51e8]'
+                          }`}>
+                          {isSelected ? (lang === 'en' ? `Selected (${selectedCount})` : `चयनित (${selectedCount})`) : (lang === 'en' ? 'Add' : 'जोड़ें')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -13,7 +13,10 @@ import {
   getPriceRange,
   getGlobalSettings,
   getProducts,
-  Product
+  updateProduct,
+  Product,
+  createStockAlert,
+  addSalesmanNote
 } from '../lib/db';
 import {
   ShoppingBag,
@@ -32,7 +35,11 @@ import {
   Bed,
   Activity,
   Package,
-  Home as HomeIcon
+  Home as HomeIcon,
+  AlertTriangle,
+  MessageSquare,
+  TrendingUp,
+  PackageX
 } from 'lucide-react';
 import Button from '../components/atoms/Button';
 import ClientProductGrid from '../components/organisms/ClientProductGrid';
@@ -173,6 +180,16 @@ export default function SalesmanPortal() {
   const [prepSubmitting, setPrepSubmitting] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Stock flag loading state for Products tab
+  const [flaggingProductId, setFlaggingProductId] = useState<string | null>(null);
+
   const startPreparation = (order: Order) => {
     setPrepOrder(order);
     setPrepPhase('prep');
@@ -216,15 +233,34 @@ export default function SalesmanPortal() {
   };
 
   const submitPreparation = async () => {
-    if (!prepOrder || !prepOrder.id) return;
+    if (!prepOrder || !prepOrder.id || !user) return;
     setPrepSubmitting(true);
     try {
       const updatedItems = prepOrder.items.map((item, idx) => ({
         ...item,
         prepStatus: prepStates[idx] || 'found'
       }));
-      await updateOrder(prepOrder.id, { items: updatedItems as any });
+      await updateOrder(prepOrder.id, {
+        items: updatedItems as any,
+        completedAt: new Date().toISOString()
+      });
       await completeOrder(prepOrder.id);
+
+      // Auto-create stock alerts for items marked as not_found
+      const notFoundItems = prepOrder.items.filter((_, idx) => prepStates[idx] === 'not_found');
+      for (const item of notFoundItems) {
+        await createStockAlert({
+          productId: item.productId,
+          productName: item.nameEn,
+          reportedByUid: user.uid,
+          reportedByName: userProfile?.name || 'Salesman',
+          reason: `Item not found during order preparation (Order: ${prepOrder.userName})`
+        });
+      }
+      if (notFoundItems.length > 0) {
+        showToast(`${notFoundItems.length} stock alert(s) sent to admin`, 'success');
+      }
+
       setPrepOrder(null);
     } catch (e) {
       console.error(e);
@@ -292,6 +328,49 @@ export default function SalesmanPortal() {
     );
   }
 
+  // Performance stats computed from orders
+  const todayStr = new Date().toDateString();
+  const todayCompleted = myCompletedOrders.filter(o => new Date(o.createdAt).toDateString() === todayStr);
+  const allCompletedItems = myCompletedOrders.flatMap(o => o.items);
+  const itemsFoundRate = allCompletedItems.length > 0
+    ? Math.round((allCompletedItems.filter(i => i.prepStatus === 'found' || !i.prepStatus).length / allCompletedItems.length) * 100)
+    : 100;
+
+  // Handle stock flagging from Products tab
+  const handleFlagOutOfStock = async (product: Product) => {
+    if (!product.id || !user) return;
+    setFlaggingProductId(product.id);
+    try {
+      await updateProduct(product.id, { inStock: false });
+      await createStockAlert({
+        productId: product.id,
+        productName: product.nameEn,
+        reportedByUid: user.uid,
+        reportedByName: userProfile?.name || 'Salesman',
+        reason: 'Manually flagged as out of stock by salesman'
+      });
+      // Update local state
+      setProductsList(prev => prev.map(p => p.id === product.id ? { ...p, inStock: false } : p));
+      showToast(`"${product.nameEn}" flagged out of stock. Admin notified.`, 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to update stock status', 'error');
+    } finally {
+      setFlaggingProductId(null);
+    }
+  };
+
+  // Handle adding salesman note to an order
+  const handleAddNote = async (orderId: string, note: string) => {
+    try {
+      await addSalesmanNote(orderId, note);
+      showToast('Note saved successfully', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to save note', 'error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 transition-colors duration-300 font-sans pb-12">
       {/* Header bar */}
@@ -324,8 +403,8 @@ export default function SalesmanPortal() {
       <main className="max-w-4xl w-full mx-auto p-6 space-y-6">
 
         {/* Salesman Welcome & Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-300">
-          <div className="bg-gradient-to-br from-indigo-500 to-[#5d51e8] text-white p-5 rounded-3xl shadow-md space-y-2 relative overflow-hidden flex flex-col justify-between min-h-[110px]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 animate-in fade-in duration-300">
+          <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-indigo-500 to-[#5d51e8] text-white p-5 rounded-3xl shadow-md space-y-2 relative overflow-hidden flex flex-col justify-between min-h-[110px]">
             <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
               <User className="w-32 h-32" />
             </div>
@@ -336,25 +415,41 @@ export default function SalesmanPortal() {
             <p className="text-[10px] font-bold text-indigo-100/90">Ready to pack today's shipments?</p>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
-            <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Available Orders</p>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">{availableOrders.length}</span>
-              <span className="text-xs font-bold text-slate-450">waiting in queue</span>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 sm:p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Available</p>
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">{availableOrders.length}</span>
+              <span className="text-[10px] font-bold text-slate-450">in queue</span>
             </div>
             <div className="w-full bg-slate-100 dark:bg-zinc-950 h-1 rounded-full overflow-hidden">
               <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: availableOrders.length > 0 ? '50%' : '0%' }} />
             </div>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
-            <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Your Shipments Today</p>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black text-[#5d51e8] dark:text-indigo-400">{myCompletedOrders.length}</span>
-              <span className="text-xs font-bold text-slate-450">dispatched orders</span>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 sm:p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Today Done</p>
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className="text-2xl sm:text-3xl font-black text-[#5d51e8] dark:text-indigo-400">{todayCompleted.length}</span>
+              <span className="text-[10px] font-bold text-slate-450">dispatched</span>
             </div>
             <div className="w-full bg-slate-100 dark:bg-zinc-950 h-1 rounded-full overflow-hidden">
-              <div className="bg-[#5d51e8] h-full rounded-full transition-all duration-500" style={{ width: myCompletedOrders.length > 0 ? '100%' : '0%' }} />
+              <div className="bg-[#5d51e8] h-full rounded-full transition-all duration-500" style={{ width: todayCompleted.length > 0 ? '100%' : '0%' }} />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 sm:p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-3 h-3 text-emerald-500" />
+              <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Find Rate</p>
+            </div>
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className={`text-2xl sm:text-3xl font-black ${itemsFoundRate >= 90 ? 'text-emerald-600 dark:text-emerald-400' : itemsFoundRate >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                {itemsFoundRate}%
+              </span>
+              <span className="text-[10px] font-bold text-slate-450">items found</span>
+            </div>
+            <div className="w-full bg-slate-100 dark:bg-zinc-950 h-1 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-500 ${itemsFoundRate >= 90 ? 'bg-emerald-500' : itemsFoundRate >= 70 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${itemsFoundRate}%` }} />
             </div>
           </div>
         </div>
@@ -446,6 +541,8 @@ export default function SalesmanPortal() {
             categoriesList={globalSettings?.categories || []}
             priceRangePct={priceRangePct}
             readOnly={true}
+            onFlagStock={handleFlagOutOfStock}
+            flaggingProductId={flaggingProductId}
           />
         ) : loadingOrders ? (
           <div className="py-20 text-center flex flex-col items-center gap-3">
@@ -496,6 +593,8 @@ export default function SalesmanPortal() {
                     actionLoading={actionLoading}
                     priceRangePct={priceRangePct}
                     onImageClick={setLightboxUrl}
+                    showNotes={true}
+                    onAddNote={handleAddNote}
                   />
                 ))
               )
@@ -819,6 +918,8 @@ interface OrderCardProps {
   actionLoading?: string | null;
   priceRangePct?: number;
   onImageClick?: (url: string) => void;
+  showNotes?: boolean;
+  onAddNote?: (id: string, note: string) => Promise<void>;
 }
 
 function OrderCard({
@@ -830,10 +931,19 @@ function OrderCard({
   isCompleted = false,
   actionLoading = null,
   priceRangePct = 5,
-  onImageClick
+  onImageClick,
+  showNotes = false,
+  onAddNote
 }: OrderCardProps) {
   const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isLoading = actionLoading === order.id;
+  const [noteText, setNoteText] = React.useState(order.salesmanNotes || '');
+  const [savingNote, setSavingNote] = React.useState(false);
+
+  // Sync state if order changes
+  React.useEffect(() => {
+    setNoteText(order.salesmanNotes || '');
+  }, [order.salesmanNotes]);
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 hover:shadow-md transition-shadow text-left">
@@ -922,6 +1032,49 @@ function OrderCard({
           ))}
         </div>
       </div>
+
+      {/* Salesman Notes block */}
+      {showNotes && (
+        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 space-y-2 text-left">
+          <div className="flex items-center gap-1 text-[10px] uppercase font-black text-slate-400 tracking-wider">
+            <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
+            <span>Salesman Packing Note</span>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="e.g. Red fabric out of stock, packing green instead..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              className="flex-grow px-3 py-1.5 text-xs font-bold bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-850 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#5d51e8] text-slate-900 dark:text-white"
+            />
+            <button
+              type="button"
+              disabled={savingNote || noteText === (order.salesmanNotes || '')}
+              onClick={async () => {
+                if (!onAddNote) return;
+                setSavingNote(true);
+                await onAddNote(order.id || '', noteText);
+                setSavingNote(false);
+              }}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer active:scale-95 flex items-center justify-center"
+            >
+              {savingNote ? '...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* If completed or just showing read-only completed notes */}
+      {!showNotes && order.salesmanNotes && (
+        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-left bg-amber-50/50 dark:bg-amber-950/10 p-3 rounded-2xl border border-amber-100/50 dark:border-amber-900/20">
+          <div className="flex items-center gap-1 text-[10px] uppercase font-black text-amber-650 dark:text-amber-400 tracking-wider">
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Salesman Note</span>
+          </div>
+          <p className="text-xs font-bold text-slate-700 dark:text-zinc-300 mt-1">{order.salesmanNotes}</p>
+        </div>
+      )}
 
       {/* Action block */}
       {!isCompleted && (onPrimaryAction || onSecondaryAction) && (

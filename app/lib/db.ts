@@ -343,8 +343,10 @@ export interface Order {
   items: OrderItem[];
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   createdAt: string;
+  completedAt?: string;
   trackingNumber?: string;
   adminNotes?: string;
+  salesmanNotes?: string;
   assignedSalesmanUid?: string;
   assignedSalesmanName?: string;
 }
@@ -790,5 +792,85 @@ export async function updateGlobalSettings(settings: Partial<GlobalSettings>): P
   } catch (err) {
     console.error("Error updating global settings:", err);
     return false;
+  }
+}
+
+// ─── STOCK ALERTS ───────────────────────────────────────────────────
+
+export interface StockAlert {
+  id?: string;
+  productId: string;
+  productName: string;
+  reportedByUid: string;
+  reportedByName: string;
+  reason: string;
+  createdAt: string;
+  resolved: boolean;
+  resolvedAt?: string;
+}
+
+// Create a stock alert (Salesman reports out-of-stock)
+export async function createStockAlert(
+  alert: Omit<StockAlert, 'id' | 'createdAt' | 'resolved'>
+): Promise<StockAlert | null> {
+  if (!db) return null;
+  try {
+    const alertsRef = collection(db, 'stock_alerts');
+    const newAlert = sanitizeForFirestore({
+      ...alert,
+      resolved: false,
+      createdAt: new Date().toISOString()
+    });
+    const docRef = await addDoc(alertsRef, newAlert);
+    return { id: docRef.id, ...newAlert };
+  } catch (error) {
+    console.error('Error creating stock alert:', error);
+    return null;
+  }
+}
+
+// Subscribe to stock alerts in real-time (Admin)
+export function subscribeToStockAlerts(
+  callback: (alerts: StockAlert[]) => void
+): () => void {
+  if (!db) { callback([]); return () => {}; }
+  const alertsRef = collection(db, 'stock_alerts');
+  const q = query(alertsRef, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const alerts: StockAlert[] = [];
+    snapshot.forEach((doc) => {
+      alerts.push({ id: doc.id, ...doc.data() } as StockAlert);
+    });
+    callback(alerts);
+  });
+}
+
+// Resolve a stock alert (Admin)
+export async function resolveStockAlert(id: string): Promise<void> {
+  if (!db) return;
+  try {
+    const alertRef = doc(db, 'stock_alerts', id);
+    await updateDoc(alertRef, {
+      resolved: true,
+      resolvedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error resolving stock alert:', error);
+    throw error;
+  }
+}
+
+// Add salesman note to an order
+export async function addSalesmanNote(
+  orderId: string,
+  note: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    await updateDoc(orderRef, { salesmanNotes: note });
+  } catch (error) {
+    console.error('Error adding salesman note:', error);
+    throw error;
   }
 }

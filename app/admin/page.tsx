@@ -32,7 +32,10 @@ import {
   preRegisterUserProfile,
   getGlobalSettings,
   updateGlobalSettings,
-  GlobalSettings
+  GlobalSettings,
+  subscribeToStockAlerts,
+  resolveStockAlert,
+  StockAlert
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
@@ -41,7 +44,7 @@ import { compressImage } from '../lib/image';
 import { useAuth } from '../context/AuthContext';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal } from 'lucide-react';
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX } from 'lucide-react';
 
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
@@ -93,6 +96,7 @@ export default function AdminDashboard() {
   // Tab 2: Orders
   const [ordersList, setOrdersList] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [stockAlertsList, setStockAlertsList] = useState<StockAlert[]>([]);
 
   // Notifications read/cleared states
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -440,8 +444,13 @@ export default function AdminDashboard() {
       setLoadingOrders(false);
     });
 
+    const unsubscribeStockAlerts = subscribeToStockAlerts((alerts) => {
+      setStockAlertsList(alerts);
+    });
+
     return () => {
       unsubscribeOrders();
+      unsubscribeStockAlerts();
     };
   }, [isAdmin, isFirebaseLoaded]);
 
@@ -1527,11 +1536,35 @@ export default function AdminDashboard() {
       }
     });
 
+    // 3. Stock Alerts from Salesman
+    stockAlertsList.forEach(alert => {
+      if (!alert.resolved) {
+        const id = `stock-alert-${alert.id}`;
+        if (clearedNotificationIds.includes(id)) return;
+
+        const isRead = readNotificationIds.includes(id);
+        if (!isRead) unread++;
+
+        list.push({
+          id,
+          type: 'stock',
+          title: 'Out of Stock Alert',
+          message: `Salesman "${alert.reportedByName}" reported product "${alert.productName}" as out of stock. Reason: ${alert.reason}`,
+          timestamp: alert.createdAt,
+          actionLabel: 'Manage Catalog',
+          actionTab: 'products',
+          isRead,
+          alertId: alert.id,
+          productId: alert.productId
+        });
+      }
+    });
+
     // Sort by timestamp descending
     list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return { notificationsList: list, unreadCount: unread };
-  }, [usersList, ordersList, readNotificationIds, clearedNotificationIds]);
+  }, [usersList, ordersList, stockAlertsList, readNotificationIds, clearedNotificationIds]);
 
   const filteredUsers = getFilteredAndSortedUsers();
 
@@ -1691,11 +1724,13 @@ export default function AdminDashboard() {
                           >
                             <div className="flex items-start gap-3.5">
                               <div className={`p-2.5 rounded-2xl flex-shrink-0 mt-0.5 border ${
-                                isUser 
-                                  ? 'bg-indigo-50 dark:bg-indigo-955/20 text-[#5d51e8] border-indigo-105 dark:border-indigo-900/30' 
-                                  : 'bg-amber-50 dark:bg-amber-955/20 text-amber-600 border-amber-105 dark:border-amber-900/30'
+                                notif.type === 'stock'
+                                  ? 'bg-rose-50 dark:bg-rose-955/20 text-rose-600 border-rose-105 dark:border-rose-900/30'
+                                  : isUser 
+                                    ? 'bg-indigo-50 dark:bg-indigo-955/20 text-[#5d51e8] border-indigo-105 dark:border-indigo-900/30' 
+                                    : 'bg-amber-50 dark:bg-amber-955/20 text-amber-600 border-amber-105 dark:border-amber-900/30'
                               }`}>
-                                {isUser ? <Users className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+                                {notif.type === 'stock' ? <PackageX className="w-5 h-5" /> : isUser ? <Users className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
                               </div>
                               <div className="space-y-1 text-left">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -1728,23 +1763,38 @@ export default function AdminDashboard() {
                                 </button>
                               )}
                               
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleMarkAsRead(notif.id);
-                                  setActiveTab(notif.actionTab);
-                                  if (notif.actionTab === 'users') {
-                                    setStatusFilter('pending');
-                                  }
-                                }}
-                                className={`px-4 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 border ${
-                                  isUser
-                                    ? 'bg-[#5d51e8] hover:bg-[#4a3ecc] text-white border-transparent shadow-indigo-500/10'
-                                    : 'bg-white hover:bg-slate-55 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-zinc-700'
-                                }`}
-                              >
-                                {notif.actionLabel}
-                              </button>
+                              {notif.type === 'stock' ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (notif.alertId) {
+                                      await resolveStockAlert(notif.alertId);
+                                      handleMarkAsRead(notif.id);
+                                    }
+                                  }}
+                                  className="px-4 py-1.5 text-xs font-black rounded-xl bg-emerald-650 hover:bg-emerald-750 text-white border-transparent shadow-sm shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+                                >
+                                  Resolve Alert
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleMarkAsRead(notif.id);
+                                    setActiveTab(notif.actionTab);
+                                    if (notif.actionTab === 'users') {
+                                      setStatusFilter('pending');
+                                    }
+                                  }}
+                                  className={`px-4 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 border ${
+                                    isUser
+                                      ? 'bg-[#5d51e8] hover:bg-[#4a3ecc] text-white border-transparent shadow-indigo-500/10'
+                                      : 'bg-white hover:bg-slate-55 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-zinc-700'
+                                  }`}
+                                >
+                                  {notif.actionLabel}
+                                </button>
+                              )}
 
                               <button
                                 type="button"
