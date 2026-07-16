@@ -269,6 +269,42 @@ export default function SalesmanPortal() {
       {/* Main Grid View */}
       <main className="max-w-4xl w-full mx-auto p-6 space-y-6">
 
+        {/* Salesman Welcome & Stats Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-300">
+          <div className="bg-gradient-to-br from-indigo-500 to-[#5d51e8] text-white p-5 rounded-3xl shadow-md space-y-2 relative overflow-hidden flex flex-col justify-between min-h-[110px]">
+            <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
+              <User className="w-32 h-32" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-black tracking-widest text-indigo-200">Welcome Back</p>
+              <h2 className="text-base font-black truncate">{userProfile?.name || 'Salesperson'}</h2>
+            </div>
+            <p className="text-[10px] font-bold text-indigo-100/90">Ready to pack today's shipments?</p>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Available Orders</p>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-black text-slate-900 dark:text-white">{availableOrders.length}</span>
+              <span className="text-xs font-bold text-slate-450">waiting in queue</span>
+            </div>
+            <div className="w-full bg-slate-100 dark:bg-zinc-950 h-1 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: availableOrders.length > 0 ? '50%' : '0%' }} />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 rounded-3xl shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Your Shipments Today</p>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-black text-[#5d51e8] dark:text-indigo-400">{myCompletedOrders.length}</span>
+              <span className="text-xs font-bold text-slate-450">dispatched orders</span>
+            </div>
+            <div className="w-full bg-slate-100 dark:bg-zinc-950 h-1 rounded-full overflow-hidden">
+              <div className="bg-[#5d51e8] h-full rounded-full transition-all duration-500" style={{ width: myCompletedOrders.length > 0 ? '100%' : '0%' }} />
+            </div>
+          </div>
+        </div>
+
         {/* Navigation Tabs */}
         <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-[1.5rem] border border-slate-150 dark:border-zinc-800 shadow-sm flex gap-1">
           <button
@@ -279,7 +315,14 @@ export default function SalesmanPortal() {
               }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Available ({availableOrders.length})</span>
+            <span>Available</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+              activeTab === 'available'
+                ? 'bg-white text-[#5d51e8] scale-105'
+                : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350'
+            }`}>
+              {availableOrders.length}
+            </span>
           </button>
 
           <button
@@ -290,7 +333,14 @@ export default function SalesmanPortal() {
               }`}
           >
             <Clock className="w-4 h-4" />
-            <span>My Active ({myActiveOrders.length})</span>
+            <span>My Active</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+              activeTab === 'active'
+                ? 'bg-white text-[#5d51e8] scale-105'
+                : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350'
+            }`}>
+              {myActiveOrders.length}
+            </span>
           </button>
 
           <button
@@ -301,7 +351,14 @@ export default function SalesmanPortal() {
               }`}
           >
             <CheckCircle className="w-4 h-4" />
-            <span>Finished ({myCompletedOrders.length})</span>
+            <span>Finished</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
+              activeTab === 'completed'
+                ? 'bg-white text-[#5d51e8] scale-105'
+                : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350'
+            }`}>
+              {myCompletedOrders.length}
+            </span>
           </button>
         </div>
 
@@ -735,20 +792,31 @@ function OrderCard({
           {order.items.map((item, idx) => (
             <div
               key={idx}
-              className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/40 dark:border-zinc-850 p-2.5 rounded-xl flex items-center justify-between"
+              className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/40 dark:border-zinc-850 p-2 rounded-xl flex items-center justify-between gap-3 animate-in fade-in duration-200"
             >
-              <div className="text-left space-y-0.5 max-w-[70%]">
-                <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
-                {item.selectedVariant && (
-                  <p className="text-[10px] text-indigo-500 dark:text-indigo-455 font-extrabold uppercase">
-                    Variant: {item.selectedVariant}
-                  </p>
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {item.selectedImageUrl ? (
+                  <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0">
+                    <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex items-center justify-center flex-shrink-0 text-slate-400">
+                    <ShoppingBag className="w-4 h-4 stroke-[1.5]" />
+                  </div>
                 )}
-                <p className="text-[9px] text-[#5d51e8] dark:text-indigo-400 font-bold uppercase">
-                  {(item.code || item.design) ? `C: ${item.code || 'N/A'} | D: ${item.design || 'N/A'}` : 'No Code/Design'}
-                </p>
+                <div className="text-left space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
+                  {item.selectedVariant && (
+                    <p className="text-[10px] text-indigo-500 dark:text-indigo-450 font-extrabold uppercase truncate">
+                      Variant: {item.selectedVariant}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-[#5d51e8] dark:text-indigo-400 font-bold uppercase truncate">
+                    {(item.code || item.design) ? `C: ${item.code || 'N/A'} | D: ${item.design || 'N/A'}` : 'No Code/Design'}
+                  </p>
+                </div>
               </div>
-              <span className="text-[10px] font-black px-2 py-0.5 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded">
+              <span className="text-[10px] font-black px-2 py-0.5 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded flex-shrink-0">
                 x{item.quantity} {item.unit}
               </span>
             </div>
