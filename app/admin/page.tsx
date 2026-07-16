@@ -949,20 +949,20 @@ export default function AdminDashboard() {
 
   const startEditingProduct = (product: Product & { minPrice?: number; maxPrice?: number }) => {
     setEditingProduct(product);
-    setEditProdNameEn(product.nameEn);
-    setEditProdDescEn(product.descEn);
-    setEditProdPrice(product.price.toString());
-    setEditProdUnit(product.unit);
-    setEditProdCategory(product.category);
-    setEditProdImageUrl(product.imageUrl);
+    setEditProdNameEn(product.nameEn || '');
+    setEditProdDescEn(product.descEn || '');
+    setEditProdPrice((product.price !== undefined && product.price !== null) ? product.price.toString() : '0');
+    setEditProdUnit(product.unit || 'Pcs');
+    setEditProdCategory(product.category || '');
+    setEditProdImageUrl(product.imageUrl || '');
     setEditProdInStock(product.inStock !== false);
     setEditProdCode(product.code || '');
     setEditProdDesign(product.design || '');
     setEditProdImages(product.images || []);
     setEditProdVariants(product.variants || []);
-    setEditProdPriceRangePct(product.priceRangePct !== undefined ? product.priceRangePct.toString() : '');
-    setEditProdMinPrice(product.minPrice !== undefined ? product.minPrice.toString() : '');
-    setEditProdMaxPrice(product.maxPrice !== undefined ? product.maxPrice.toString() : '');
+    setEditProdPriceRangePct((product.priceRangePct !== undefined && product.priceRangePct !== null) ? product.priceRangePct.toString() : '');
+    setEditProdMinPrice((product.minPrice !== undefined && product.minPrice !== null) ? product.minPrice.toString() : '');
+    setEditProdMaxPrice((product.maxPrice !== undefined && product.maxPrice !== null) ? product.maxPrice.toString() : '');
   };
 
   const handleSaveEditedProduct = async (e: React.FormEvent) => {
