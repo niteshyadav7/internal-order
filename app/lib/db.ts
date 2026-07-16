@@ -20,6 +20,19 @@ import { app } from './firebase';
 
 export const db = app ? getFirestore(app) : null;
 
+// Strip undefined values recursively — Firestore rejects them
+function sanitizeForFirestore(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  if (obj && typeof obj === 'object' && !(obj instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, sanitizeForFirestore(v)])
+    );
+  }
+  return obj;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -404,11 +417,11 @@ export async function createProduct(product: Omit<Product, 'id' | 'createdAt'>):
   if (!db) return null;
   try {
     const productsRef = collection(db, 'products');
-    const newProduct = {
+    const newProduct = sanitizeForFirestore({
       inStock: true,
       ...product,
       createdAt: new Date().toISOString()
-    };
+    });
     const docRef = await addDoc(productsRef, newProduct);
     return { id: docRef.id, ...newProduct };
   } catch (error) {
@@ -425,7 +438,7 @@ export async function updateProduct(
   if (!db) return;
   try {
     const productRef = doc(db, 'products', id);
-    await updateDoc(productRef, details);
+    await updateDoc(productRef, sanitizeForFirestore(details));
   } catch (error) {
     console.error("Error in updateProduct:", error);
     throw error;
@@ -450,11 +463,11 @@ export async function createOrder(order: Omit<Order, 'id' | 'createdAt' | 'statu
   if (!db) return null;
   try {
     const ordersRef = collection(db, 'orders');
-    const newOrder = {
+    const newOrder = sanitizeForFirestore({
       ...order,
       status: 'pending' as const,
       createdAt: new Date().toISOString()
-    };
+    });
     const docRef = await addDoc(ordersRef, newOrder);
     const createdOrder = { id: docRef.id, ...newOrder };
 

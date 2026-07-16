@@ -539,7 +539,7 @@ export default function ProductCatalog() {
         const product = products.find(p => p.id === id);
         if (product) {
           const details = selectedVariants[cartKey];
-          items.push({
+          const item: OrderItem = {
             productId: product.id || '',
             nameEn: product.nameEn,
             nameHi: product.nameHi,
@@ -548,12 +548,15 @@ export default function ProductCatalog() {
             quantity: 1,
             code: product.code || '',
             design: product.design || '',
-            selectedVariant: details?.variantName || variantName || undefined,
-            selectedImageUrl: details?.imageUrl || product.imageUrl,
-            priceRangePct: product.priceRangePct !== undefined ? product.priceRangePct : undefined,
-            minPrice: (product as any).minPrice !== undefined ? (product as any).minPrice : undefined,
-            maxPrice: (product as any).maxPrice !== undefined ? (product as any).maxPrice : undefined
-          });
+            selectedImageUrl: details?.imageUrl || product.imageUrl || '',
+          };
+          // Only include optional fields when they have real values (Firestore rejects undefined)
+          const variant = details?.variantName || variantName;
+          if (variant) item.selectedVariant = variant;
+          if (product.priceRangePct !== undefined) item.priceRangePct = product.priceRangePct;
+          if ((product as any).minPrice !== undefined) item.minPrice = (product as any).minPrice;
+          if ((product as any).maxPrice !== undefined) item.maxPrice = (product as any).maxPrice;
+          items.push(item);
         }
       });
 
