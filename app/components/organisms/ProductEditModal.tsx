@@ -77,6 +77,22 @@ export default function ProductEditModal({
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [customInput, setCustomInput] = useState('');
 
+  // Automatically sync variants with uploaded images
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const autoVariants = images.map((_, idx) => ({
+      id: `v_auto_${idx}_${Date.now()}`,
+      name: `Model ${idx + 1}`,
+      imageIndex: idx
+    }));
+    // Check if current variants differ from auto-generated list
+    const needsUpdate = variants.length !== autoVariants.length ||
+      variants.some((v, idx) => v.imageIndex !== idx || v.name !== `Model ${idx + 1}`);
+    if (needsUpdate) {
+      onVariantsChange(autoVariants);
+    }
+  }, [images, variants, onVariantsChange, isOpen]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -577,105 +593,31 @@ export default function ProductEditModal({
                 <label className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-1">
                   Variants / Models ({variants.length})
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onVariantsChange([...variants, {
-                      id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-                      name: '',
-                      imageIndex: 0
-                    }]);
-                  }}
-                  className="flex items-center gap-1 text-[10px] font-black text-[#5d51e8] hover:text-[#4b3fd3] cursor-pointer transition-colors"
-                >
-                  <Plus className="w-3 h-3" /> Add Variant
-                </button>
               </div>
 
               {variants.length > 0 && (
-                <div className="space-y-3 p-2 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-xl max-h-[300px] overflow-y-auto scrollbar-none">
-                  {variants.map((variant, idx) => (
-                    <div key={variant.id} className="p-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-xl space-y-2.5 animate-in slide-in-from-left-2 duration-200 relative">
-                      
-                      {/* Top row: Name input and delete button */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 space-y-1">
-                          <label className="text-[8px] uppercase font-black text-slate-400 block">Variant Name / Spec</label>
-                          <input
-                            type="text"
-                            required
-                            value={variant.name}
-                            onChange={(e) => {
-                              const updated = variants.map((v, i) => i === idx ? { ...v, name: e.target.value } : v);
-                              onVariantsChange(updated);
-                            }}
-                            placeholder={`e.g. Model-${String.fromCharCode(65 + idx)}, Red, XL`}
-                            className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onVariantsChange(variants.filter((_, i) => i !== idx));
-                          }}
-                          className="p-1.5 mt-4 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-955/20 rounded-lg cursor-pointer transition-colors"
-                          title="Delete Variant"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Suggestion Chips */}
-                      <div className="flex flex-wrap gap-1">
-                        {['Red', 'Blue', 'Green', 'Black', 'White', 'S', 'M', 'L', 'XL', 'Standard', 'Premium'].map(chip => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => {
-                              const updated = variants.map((v, i) => i === idx ? { ...v, name: chip } : v);
-                              onVariantsChange(updated);
-                            }}
-                            className="px-1.5 py-0.5 text-[8px] font-black rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                          >
-                            {chip}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Visual Thumbnail Bar */}
-                      <div className="space-y-1">
-                        <span className="text-[8px] uppercase font-black text-slate-400 block">Associate Photo</span>
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                          {images.length > 0 ? (
-                            images.map((img, imgIdx) => (
-                              <button
-                                key={imgIdx}
-                                type="button"
-                                onClick={() => {
-                                  const updated = variants.map((v, i) => i === idx ? { ...v, imageIndex: imgIdx } : v);
-                                  onVariantsChange(updated);
-                                }}
-                                className={`relative w-10 h-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                                  variant.imageIndex === imgIdx 
-                                    ? 'border-[#5d51e8] ring-2 ring-[#5d51e8]/20 scale-95' 
-                                    : 'border-slate-200 dark:border-zinc-800 opacity-60 hover:opacity-100'
-                                }`}
-                              >
-                                <img src={img.url} className="w-full h-full object-cover" alt="" />
-                                {variant.imageIndex === imgIdx && (
-                                  <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
-                                    <span className="text-[9px] text-white bg-[#5d51e8] rounded-full w-4 h-4 flex items-center justify-center font-black">✓</span>
-                                  </div>
-                                )}
-                              </button>
-                            ))
-                          ) : (
-                            <span className="text-[9px] font-bold text-slate-400 block py-1">Please upload product images above first!</span>
+                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2.5">
+                  <p className="text-[10px] font-bold text-slate-450">
+                    Variants (Models) are automatically generated for each uploaded image. Clients will select the model by swiping/viewing the corresponding photo.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {variants.map((variant, idx) => {
+                      const img = images[variant.imageIndex];
+                      return (
+                        <div key={variant.id} className="flex items-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-lg">
+                          {img && (
+                            <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-slate-200 dark:border-zinc-800">
+                              <img src={img.url} className="w-full h-full object-cover" alt="" />
+                            </div>
                           )}
+                          <div>
+                            <p className="text-[10px] font-black text-slate-800 dark:text-white">{variant.name}</p>
+                            <p className="text-[8px] font-bold text-slate-405">Photo {idx + 1}</p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
