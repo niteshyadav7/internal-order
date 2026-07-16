@@ -698,24 +698,24 @@ export default function SalesmanPortal() {
       {lightboxUrl && (
         <div 
           onClick={() => setLightboxUrl(null)}
-          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
         >
           <button 
             type="button"
             onClick={() => setLightboxUrl(null)} 
-            className="absolute top-3 right-3 sm:top-6 sm:right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg z-[120]"
+            className="absolute top-4 right-4 p-2.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors cursor-pointer border border-white/20 shadow-lg z-[120]"
             title="Close Zoom"
           >
             <X className="w-6 h-6" />
           </button>
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="max-w-5xl max-h-[85vh] p-2 flex items-center justify-center cursor-default"
+            className="w-full h-full flex items-center justify-center p-0 cursor-default"
           >
             <img 
               src={lightboxUrl} 
               alt="High-resolution design" 
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200"
+              className="w-full h-full object-contain animate-in zoom-in-95 duration-200"
             />
           </div>
         </div>
