@@ -388,6 +388,7 @@ export default function SalesmanPortal() {
                     onPrimaryAction={handleClaim}
                     actionLoading={actionLoading}
                     priceRangePct={priceRangePct}
+                    onImageClick={setLightboxUrl}
                   />
                 ))
               )
@@ -410,6 +411,7 @@ export default function SalesmanPortal() {
                     onSecondaryAction={handleRelease}
                     actionLoading={actionLoading}
                     priceRangePct={priceRangePct}
+                    onImageClick={setLightboxUrl}
                   />
                 ))
               )
@@ -428,6 +430,7 @@ export default function SalesmanPortal() {
                     order={order}
                     isCompleted={true}
                     priceRangePct={priceRangePct}
+                    onImageClick={setLightboxUrl}
                   />
                 ))
               )
@@ -725,6 +728,7 @@ interface OrderCardProps {
   isCompleted?: boolean;
   actionLoading?: string | null;
   priceRangePct?: number;
+  onImageClick?: (url: string) => void;
 }
 
 function OrderCard({
@@ -735,7 +739,8 @@ function OrderCard({
   onSecondaryAction,
   isCompleted = false,
   actionLoading = null,
-  priceRangePct = 5
+  priceRangePct = 5,
+  onImageClick
 }: OrderCardProps) {
   const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isLoading = actionLoading === order.id;
@@ -796,7 +801,11 @@ function OrderCard({
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 {item.selectedImageUrl ? (
-                  <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0">
+                  <div 
+                    onClick={() => onImageClick?.(item.selectedImageUrl || '')}
+                    className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0 cursor-zoom-in hover:border-[#5d51e8] transition-all hover:scale-105 active:scale-95"
+                    title="Click to view full screen"
+                  >
                     <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" />
                   </div>
                 ) : (
