@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '../../../lib/firebaseAdmin';
 
+export const runtime = 'nodejs';
+
 // Verify the request is from an authenticated admin (check admin_session cookie)
 function isAdminRequest(request: NextRequest): boolean {
   const session = request.cookies.get('admin_session');
