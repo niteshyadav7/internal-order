@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       const adminUid = 'system-admin-seed-uid';
       await getOrCreateUserProfile(adminUid, adminEmail, 'System Admin');
       await updateUserProfileStatus(adminUid, 'approved');
-      await completeUserProfileRegistration(adminUid, { 'Firm Name': 'Elegance Logistics Headquarters' }, 'System Admin');
+      await completeUserProfileRegistration(adminUid, { 'Firm Name': 'Balaji Textiles Headquarters' }, 'System Admin');
       log.push('System Admin profile created and approved.');
     } else {
       log.push('System Admin profile already exists.');

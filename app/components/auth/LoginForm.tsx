@@ -23,6 +23,7 @@ export default function LoginForm({
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   const validate = () => {
     const tempErrors: { email?: string; password?: string } = {};
@@ -109,70 +110,81 @@ export default function LoginForm({
         </button>
       </div>
 
-      {/* Divider */}
+      {/* Divider / Toggle Email Login */}
       <div className="relative flex items-center justify-center my-3">
         <div className="border-t border-slate-200 dark:border-zinc-800 w-full"></div>
-        <span className="absolute bg-white dark:bg-zinc-950 px-4 text-xs font-semibold text-slate-400">
-          {t('signInWithEmail')}
-        </span>
+        <button
+          type="button"
+          onClick={() => setShowEmailForm(!showEmailForm)}
+          className="absolute bg-white dark:bg-zinc-950 px-4 text-xs font-extrabold text-slate-500 hover:text-[#5d51e8] dark:hover:text-indigo-400 cursor-pointer select-none transition-colors duration-200 flex items-center gap-1.5"
+        >
+          {showEmailForm ? 'Hide Email Options' : t('signInWithEmail')}
+          <span className="text-[10px] transform transition-transform duration-200">
+            {showEmailForm ? '▲' : '▼'}
+          </span>
+        </button>
       </div>
 
-      {/* Credentials Form */}
-      <form onSubmit={handleEmailSubmit} className="space-y-3">
-        <div className="space-y-1 text-left">
-          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-            {t('emailLabel')}
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading || googleLoading}
-            placeholder="example@logistics.com"
-            className="w-full bg-slate-50/50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-2xl px-4 py-2.5 text-slate-800 dark:text-slate-100 font-semibold text-xs outline-none transition-all duration-200"
-          />
-          {errors.email && <p className="text-[10px] text-red-500 font-semibold mt-0.5">{errors.email}</p>}
-        </div>
+      {/* Credentials Form (Collapsible) */}
+      {showEmailForm && (
+        <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <form onSubmit={handleEmailSubmit} className="space-y-3">
+            <div className="space-y-1 text-left">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                {t('emailLabel')}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading || googleLoading}
+                placeholder="example@balajitextiles.com"
+                className="w-full bg-slate-50/50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-2xl px-4 py-2.5 text-slate-800 dark:text-slate-100 font-semibold text-xs outline-none transition-all duration-200"
+              />
+              {errors.email && <p className="text-[10px] text-red-500 font-semibold mt-0.5">{errors.email}</p>}
+            </div>
 
-        <div className="space-y-1 text-left">
-          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-            {t('passwordLabel')}
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading || googleLoading}
-            placeholder={t('passwordLabel')}
-            className="w-full bg-slate-50/50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-2xl px-4 py-2.5 text-slate-800 dark:text-slate-100 font-semibold text-xs outline-none transition-all duration-200"
-          />
-          {errors.password && <p className="text-[10px] text-red-500 font-semibold mt-0.5">{errors.password}</p>}
-        </div>
+            <div className="space-y-1 text-left">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                {t('passwordLabel')}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading || googleLoading}
+                placeholder={t('passwordLabel')}
+                className="w-full bg-slate-50/50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-2xl px-4 py-2.5 text-slate-800 dark:text-slate-100 font-semibold text-xs outline-none transition-all duration-200"
+              />
+              {errors.password && <p className="text-[10px] text-red-500 font-semibold mt-0.5">{errors.password}</p>}
+            </div>
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onForgotPasswordClick}
-            className="text-xs font-extrabold text-[#5d51e8] hover:underline cursor-pointer"
-          >
-            {t('forgotPasswordBtn')}
-          </button>
-        </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onForgotPasswordClick}
+                className="text-xs font-extrabold text-[#5d51e8] hover:underline cursor-pointer"
+              >
+                {t('forgotPasswordBtn')}
+              </button>
+            </div>
 
-        <button
-          type="submit"
-          disabled={loading || googleLoading}
-          className="w-full bg-[#5d51e8] hover:bg-[#4b3fd3] text-white font-extrabold text-sm py-3 px-6 rounded-full shadow-md shadow-[#5d51e8]/20 transition-all active:scale-95 text-center mt-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading && (
-            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-          )}
-          <span>{t('loginBtn')}</span>
-        </button>
-      </form>
+            <button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="w-full bg-[#5d51e8] hover:bg-[#4b3fd3] text-white font-extrabold text-sm py-3 px-6 rounded-full shadow-md shadow-[#5d51e8]/20 transition-all active:scale-95 text-center mt-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading && (
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              <span>{t('loginBtn')}</span>
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="text-center pt-2">
         <button

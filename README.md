@@ -1,2 +1,2 @@
-admin@logistics.com
+admin@balajitextiles.com
 AdminPassword123

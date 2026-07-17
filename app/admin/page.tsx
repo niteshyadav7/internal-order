@@ -303,7 +303,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (data.authenticated) {
           setIsAdmin(true);
-          setAdminEmail(data.adminEmail || 'admin@logistics.com');
+          setAdminEmail(data.adminEmail || 'admin@balajitextiles.com');
         } else {
           router.push('/admin/login');
         }

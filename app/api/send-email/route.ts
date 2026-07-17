@@ -150,7 +150,7 @@ export async function POST(request: Request) {
                 <tr>
                   <td style="padding: 0 40px 40px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                     <p style="color: #94a3b8; font-size: 11px; font-weight: 500; margin: 20px 0 0 0; line-height: 1.5;">
-                      This is an automated system alert sent by Elegance Logistics portal.<br>
+                      This is an automated system alert sent by Balaji Textiles portal.<br>
                       To change email notification preferences, update your configuration files.
                     </p>
                   </td>
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
     `;
 
     await transporter.sendMail({
-      from: `"Elegance Logistics Alerts" <${smtpUser}>`,
+      from: `"Balaji Textiles Alerts" <${smtpUser}>`,
       to: adminEmail,
       subject: `🚨 New Order Request: ₹${totalValue.toLocaleString()} from ${order.userName}`,
       html: htmlContent

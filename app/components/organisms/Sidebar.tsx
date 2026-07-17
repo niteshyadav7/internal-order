@@ -51,7 +51,7 @@ export default function Sidebar({
               {!isCollapsed && (
                 <div className="animate-in fade-in duration-300">
                   <h1 className="font-extrabold text-sm text-white leading-none">Admin Portal</h1>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1">Elegance Logistics</p>
+                  <p className="text-[10px] text-slate-500 font-bold mt-1">Balaji Textiles</p>
                 </div>
               )}
             </div>

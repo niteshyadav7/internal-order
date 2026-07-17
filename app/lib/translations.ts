@@ -2,7 +2,7 @@ export type LangType = 'en' | 'hi';
 
 export const translations = {
   en: {
-    brandName: "Elegance Logistics",
+    brandName: "Balaji Textiles",
     loginTitle: "Login",
     registerTitle: "Sign Up",
     forgotPasswordTitle: "Forgot Password",
@@ -23,7 +23,7 @@ export const translations = {
     noAccount: "Don't have an account? Sign Up",
     haveAccount: "Already have an account? Login",
     backToLogin: "Back to Login",
-    copyrightText: "© 2026 Elegance Logistics. All rights reserved.",
+    copyrightText: "© 2026 Balaji Textiles. All rights reserved.",
     marketingTitle: "Very good works are waiting for you 🤞",
     marketingSubtitle: "Login Now",
     emailRequired: "Email is required",
@@ -71,7 +71,7 @@ export const translations = {
     signingOutText: "Signing out..."
   },
   hi: {
-    brandName: "एलीगेंस लॉजिस्टिक्स",
+    brandName: "बालाजी टेक्सटाइल्स",
     loginTitle: "लॉगिन",
     registerTitle: "साइन अप",
     forgotPasswordTitle: "पासवर्ड भूल गए",
@@ -92,7 +92,7 @@ export const translations = {
     noAccount: "खाता नहीं है? साइन अप करें",
     haveAccount: "पहले से खाता है? लॉगिन करें",
     backToLogin: "लॉगिन पर वापस जाएं",
-    copyrightText: "© 2026 एलीगेंस लॉजिस्टिक्स। सभी अधिकार सुरक्षित।",
+    copyrightText: "© 2026 बालाजी टेक्सटाइल्स। सभी अधिकार सुरक्षित।",
     marketingTitle: "आपके लिए बेहतरीन कार्य उपलब्ध हैं 🤞",
     marketingSubtitle: "अभी लॉगिन करें",
     emailRequired: "ईमेल आवश्यक है",
