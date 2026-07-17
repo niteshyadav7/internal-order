@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '../../../lib/firebaseAdmin';
+import { getAdminAuth, getAdminDb } from '../../../lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
     const { name, email, password, role } = await request.json();
 
     if (!name || !email || !password || !role) {
@@ -73,6 +75,8 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
     const { uid, name, email, password, role } = await request.json();
 
     if (!uid) {
@@ -122,6 +126,8 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
     const { uid } = await request.json();
 
     if (!uid) {

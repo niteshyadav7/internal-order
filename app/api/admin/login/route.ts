@@ -46,7 +46,8 @@ export async function POST(request: Request) {
       } else {
         // Query Firestore users collection for custom Admin roles
         try {
-          const { adminDb } = require('../../../lib/firebaseAdmin');
+          const { getAdminDb } = require('../../../lib/firebaseAdmin');
+          const adminDb = getAdminDb();
           const usersRef = adminDb.collection('users');
           const snapshot = await usersRef.where('email', '==', email.trim()).get();
           
