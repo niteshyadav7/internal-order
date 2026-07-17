@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     let isAuthenticated = false;
+    let authenticatedEmail = '';
 
     // 1. Verify via ID Token (if provided by client after successful Firebase Auth login)
     if (idToken && apiKey) {
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
           const verifiedEmail = lookupData.users[0].email;
           if (verifiedEmail && verifiedEmail.toLowerCase() === expectedEmail.toLowerCase()) {
             isAuthenticated = true;
+            authenticatedEmail = verifiedEmail.toLowerCase();
           }
         }
       } catch (err) {
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
         password === expectedPassword
       ) {
         isAuthenticated = true;
+        authenticatedEmail = expectedEmail.trim().toLowerCase();
       } else {
         // Query Firestore users collection for custom Admin roles
         try {
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
               }
               if (userData.plainPassword === password) {
                 isAuthenticated = true;
+                authenticatedEmail = email.trim().toLowerCase();
               } else {
                 return NextResponse.json(
                   { success: false, error: 'Invalid administrator password' },
@@ -84,13 +88,13 @@ export async function POST(request: Request) {
       }
     }
 
-    if (isAuthenticated) {
+    if (isAuthenticated && authenticatedEmail) {
       const response = NextResponse.json({ success: true });
       
-      // Set a secure, HTTP-only cookie for admin session
+      // Set a secure, HTTP-only cookie for admin session containing the email
       response.cookies.set({
         name: 'admin_session',
-        value: 'authenticated',
+        value: authenticatedEmail,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',

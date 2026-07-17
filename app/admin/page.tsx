@@ -4,8 +4,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import Toast, { ToastType } from '../components/ui/Toast';
-import { 
-  updateUserProfileStatus, 
+import {
+  updateUserProfileStatus,
   UserProfile,
   getOrders,
   updateOrderStatus,
@@ -44,8 +44,7 @@ import { compressImage } from '../lib/image';
 import { useAuth } from '../context/AuthContext';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX } from 'lucide-react';
-
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX, WifiOff } from 'lucide-react';
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
 import StatsCard from '../components/molecules/StatsCard';
@@ -66,10 +65,10 @@ import Button from '../components/atoms/Button';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { userProfile } = useAuth();
-  
+  const { userProfile, loading: authLoading } = useAuth();
+
   const [activeTab, setActiveTab] = useState<'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications'>('users');
-  
+
   // Dynamic window/tab title
   useEffect(() => {
     const tabTitles: Record<string, string> = {
@@ -82,7 +81,7 @@ export default function AdminDashboard() {
     };
     document.title = tabTitles[activeTab] || 'Admin Portal';
   }, [activeTab]);
-  
+
   // Tab 1: Users
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -163,7 +162,7 @@ export default function AdminDashboard() {
   const [newProdDesign, setNewProdDesign] = useState('');
   const [newProdImages, setNewProdImages] = useState<ProductImage[]>([]);
   const [newProdVariants, setNewProdVariants] = useState<ProductVariant[]>([]);
-  
+
   // Automatically sync variants with uploaded images
   useEffect(() => {
     const autoVariants = newProdImages.map((_, idx) => ({
@@ -179,7 +178,7 @@ export default function AdminDashboard() {
   const [fieldsList, setFieldsList] = useState<ProfileField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [addingField, setAddingField] = useState(false);
-  
+
   // Field form states
   const [newFieldLabelEn, setNewFieldLabelEn] = useState('');
   const [newFieldType, setNewFieldType] = useState<'text' | 'number' | 'tel'>('text');
@@ -191,7 +190,7 @@ export default function AdminDashboard() {
   const [editFieldType, setEditFieldType] = useState<'text' | 'number' | 'tel'>('text');
   const [editFieldRequired, setEditFieldRequired] = useState(true);
   const [updatingField, setUpdatingField] = useState(false);
-  
+
   // Modals / Collapse / Menu States
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -247,7 +246,7 @@ export default function AdminDashboard() {
   const [settingsCategories, setSettingsCategories] = useState<string[]>([]);
   const [settingsNewCategory, setSettingsNewCategory] = useState('');
   const [settingsPriceRangePct, setSettingsPriceRangePct] = useState('5');
-  
+
   // Product price range inputs (overrides)
   const [newProdPriceRangePct, setNewProdPriceRangePct] = useState('');
   const [newProdMinPrice, setNewProdMinPrice] = useState('');
@@ -266,7 +265,20 @@ export default function AdminDashboard() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setIsOffline(!navigator.onLine);
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
   // Listen to Firebase Auth state for Firestore rules compatibility
   useEffect(() => {
     if (!auth) {
@@ -384,7 +396,7 @@ export default function AdminDashboard() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      
+
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.connect(gain1);
@@ -395,7 +407,7 @@ export default function AdminDashboard() {
       gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc1.start(ctx.currentTime);
       osc1.stop(ctx.currentTime + 0.3);
-      
+
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.connect(gain2);
@@ -421,7 +433,7 @@ export default function AdminDashboard() {
         setOrdersList(prevList => {
           const prevIds = new Set(prevList.map(o => o.id));
           const addedOrders = newOrders.filter(o => o.id && !prevIds.has(o.id));
-          
+
           if (addedOrders.length > 0) {
             addedOrders.forEach(order => {
               const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -513,7 +525,7 @@ export default function AdminDashboard() {
     const cat = settingsNewCategory.trim();
     if (!cat) return;
     if (settingsCategories.map(c => c.toLowerCase()).includes(cat.toLowerCase())) {
-      alert("Category already exists!");
+      setAdminToast({ message: "Category already exists!", type: "warning" });
       return;
     }
     const updatedCategories = [...settingsCategories, cat];
@@ -526,10 +538,11 @@ export default function AdminDashboard() {
         setSettingsNewCategory('');
         setAdminToast({ message: `Category "${cat}" added successfully!`, type: "success" });
       } else {
-        alert("Failed to add category.");
+        setAdminToast({ message: "Failed to add category.", type: "error" });
       }
     } catch (err) {
       console.error("Failed to add category:", err);
+      setAdminToast({ message: "Error adding category.", type: "error" });
     } finally {
       setSavingSettings(false);
     }
@@ -547,10 +560,11 @@ export default function AdminDashboard() {
         setGlobalSettings(prev => prev ? { ...prev, categories: updatedCategories } : null);
         setAdminToast({ message: `Category "${catToRemove}" removed successfully!`, type: "success" });
       } else {
-        alert("Failed to remove category.");
+        setAdminToast({ message: "Failed to remove category.", type: "error" });
       }
     } catch (err) {
       console.error("Failed to remove category:", err);
+      setAdminToast({ message: "Error removing category.", type: "error" });
     } finally {
       setSavingSettings(false);
     }
@@ -560,7 +574,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     const pct = parseInt(settingsPriceRangePct, 10);
     if (isNaN(pct) || pct < 0 || pct > 100) {
-      alert("Price variance must be a number between 0 and 100.");
+      setAdminToast({ message: "Price variance must be a number between 0 and 100.", type: "warning" });
       return;
     }
     setSavingSettings(true);
@@ -570,10 +584,11 @@ export default function AdminDashboard() {
         setGlobalSettings(prev => prev ? { ...prev, priceRangePct: pct } : null);
         setAdminToast({ message: `Price range variance set to ±${pct}% successfully!`, type: "success" });
       } else {
-        alert("Failed to save price range variance.");
+        setAdminToast({ message: "Failed to save price range variance.", type: "error" });
       }
     } catch (err) {
       console.error("Failed to save price range variance:", err);
+      setAdminToast({ message: "Error saving price range variance.", type: "error" });
     } finally {
       setSavingSettings(false);
     }
@@ -978,7 +993,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!editingProduct || !editingProduct.id) return;
     if (!editProdNameEn.trim() || !editProdPrice.trim()) {
-      alert("Name and Price are required.");
+      setAdminToast({ message: "Name and Price are required.", type: "warning" });
       return;
     }
     setSavingEditedProduct(true);
@@ -1021,9 +1036,11 @@ export default function AdminDashboard() {
         maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : undefined
       } : p));
       setEditingProduct(null);
-    } catch (err) {
+      setAdminToast({ message: "Product updated successfully!", type: "success" });
+    } catch (err: any) {
       console.error("Failed to update product:", err);
-      alert("Error updating product.");
+      const errMsg = err.message || err.code || String(err);
+      setAdminToast({ message: `Error updating product: ${errMsg}`, type: "error" });
     } finally {
       setSavingEditedProduct(false);
     }
@@ -1046,7 +1063,7 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error("Compression error:", err);
-      alert("Failed to compress and upload image.");
+      setAdminToast({ message: "Failed to compress and upload image.", type: "error" });
     } finally {
       setIsNewProdCompressing(false);
       // Reset file input
@@ -1057,15 +1074,15 @@ export default function AdminDashboard() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProdNameEn.trim() || !newProdPrice.trim()) {
-      alert("Product Name and Price are required.");
+      setAdminToast({ message: "Product Name and Price are required.", type: "warning" });
       return;
     }
     if (newProdImageUrl === 'upload-placeholder') {
-      alert("Please upload an image first.");
+      setAdminToast({ message: "Please upload an image first.", type: "warning" });
       return;
     }
     if (isNewProdCompressing) {
-      alert("Please wait for the image to finish optimizing.");
+      setAdminToast({ message: "Please wait for the image to finish optimizing.", type: "warning" });
       return;
     }
     setAddingProduct(true);
@@ -1105,10 +1122,14 @@ export default function AdminDashboard() {
         setNewProdPriceRangePct('');
         setNewProdMinPrice('');
         setNewProdMaxPrice('');
+        setAdminToast({ message: "Product added successfully!", type: "success" });
+      } else {
+        setAdminToast({ message: "Failed to add product. Please check connection and permissions.", type: "error" });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to add product:", err);
-      alert("Error adding product to catalog.");
+      const errMsg = err.message || err.code || String(err);
+      setAdminToast({ message: `Error adding product: ${errMsg}`, type: "error" });
     } finally {
       setAddingProduct(false);
     }
@@ -1198,20 +1219,20 @@ export default function AdminDashboard() {
   const parseCSV = (text: string) => {
     const lines = text.split('\n');
     if (lines.length <= 1) return [];
-    
+
     // Find the first non-comment line as the header row
     let headerLineIdx = 0;
     while (headerLineIdx < lines.length && lines[headerLineIdx].trim().startsWith('#')) {
       headerLineIdx++;
     }
-    
+
     if (headerLineIdx >= lines.length) return [];
 
     const headers = lines[headerLineIdx]
       .replace(/^\uFEFF/, '')
       .split(',')
       .map(h => h.trim().replace(/^["']|["']$/g, ''));
-      
+
     const results: any[] = [];
     for (let i = headerLineIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -1317,7 +1338,7 @@ export default function AdminDashboard() {
         }
 
         const mainImageUrl = images.length > 0 ? images[0].url : (item.imageUrl || item.image || 'gradient-indigo');
-        
+
         if (!nameEn || isNaN(price)) {
           console.warn("Skipping invalid CSV product record:", item);
           continue;
@@ -1378,9 +1399,9 @@ export default function AdminDashboard() {
     let result = [...productsList];
     if (productSearchQuery.trim()) {
       const q = productSearchQuery.toLowerCase();
-      result = result.filter(p => 
-        p.nameEn.toLowerCase().includes(q) || 
-        p.descEn.toLowerCase().includes(q) || 
+      result = result.filter(p =>
+        p.nameEn.toLowerCase().includes(q) ||
+        p.descEn.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q)
       );
     }
@@ -1422,32 +1443,32 @@ export default function AdminDashboard() {
   const getFilteredAndSortedUsers = () => {
     // Only show clients in User Approvals tab (staff are managed in Staff Management tab)
     let result = usersList.filter(u => !u.role || u.role === 'client');
-    
+
     // Status Filter
     if (statusFilter !== 'all') {
       result = result.filter(u => u.status === statusFilter);
     }
-    
+
     // Search Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(u => {
         const nameMatch = u.name.toLowerCase().includes(q);
         const emailMatch = u.email.toLowerCase().includes(q);
-        const customDetailsMatch = u.customDetails 
-          ? Object.entries(u.customDetails).some(([key, val]) => 
-              val.toLowerCase().includes(q) || getFieldLabel(key).toLowerCase().includes(q)
-            )
+        const customDetailsMatch = u.customDetails
+          ? Object.entries(u.customDetails).some(([key, val]) =>
+            val.toLowerCase().includes(q) || getFieldLabel(key).toLowerCase().includes(q)
+          )
           : false;
         return nameMatch || emailMatch || customDetailsMatch;
       });
     }
-    
+
     // Sorting
     result.sort((a, b) => {
       let valA: string = '';
       let valB: string = '';
-      
+
       if (sortField === 'name') {
         valA = a.name.toLowerCase();
         valB = b.name.toLowerCase();
@@ -1458,12 +1479,12 @@ export default function AdminDashboard() {
         valA = a.status;
         valB = b.status;
       }
-      
+
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-    
+
     return result;
   };
 
@@ -1479,7 +1500,7 @@ export default function AdminDashboard() {
         if (!clearedNotificationIds.includes(id)) {
           const isRead = readNotificationIds.includes(id);
           if (!isRead) unread++;
-          
+
           list.push({
             id,
             type: 'user',
@@ -1498,7 +1519,7 @@ export default function AdminDashboard() {
         if (!clearedNotificationIds.includes(id)) {
           const isRead = readNotificationIds.includes(id);
           if (!isRead) unread++;
-          
+
           list.push({
             id,
             type: 'user',
@@ -1521,7 +1542,7 @@ export default function AdminDashboard() {
 
         const isRead = readNotificationIds.includes(id);
         if (order.status === 'pending' && !isRead) unread++;
-        
+
         const total = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         list.push({
           id,
@@ -1568,7 +1589,7 @@ export default function AdminDashboard() {
 
   const filteredUsers = getFilteredAndSortedUsers();
 
-  if (checkingSession || !isAdmin || !isFirebaseLoaded || (auth?.currentUser && !userProfile)) {
+  if (checkingSession || !isAdmin || !isFirebaseLoaded || authLoading) {
     return <Loader fullscreen text="Verifying administrator credentials..." />;
   }
 
@@ -1605,7 +1626,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-zinc-950 overflow-hidden font-sans">
-      
+
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -1623,7 +1644,6 @@ export default function AdminDashboard() {
         flex-grow flex flex-col h-screen overflow-hidden pt-16 md:pt-0 transition-all duration-300
         ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}
       `}>
-        
         {/* Header (Responsive top bar) */}
         <Header
           activeTab={activeTab}
@@ -1632,6 +1652,13 @@ export default function AdminDashboard() {
           unreadCount={unreadCount}
           onNotificationClick={() => setActiveTab('notifications')}
         />
+
+        {isOffline && (
+          <div className="bg-amber-600 text-white text-xs font-bold px-4 py-2.5 flex items-center justify-center gap-2 animate-in slide-in-from-top duration-300 shadow-inner">
+            <WifiOff className="w-4 h-4 flex-shrink-0" />
+            <span>Offline Mode: You are currently disconnected from Firestore. Changes will save to local cache and sync when online.</span>
+          </div>
+        )}
 
         {/* Content Scroll View */}
         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 sm:p-8">
@@ -1674,7 +1701,7 @@ export default function AdminDashboard() {
                         Keep track of live registration approvals and order logs
                       </p>
                     </div>
-                    
+
                     <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
                       {unreadCount > 0 && (
                         <span className="bg-rose-50 dark:bg-rose-955/20 text-rose-650 dark:text-rose-400 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider animate-pulse border border-rose-100 dark:border-rose-900/35">
@@ -1714,22 +1741,20 @@ export default function AdminDashboard() {
                     <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                       {notificationsList.map((notif: any) => {
                         const isUser = notif.type === 'user';
-                        
+
                         return (
-                          <div 
-                            key={notif.id} 
-                            className={`py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 first:pt-1 last:pb-1 transition-all ${
-                              notif.isRead ? 'opacity-55' : 'opacity-100'
-                            }`}
+                          <div
+                            key={notif.id}
+                            className={`py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 first:pt-1 last:pb-1 transition-all ${notif.isRead ? 'opacity-55' : 'opacity-100'
+                              }`}
                           >
                             <div className="flex items-start gap-3.5">
-                              <div className={`p-2.5 rounded-2xl flex-shrink-0 mt-0.5 border ${
-                                notif.type === 'stock'
-                                  ? 'bg-rose-50 dark:bg-rose-955/20 text-rose-600 border-rose-105 dark:border-rose-900/30'
-                                  : isUser 
-                                    ? 'bg-indigo-50 dark:bg-indigo-955/20 text-[#5d51e8] border-indigo-105 dark:border-indigo-900/30' 
-                                    : 'bg-amber-50 dark:bg-amber-955/20 text-amber-600 border-amber-105 dark:border-amber-900/30'
-                              }`}>
+                              <div className={`p-2.5 rounded-2xl flex-shrink-0 mt-0.5 border ${notif.type === 'stock'
+                                ? 'bg-rose-50 dark:bg-rose-955/20 text-rose-600 border-rose-105 dark:border-rose-900/30'
+                                : isUser
+                                  ? 'bg-indigo-50 dark:bg-indigo-955/20 text-[#5d51e8] border-indigo-105 dark:border-indigo-900/30'
+                                  : 'bg-amber-50 dark:bg-amber-955/20 text-amber-600 border-amber-105 dark:border-amber-900/30'
+                                }`}>
                                 {notif.type === 'stock' ? <PackageX className="w-5 h-5" /> : isUser ? <Users className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
                               </div>
                               <div className="space-y-1 text-left">
@@ -1749,7 +1774,7 @@ export default function AdminDashboard() {
                                 </p>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
                               {!notif.isRead && (
                                 <button
@@ -1762,7 +1787,7 @@ export default function AdminDashboard() {
                                   <span>Read</span>
                                 </button>
                               )}
-                              
+
                               {notif.type === 'stock' ? (
                                 <button
                                   type="button"
@@ -1786,11 +1811,10 @@ export default function AdminDashboard() {
                                       setStatusFilter('pending');
                                     }
                                   }}
-                                  className={`px-4 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 border ${
-                                    isUser
-                                      ? 'bg-[#5d51e8] hover:bg-[#4a3ecc] text-white border-transparent shadow-indigo-500/10'
-                                      : 'bg-white hover:bg-slate-55 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-zinc-700'
-                                  }`}
+                                  className={`px-4 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 border ${isUser
+                                    ? 'bg-[#5d51e8] hover:bg-[#4a3ecc] text-white border-transparent shadow-indigo-500/10'
+                                    : 'bg-white hover:bg-slate-55 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-zinc-700'
+                                    }`}
                                 >
                                   {notif.actionLabel}
                                 </button>
@@ -1931,7 +1955,7 @@ export default function AdminDashboard() {
 
                   {addingProduct && (
                     <form onSubmit={handleAddProduct} className="space-y-6 mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800/80 animate-in slide-in-from-top-4 duration-300">
-                      
+
                       {/* STEP 1: Product Basics */}
                       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-805 rounded-2xl p-5 space-y-4 text-left">
                         <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
@@ -1963,7 +1987,7 @@ export default function AdminDashboard() {
                                   placeholder="e.g. Textiles, Toys..."
                                   value={customCategoryInput}
                                   onChange={(e) => setCustomCategoryInput(e.target.value)}
-                                  className="flex-grow px-3 py-2 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400"
+                                  className="flex-grow px-3 py-2 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400"
                                 />
                                 <button
                                   type="button"
@@ -2037,7 +2061,7 @@ export default function AdminDashboard() {
                           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">2</span>
                           <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Pricing & B2B Range</h4>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <Input
                             label="Price (INR)"
@@ -2062,11 +2086,10 @@ export default function AdminDashboard() {
                                   key={unit}
                                   type="button"
                                   onClick={() => setNewProdUnit(unit)}
-                                  className={`px-2 py-0.5 text-[9px] font-black rounded border transition-all cursor-pointer ${
-                                    newProdUnit === unit 
-                                      ? 'bg-[#5d51e8] text-white border-[#5d51e8]' 
-                                      : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-zinc-800 hover:bg-slate-50'
-                                  }`}
+                                  className={`px-2 py-0.5 text-[9px] font-black rounded border transition-all cursor-pointer ${newProdUnit === unit
+                                    ? 'bg-[#5d51e8] text-white border-[#5d51e8]'
+                                    : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-zinc-800 hover:bg-slate-50'
+                                    }`}
                                 >
                                   {unit}
                                 </button>
@@ -2076,9 +2099,9 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Variance & Custom Range setups */}
-                        <div className="p-4 bg-slate-50/50 dark:bg-zinc-955/10 border border-slate-200/60 dark:border-zinc-850 rounded-xl space-y-4">
+                        <div className="p-4 border border-slate-200/60 dark:border-zinc-850 rounded-xl space-y-4">
                           <div className="space-y-1">
-                            <h4 className="text-[10px] uppercase font-black text-slate-405 flex items-center gap-1">
+                            <h4 className="text-[10px] uppercase font-black text-slate-455 flex items-center gap-1">
                               <SlidersHorizontal className="w-3 h-3 text-[#5d51e8]" />
                               B2B Price Range Setup (Optional)
                             </h4>
@@ -2086,329 +2109,329 @@ export default function AdminDashboard() {
                               Specify custom variance percentage or absolute Min/Max bounds. Otherwise, defaults to global ±{globalSettings?.priceRangePct || 5}%.
                             </p>
                           </div>
+
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <Input
-                              label="Price Variance (%)"
-                              type="number"
-                              value={newProdPriceRangePct}
-                              onChange={(e) => {
-                                setNewProdPriceRangePct(e.target.value);
-                                if (e.target.value) {
-                                  setNewProdMinPrice('');
-                                  setNewProdMaxPrice('');
+                                <Input                                  label="Price Variance (%)"
+                                  type="number"
+                                  value={newProdPriceRangePct}
+                                  onChange={(e) => {
+                                    setNewProdPriceRangePct(e.target.value);
+                                    if (e.target.value) {
+                                      setNewProdMinPrice('');
+                                      setNewProdMaxPrice('');
+                                    }
+                                  }}
+                                  placeholder="e.g. 10"
+                                />
+                                <Input
+                                  label="Custom Min Price (INR)"
+                                  type="number"
+                                  value={newProdMinPrice}
+                                  onChange={(e) => {
+                                    setNewProdMinPrice(e.target.value);
+                                    if (e.target.value) setNewProdPriceRangePct('');
+                                  }}
+                                  placeholder="Min value override"
+                                />
+                                <Input
+                                  label="Custom Max Price (INR)"
+                                  type="number"
+                                  value={newProdMaxPrice}
+                                  onChange={(e) => {
+                                    setNewProdMaxPrice(e.target.value);
+                                    if (e.target.value) setNewProdPriceRangePct('');
+                                  }}
+                                  placeholder="Max value override"
+                                />
+                              </div>
+
+                              {/* Dynamic Sliders bounded around the original base price */}
+                              {(() => {
+                                const base = parseFloat(newProdPrice);
+                                if (isNaN(base) || base <= 0) return null;
+
+                                const minLimit = Math.floor(base * 0.5);
+                                const maxLimit = Math.ceil(base * 1.5);
+                                const currentMin = parseFloat(newProdMinPrice) || base;
+                                const currentMax = parseFloat(newProdMaxPrice) || base;
+
+                                return (
+                                  <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60">
+                                    <span className="text-[10px] font-black text-slate-450 uppercase block">Interactive Range Adjusters</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
+                                          <span>Min Price: ₹{currentMin}</span>
+                                          <span>Limit: ₹{minLimit} - ₹{base}</span>
+                                        </div>
+                                        <input
+                                          type="range"
+                                          min={minLimit}
+                                          max={base}
+                                          value={currentMin}
+                                          onChange={(e) => {
+                                            setNewProdMinPrice(e.target.value);
+                                            setNewProdPriceRangePct('');
+                                          }}
+                                          className="w-full accent-[#5d51e8] h-1 bg-slate-200 dark:bg-zinc-805 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
+                                          <span>Max Price: ₹{currentMax}</span>
+                                          <span>Limit: ₹{base} - ₹{maxLimit}</span>
+                                        </div>
+                                        <input
+                                          type="range"
+                                          min={base}
+                                          max={maxLimit}
+                                          value={currentMax}
+                                          onChange={(e) => {
+                                            setNewProdMaxPrice(e.target.value);
+                                            setNewProdPriceRangePct('');
+                                          }}
+                                          className="w-full accent-[#5d51e8] h-1 bg-slate-200 dark:bg-zinc-805 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Live storefront price range preview */}
+                              {(() => {
+                                const price = parseFloat(newProdPrice);
+                                if (isNaN(price) || price <= 0) return null;
+
+                                const minVal = parseFloat(newProdMinPrice);
+                                const maxVal = parseFloat(newProdMaxPrice);
+                                const unit = newProdUnit || 'Unit';
+
+                                let displayRange = '';
+                                let reason = '';
+
+                                if (!isNaN(minVal) && !isNaN(maxVal) && minVal > 0 && maxVal > 0) {
+                                  displayRange = `₹${minVal.toLocaleString('en-IN')} - ₹${maxVal.toLocaleString('en-IN')}`;
+                                  reason = 'Custom Min/Max overrides';
+                                } else {
+                                  const pct = parseFloat(newProdPriceRangePct);
+                                  const finalPct = !isNaN(pct) && pct >= 0 && pct <= 100 ? pct : (globalSettings?.priceRangePct || 5);
+                                  const factor = finalPct / 100;
+                                  const minCalculated = Math.floor(price * (1 - factor));
+                                  const maxCalculated = Math.ceil(price * (1 + factor));
+                                  displayRange = `₹${minCalculated.toLocaleString('en-IN')} - ₹${maxCalculated.toLocaleString('en-IN')}`;
+                                  reason = !isNaN(pct) ? `Custom ±${finalPct}% variance` : `Global default ±${finalPct}%`;
                                 }
-                              }}
-                              placeholder="e.g. 10"
+
+                                return (
+                                  <div className="mt-2 p-3 bg-emerald-50/50 dark:bg-emerald-955/10 border border-emerald-200/60 dark:border-emerald-900/35 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                                    <div className="text-left">
+                                      <span className="text-[9px] uppercase font-black tracking-wider text-emerald-600 dark:text-emerald-400 block">Live Price Range Preview</span>
+                                      <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300">{displayRange} <span className="text-[10px] font-bold text-slate-400">/ {unit}</span></span>
+                                    </div>
+                                    <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                                      {reason}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                          </div>
+                        </div>
+
+                        {/* STEP 3: Catalog Codes */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
+                          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">3</span>
+                            <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Input
+                              label="Product Code"
+                              required
+                              value={newProdCode}
+                              onChange={(e) => setNewProdCode(e.target.value)}
+                              placeholder="e.g. SKU-100"
                             />
                             <Input
-                              label="Custom Min Price (INR)"
-                              type="number"
-                              value={newProdMinPrice}
-                              onChange={(e) => {
-                                setNewProdMinPrice(e.target.value);
-                                if (e.target.value) setNewProdPriceRangePct('');
-                              }}
-                              placeholder="Min value override"
-                            />
-                            <Input
-                              label="Custom Max Price (INR)"
-                              type="number"
-                              value={newProdMaxPrice}
-                              onChange={(e) => {
-                                setNewProdMaxPrice(e.target.value);
-                                if (e.target.value) setNewProdPriceRangePct('');
-                              }}
-                              placeholder="Max value override"
+                              label="Design Identifier"
+                              required
+                              value={newProdDesign}
+                              onChange={(e) => setNewProdDesign(e.target.value)}
+                              placeholder="e.g. Design-A"
                             />
                           </div>
-
-                          {/* Dynamic Sliders bounded around the original base price */}
-                          {(() => {
-                            const base = parseFloat(newProdPrice);
-                            if (isNaN(base) || base <= 0) return null;
-
-                            const minLimit = Math.floor(base * 0.5);
-                            const maxLimit = Math.ceil(base * 1.5);
-                            const currentMin = parseFloat(newProdMinPrice) || base;
-                            const currentMax = parseFloat(newProdMaxPrice) || base;
-
-                            return (
-                              <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60">
-                                <span className="text-[10px] font-black text-slate-450 uppercase block">Interactive Range Adjusters</span>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
-                                      <span>Min Price: ₹{currentMin}</span>
-                                      <span>Limit: ₹{minLimit} - ₹{base}</span>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min={minLimit}
-                                      max={base}
-                                      value={currentMin}
-                                      onChange={(e) => {
-                                        setNewProdMinPrice(e.target.value);
-                                        setNewProdPriceRangePct('');
-                                      }}
-                                      className="w-full accent-[#5d51e8] h-1 bg-slate-200 dark:bg-zinc-805 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
-                                      <span>Max Price: ₹{currentMax}</span>
-                                      <span>Limit: ₹{base} - ₹{maxLimit}</span>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min={base}
-                                      max={maxLimit}
-                                      value={currentMax}
-                                      onChange={(e) => {
-                                        setNewProdMaxPrice(e.target.value);
-                                        setNewProdPriceRangePct('');
-                                      }}
-                                      className="w-full accent-[#5d51e8] h-1 bg-slate-200 dark:bg-zinc-805 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                          {/* Live storefront price range preview */}
-                          {(() => {
-                            const price = parseFloat(newProdPrice);
-                            if (isNaN(price) || price <= 0) return null;
-
-                            const minVal = parseFloat(newProdMinPrice);
-                            const maxVal = parseFloat(newProdMaxPrice);
-                            const unit = newProdUnit || 'Unit';
-
-                            let displayRange = '';
-                            let reason = '';
-
-                            if (!isNaN(minVal) && !isNaN(maxVal) && minVal > 0 && maxVal > 0) {
-                              displayRange = `₹${minVal.toLocaleString('en-IN')} - ₹${maxVal.toLocaleString('en-IN')}`;
-                              reason = 'Custom Min/Max overrides';
-                            } else {
-                              const pct = parseFloat(newProdPriceRangePct);
-                              const finalPct = !isNaN(pct) && pct >= 0 && pct <= 100 ? pct : (globalSettings?.priceRangePct || 5);
-                              const factor = finalPct / 100;
-                              const minCalculated = Math.floor(price * (1 - factor));
-                              const maxCalculated = Math.ceil(price * (1 + factor));
-                              displayRange = `₹${minCalculated.toLocaleString('en-IN')} - ₹${maxCalculated.toLocaleString('en-IN')}`;
-                              reason = !isNaN(pct) ? `Custom ±${finalPct}% variance` : `Global default ±${finalPct}%`;
-                            }
-
-                            return (
-                              <div className="mt-2 p-3 bg-emerald-50/50 dark:bg-emerald-955/10 border border-emerald-200/60 dark:border-emerald-900/35 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-300">
-                                <div className="text-left">
-                                  <span className="text-[9px] uppercase font-black tracking-wider text-emerald-600 dark:text-emerald-400 block">Live Price Range Preview</span>
-                                  <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300">{displayRange} <span className="text-[10px] font-bold text-slate-400">/ {unit}</span></span>
-                                </div>
-                                <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
-                                  {reason}
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* STEP 3: Catalog Codes */}
-                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
-                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
-                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">3</span>
-                          <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <Input
-                            label="Product Code"
-                            required
-                            value={newProdCode}
-                            onChange={(e) => setNewProdCode(e.target.value)}
-                            placeholder="e.g. SKU-100"
-                          />
-                          <Input
-                            label="Design Identifier"
-                            required
-                            value={newProdDesign}
-                            onChange={(e) => setNewProdDesign(e.target.value)}
-                            placeholder="e.g. Design-A"
-                          />
-                        </div>
-                        <div className="pt-1">
-                          <Checkbox
-                            label="Available In Stock"
-                            checked={newProdInStock}
-                            onChange={(e) => setNewProdInStock(e.target.checked)}
-                          />
-                        </div>
-                      </div>
-
-                      {/* STEP 4: Media & Variants */}
-                      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
-                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
-                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">4</span>
-                          <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Product Media & Variants</h4>
+                          <div className="pt-1">
+                            <Checkbox
+                              label="Available In Stock"
+                              checked={newProdInStock}
+                              onChange={(e) => setNewProdInStock(e.target.checked)}
+                            />
+                          </div>
                         </div>
 
-                        {/* Multi-Image Section */}
-                        <div className="space-y-2">
-                          <label className="text-[10px] uppercase font-black text-slate-405 flex items-center gap-1.5">
-                            <Images className="w-3.5 h-3.5 text-[#5d51e8]" />
-                            Product Images ({newProdImages.length})
-                          </label>
+                        {/* STEP 4: Media & Variants */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-left">
+                          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">4</span>
+                            <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Product Media & Variants</h4>
+                          </div>
 
-                          {/* Uploaded Images Grid */}
-                          {newProdImages.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-slate-50/50 dark:bg-zinc-955/10 border border-slate-200 dark:border-zinc-800 rounded-xl">
-                              {newProdImages.map((img, idx) => (
-                                <div key={idx} className="relative group flex flex-col items-center gap-1.5 p-1 border border-slate-100 dark:border-zinc-850 bg-white dark:bg-zinc-900 rounded-xl animate-in zoom-in-95 duration-200">
-                                  <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm">
-                                    <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
-                                    
-                                    {/* Action: remove image */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setNewProdImages(prev => {
-                                          const updated = prev.filter((_, i) => i !== idx);
-                                          return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
-                                        });
-                                      }}
-                                      className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
-                                      title="Delete Image"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                          {/* Multi-Image Section */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] uppercase font-black text-slate-405 flex items-center gap-1.5">
+                              <Images className="w-3.5 h-3.5 text-[#5d51e8]" />
+                              Product Images ({newProdImages.length})
+                            </label>
 
-                                    {/* Cover photo indicator/swap action */}
-                                    {idx === 0 ? (
-                                      <span className="absolute bottom-1 left-1 bg-emerald-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-sm border border-emerald-400">
-                                        ⭐ Cover
-                                      </span>
-                                    ) : (
+                            {/* Uploaded Images Grid */}
+                            {newProdImages.length > 0 && (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-slate-50/50 dark:bg-zinc-955/10 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                                {newProdImages.map((img, idx) => (
+                                  <div key={idx} className="relative group flex flex-col items-center gap-1.5 p-1 border border-slate-100 dark:border-zinc-850 bg-white dark:bg-zinc-900 rounded-xl animate-in zoom-in-95 duration-200">
+                                    <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                      <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+
+                                      {/* Action: remove image */}
                                       <button
                                         type="button"
                                         onClick={() => {
                                           setNewProdImages(prev => {
-                                            const updated = [...prev];
-                                            const selected = updated[idx];
-                                            updated.splice(idx, 1);
-                                            updated.unshift(selected);
+                                            const updated = prev.filter((_, i) => i !== idx);
                                             return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
                                           });
                                         }}
-                                        className="absolute bottom-1 left-1 bg-black/65 hover:bg-[#5d51e8] text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all cursor-pointer border border-white/10"
+                                        className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+                                        title="Delete Image"
                                       >
-                                        Set Cover
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
-                                    )}
-                                  </div>
-                                  <span className="text-[9px] font-black text-slate-400 uppercase truncate max-w-full px-1">{img.label}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
 
-                          {/* Upload Zone */}
-                          {true && (
-                            <div className="space-y-3">
-                              <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors group">
-                                {isNewProdCompressing ? (
-                                  <div className="flex flex-col items-center space-y-2 py-2">
-                                    <Loader2 className="w-7 h-7 animate-spin text-[#5d51e8]" />
-                                    <span className="text-xs font-bold text-slate-500">Compressing & optimizing...</span>
-                                  </div>
-                                ) : (
-                                  <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full py-2">
-                                    <div className="p-2 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
-                                      <Upload className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-center">
-                                      <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload images</span>
-                                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">JPG, PNG, WebP • Auto-compressed</span>
-                                    </div>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      multiple
-                                      onChange={handleNewProdFileChange}
-                                      className="hidden"
-                                    />
-                                  </label>
-                                )}
-                              </div>
-
-                              {/* URL paste input */}
-                              <div className="flex gap-2">
-                                <input
-                                  type="url"
-                                  placeholder="Or paste image URL here..."
-                                  value={newProdImageUrlInput}
-                                  onChange={(e) => setNewProdImageUrlInput(e.target.value)}
-                                  className="flex-grow px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-450"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (newProdImageUrlInput.trim()) {
-                                      setNewProdImages(prev => [
-                                        ...prev,
-                                        { url: newProdImageUrlInput.trim(), label: `Image ${prev.length + 1}` }
-                                      ]);
-                                      setNewProdImageUrlInput('');
-                                    }
-                                  }}
-                                  className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-955/20 text-[#5d51e8] dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-100 dark:border-indigo-900/40 cursor-pointer transition-all active:scale-95"
-                                >
-                                  Add URL
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        {/* Variants Section */}
-                        <div className="space-y-2 pt-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[10px] uppercase font-black text-slate-455 flex items-center gap-1">
-                              Variants / Models ({newProdVariants.length})
-                            </label>
-                          </div>
-                          
-                          {newProdVariants.length > 0 && (
-                            <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2.5">
-                              <p className="text-[10px] font-bold text-slate-450">
-                                Variants (Models) are automatically generated for each uploaded image. Clients will select the model by swiping/viewing the corresponding photo.
-                              </p>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {newProdVariants.map((variant, idx) => {
-                                  const img = newProdImages[variant.imageIndex];
-                                  return (
-                                    <div key={variant.id} className="flex items-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-lg">
-                                      {img && (
-                                        <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-slate-200 dark:border-zinc-800">
-                                          <img src={img.url} className="w-full h-full object-cover" alt="" />
-                                        </div>
+                                      {/* Cover photo indicator/swap action */}
+                                      {idx === 0 ? (
+                                        <span className="absolute bottom-1 left-1 bg-emerald-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-sm border border-emerald-400">
+                                          ⭐ Cover
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setNewProdImages(prev => {
+                                              const updated = [...prev];
+                                              const selected = updated[idx];
+                                              updated.splice(idx, 1);
+                                              updated.unshift(selected);
+                                              return updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` }));
+                                            });
+                                          }}
+                                          className="absolute bottom-1 left-1 bg-black/65 hover:bg-[#5d51e8] text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all cursor-pointer border border-white/10"
+                                        >
+                                          Set Cover
+                                        </button>
                                       )}
-                                      <div>
-                                        <p className="text-[10px] font-black text-slate-800 dark:text-white">{variant.name}</p>
-                                        <p className="text-[8px] font-bold text-slate-400">Photo {idx + 1}</p>
-                                      </div>
                                     </div>
-                                  );
-                                })}
+                                    <span className="text-[9px] font-black text-slate-400 uppercase truncate max-w-full px-1">{img.label}</span>
+                                  </div>
+                                ))}
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                            )}
 
-                      <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
-                        <Button type="button" variant="secondary" onClick={() => setAddingProduct(false)}>Cancel</Button>
-                        <Button type="submit" disabled={isNewProdCompressing}>Create Product</Button>
-                      </div>
+                            {/* Upload Zone */}
+                            {true && (
+                              <div className="space-y-3">
+                                <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-[#5d51e8] dark:hover:border-[#5d51e8] rounded-xl p-4 bg-slate-50/50 dark:bg-zinc-950/20 transition-colors group">
+                                  {isNewProdCompressing ? (
+                                    <div className="flex flex-col items-center space-y-2 py-2">
+                                      <Loader2 className="w-7 h-7 animate-spin text-[#5d51e8]" />
+                                      <span className="text-xs font-bold text-slate-500">Compressing & optimizing...</span>
+                                    </div>
+                                  ) : (
+                                    <label className="flex flex-col items-center justify-center space-y-2 cursor-pointer w-full py-2">
+                                      <div className="p-2 bg-slate-100 dark:bg-zinc-850 text-slate-400 dark:text-slate-500 rounded-xl group-hover:text-[#5d51e8] group-hover:bg-[#5d51e8]/5 transition-colors">
+                                        <Upload className="w-5 h-5" />
+                                      </div>
+                                      <div className="text-center">
+                                        <span className="text-xs font-extrabold text-slate-700 dark:text-slate-350 block">Click to upload images</span>
+                                        <span className="text-[10px] text-slate-400 font-bold mt-0.5 block">JPG, PNG, WebP • Auto-compressed</span>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleNewProdFileChange}
+                                        className="hidden"
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+
+                                {/* URL paste input */}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="url"
+                                    placeholder="Or paste image URL here..."
+                                    value={newProdImageUrlInput}
+                                    onChange={(e) => setNewProdImageUrlInput(e.target.value)}
+                                    className="flex-grow px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-450"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (newProdImageUrlInput.trim()) {
+                                        setNewProdImages(prev => [
+                                          ...prev,
+                                          { url: newProdImageUrlInput.trim(), label: `Image ${prev.length + 1}` }
+                                        ]);
+                                        setNewProdImageUrlInput('');
+                                      }
+                                    }}
+                                    className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-955/20 text-[#5d51e8] dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-100 dark:border-indigo-900/40 cursor-pointer transition-all active:scale-95"
+                                  >
+                                    Add URL
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {/* Variants Section */}
+                            <div className="space-y-2 pt-2">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] uppercase font-black text-slate-455 flex items-center gap-1">
+                                  Variants / Models ({newProdVariants.length})
+                                </label>
+                              </div>
+
+                              {newProdVariants.length > 0 && (
+                                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2.5">
+                                  <p className="text-[10px] font-bold text-slate-450">
+                                    Variants (Models) are automatically generated for each uploaded image. Clients will select the model by swiping/viewing the corresponding photo.
+                                  </p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {newProdVariants.map((variant, idx) => {
+                                      const img = newProdImages[variant.imageIndex];
+                                      return (
+                                        <div key={variant.id} className="flex items-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-lg">
+                                          {img && (
+                                            <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-slate-200 dark:border-zinc-800">
+                                              <img src={img.url} className="w-full h-full object-cover" alt="" />
+                                            </div>
+                                          )}
+                                          <div>
+                                            <p className="text-[10px] font-black text-slate-800 dark:text-white">{variant.name}</p>
+                                            <p className="text-[8px] font-bold text-slate-400">Photo {idx + 1}</p>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
+                          <Button type="button" variant="secondary" onClick={() => setAddingProduct(false)}>Cancel</Button>
+                          <Button type="submit" disabled={isNewProdCompressing}>Create Product</Button>
+                        </div>
                     </form>
                   )}
                 </div>
@@ -2445,47 +2468,101 @@ export default function AdminDashboard() {
             {/* Tab 4: Dynamic Custom Settings Tab */}
             {activeTab === 'fields' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-300">
-                {/* Form to add Custom Fields */}
-                <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md p-6 h-fit space-y-5">
-                  <div className="space-y-1">
-                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Add Registration Question</h3>
-                    <p className="text-xs text-slate-400 font-bold">Define custom dynamic fields for users</p>
-                  </div>
-
-                  <form onSubmit={handleAddField} className="space-y-4">
-                    <Input
-                      label="Question Label"
-                      required
-                      value={newFieldLabelEn}
-                      onChange={(e) => setNewFieldLabelEn(e.target.value)}
-                      placeholder="e.g. Firm Name"
-                    />
-
-                    <div className="grid grid-cols-1 gap-3">
-                      <Select
-                        label="Input Type"
-                        value={newFieldType}
-                        onChange={(e) => setNewFieldType(e.target.value as any)}
-                      >
-                        <option value="text">Text (General)</option>
-                        <option value="tel">Telephone / Phone</option>
-                        <option value="number">Number</option>
-                      </Select>
-
-                      <div className="mt-2">
-                        <Checkbox
-                          label="Required?"
-                          checked={newFieldRequired}
-                          onChange={(e) => setNewFieldRequired(e.target.checked)}
-                        />
-                      </div>
+                <div className="lg:col-span-1 space-y-8">
+                  {/* Form to add Custom Fields */}
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md p-6 space-y-5">
+                    <div className="space-y-1">
+                      <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Add Registration Question</h3>
+                      <p className="text-xs text-slate-400 font-bold">Define custom dynamic fields for users</p>
                     </div>
 
-                    <Button type="submit" loading={addingField} className="w-full py-3.5 mt-2">
-                      {!addingField && <PlusCircle className="w-4 h-4" />}
-                      <span>Add Profile Field</span>
-                    </Button>
-                  </form>
+                    <form onSubmit={handleAddField} className="space-y-4">
+                      <Input
+                        label="Question Label"
+                        required
+                        value={newFieldLabelEn}
+                        onChange={(e) => setNewFieldLabelEn(e.target.value)}
+                        placeholder="e.g. Firm Name"
+                      />
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <Select
+                          label="Input Type"
+                          value={newFieldType}
+                          onChange={(e) => setNewFieldType(e.target.value as any)}
+                        >
+                          <option value="text">Text (General)</option>
+                          <option value="tel">Telephone / Phone</option>
+                          <option value="number">Number</option>
+                        </Select>
+
+                        <div className="mt-2">
+                          <Checkbox
+                            label="Required?"
+                            checked={newFieldRequired}
+                            onChange={(e) => setNewFieldRequired(e.target.checked)}
+                          />
+                        </div>
+                      </div>
+
+                      <Button type="submit" loading={addingField} className="w-full py-3.5 mt-2">
+                        {!addingField && <PlusCircle className="w-4 h-4" />}
+                        <span>Add Profile Field</span>
+                      </Button>
+                    </form>
+                  </div>
+
+                  {/* Manage Categories Card */}
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md p-6 space-y-5">
+                    <div className="space-y-1">
+                      <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Manage Categories</h3>
+                      <p className="text-xs text-slate-400 font-bold">Add or remove product catalog categories</p>
+                    </div>
+
+                    {/* Add Category Form */}
+                    <form onSubmit={handleAddCategory} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. Textiles, Electronics"
+                        required
+                        value={settingsNewCategory}
+                        onChange={(e) => setSettingsNewCategory(e.target.value)}
+                        className="flex-grow px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400"
+                      />
+                      <button
+                        type="submit"
+                        disabled={savingSettings}
+                        className="px-4 bg-[#5d51e8] hover:bg-[#4b3fd3] text-white text-xs font-black rounded-xl cursor-pointer shadow transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add</span>
+                      </button>
+                    </form>
+
+                    {/* Categories List */}
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
+                      {settingsCategories.length === 0 ? (
+                        <p className="text-xs text-slate-400 font-semibold italic text-center py-2">No categories defined.</p>
+                      ) : (
+                        settingsCategories.map((cat) => (
+                          <div
+                            key={cat}
+                            className="flex items-center justify-between px-3 py-2 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200"
+                          >
+                            <span>{cat}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCategory(cat)}
+                              className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-all cursor-pointer"
+                              title="Delete Category"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* List dynamic registration fields */}

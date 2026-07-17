@@ -168,7 +168,7 @@ export default function ProductEditModal({
                       placeholder="e.g. Textiles, Toys..."
                       value={customInput}
                       onChange={(e) => setCustomInput(e.target.value)}
-                      className="flex-grow px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400"
+                      className="flex-grow px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400"
                     />
                     <button
                       type="button"

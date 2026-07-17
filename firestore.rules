@@ -3,9 +3,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is the system administrator
+    // Helper function to check if the user is the system administrator or has admin role
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'admin@gmail.com';
+      return request.auth != null && (
+        request.auth.token.email == 'admin@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     // Users collection - users can read/write their own profile, admin can read/write all
@@ -43,5 +47,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
+
+    // Stock alerts collection - authenticated users can read/create, only admins can delete
+    match /stock_alerts/{alertId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if isAdmin();
+    }
   }
 }
+

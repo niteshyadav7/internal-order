@@ -6,8 +6,10 @@ export async function GET() {
     const cookieStore = await cookies();
     const session = cookieStore.get('admin_session');
 
-    if (session && session.value === 'authenticated') {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@gmail.com';
+    if (session && session.value) {
+      const adminEmail = session.value === 'authenticated'
+        ? (process.env.ADMIN_EMAIL || 'admin@gmail.com')
+        : session.value;
       return NextResponse.json({ success: true, authenticated: true, adminEmail });
     }
 
@@ -20,3 +22,4 @@ export async function GET() {
     );
   }
 }
+

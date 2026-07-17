@@ -4,7 +4,7 @@ import { adminAuth, adminDb } from '../../../lib/firebaseAdmin';
 // Verify the request is from an authenticated admin (check admin_session cookie)
 function isAdminRequest(request: NextRequest): boolean {
   const session = request.cookies.get('admin_session');
-  return session?.value === 'authenticated';
+  return !!session?.value;
 }
 
 // POST — Create a new staff member (salesman/admin)

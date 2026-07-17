@@ -16,7 +16,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <input
           ref={ref}
-          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-all ${className}`}
+          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400 transition-all ${className}`}
           {...props}
         />
       </div>
@@ -41,7 +41,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
         <textarea
           ref={ref}
-          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-all resize-none ${className}`}
+          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400 transition-all resize-none ${className}`}
           {...props}
         />
       </div>

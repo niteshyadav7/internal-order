@@ -124,7 +124,7 @@ export default function AdminLoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
               placeholder="Adminname"
-              className="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 font-semibold text-sm outline-none border-none py-1 px-1"
+              className="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400 font-semibold text-sm outline-none border-none py-1 px-1"
             />
           </div>
 
@@ -137,7 +137,7 @@ export default function AdminLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               placeholder="Password"
-              className="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 font-semibold text-sm outline-none border-none py-1 px-1"
+              className="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-zinc-400 font-semibold text-sm outline-none border-none py-1 px-1"
             />
             <button
               type="button"

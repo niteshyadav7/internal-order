@@ -414,7 +414,6 @@ export async function getProductsPaginated(
     return { products: [], lastVisible: null, hasMore: false };
   }
 }
-
 // Add a new product (Admin)
 export async function createProduct(product: Omit<Product, 'id' | 'createdAt'>): Promise<Product | null> {
   if (!db) return null;
@@ -429,7 +428,7 @@ export async function createProduct(product: Omit<Product, 'id' | 'createdAt'>):
     return { id: docRef.id, ...newProduct };
   } catch (error) {
     console.error("Error in createProduct:", error);
-    return null;
+    throw error;
   }
 }
 

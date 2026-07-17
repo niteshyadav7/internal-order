@@ -5,9 +5,9 @@
  */
 export function compressImage(
   file: File,
-  maxWidth = 1600,
-  maxHeight = 1600,
-  quality = 0.9
+  maxWidth = 800,
+  maxHeight = 800,
+  quality = 0.6
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // If we're on the server, skip compression
