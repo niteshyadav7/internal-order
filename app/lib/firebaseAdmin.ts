@@ -1,6 +1,8 @@
 import { initializeApp, getApps, cert, getApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import fs from 'fs';
+import path from 'path';
 
 // Initialize Firebase Admin SDK (server-side only)
 function getAdminApp() {
@@ -26,8 +28,6 @@ function getAdminApp() {
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
   if (serviceAccountPath) {
     try {
-      const fs = require('fs');
-      const path = require('path');
       const resolvedPath = serviceAccountPath.startsWith('.')
         ? path.resolve(process.cwd(), serviceAccountPath)
         : serviceAccountPath;
