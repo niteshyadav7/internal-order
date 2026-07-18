@@ -44,6 +44,7 @@ import {
 import Button from '../components/atoms/Button';
 import ClientProductGrid from '../components/organisms/ClientProductGrid';
 import { getTranslation, LangType } from '../lib/translations';
+import { transformImageUrl } from '../lib/image';
 
 export default function SalesmanPortal() {
   const { user, userProfile, loading, logout } = useAuth();
@@ -684,12 +685,12 @@ export default function SalesmanPortal() {
                     <div className="relative group max-w-2xl mx-auto">
                       {item.selectedImageUrl ? (
                         <div 
-                          onClick={() => setLightboxUrl(item.selectedImageUrl || null)}
+                          onClick={() => setLightboxUrl(transformImageUrl(item.selectedImageUrl || ''))}
                           className="w-full h-[500px] rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 shadow-inner flex items-center justify-center cursor-zoom-in group/img transition-all hover:border-[#5d51e8] hover:shadow-lg relative"
                           title="Click to view full screen"
                         >
                           <img 
-                            src={item.selectedImageUrl} 
+                            src={transformImageUrl(item.selectedImageUrl)} 
                             alt={item.nameEn}
                             className="max-w-full max-h-full object-contain"
                           />
@@ -766,7 +767,7 @@ export default function SalesmanPortal() {
                           <div className="flex items-center gap-3">
                             {item.selectedImageUrl && (
                               <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-850 flex-shrink-0 bg-slate-50 dark:bg-zinc-950">
-                                <img src={item.selectedImageUrl} alt={item.nameEn} className="w-full h-full object-cover" />
+                                <img src={transformImageUrl(item.selectedImageUrl)} alt={item.nameEn} className="w-full h-full object-cover" />
                               </div>
                             )}
                             <div className="text-left">
@@ -1002,11 +1003,11 @@ function OrderCard({
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 {item.selectedImageUrl ? (
                   <div 
-                    onClick={() => onImageClick?.(item.selectedImageUrl || '')}
+                    onClick={() => onImageClick?.(transformImageUrl(item.selectedImageUrl || ''))}
                     className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0 cursor-zoom-in hover:border-[#5d51e8] transition-all hover:scale-105 active:scale-95"
                     title="Click to view full screen"
                   >
-                    <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={transformImageUrl(item.selectedImageUrl)} alt="" className="w-full h-full object-cover" />
                   </div>
                 ) : (
                   <div className="w-10 h-10 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex items-center justify-center flex-shrink-0 text-slate-400">
