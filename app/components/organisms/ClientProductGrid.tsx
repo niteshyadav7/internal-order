@@ -61,7 +61,20 @@ function ReelProductCard({
   const swiping = useRef(false);
   const lastTapRef = useRef<number>(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const [particles, setParticles] = useState<{ id: number; x: number; y: number; tx: number; ty: number; color: string }[]>([]);
+  const [particles, setParticles] = useState<{
+    id: number;
+    x: number;
+    y: number;
+    txMid: number;
+    tyMid: number;
+    txEnd: number;
+    tyEnd: number;
+    rotMid: string;
+    rotEnd: string;
+    color: string;
+    shape: 'circle' | 'rect' | 'triangle';
+    size: number;
+  }[]>([]);
 
   const triggerParticles = (clientX: number, clientY: number) => {
     if (!cardRef.current) return;
@@ -69,26 +82,48 @@ function ReelProductCard({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
-    const colors = ['#06b6d4', '#ec4899', '#f59e0b', '#a855f7', '#10b981'];
-    const newParticles = Array.from({ length: 12 }).map((_, i) => {
+    // Google Brand Colors Palette
+    const colors = ['#4285F4', '#EA4335', '#FBBC05', '#34A853'];
+    const shapes: ('circle' | 'rect' | 'triangle')[] = ['circle', 'rect', 'triangle'];
+
+    // Generate 18 particles for a rich, satisfying burst
+    const newParticles = Array.from({ length: 18 }).map((_, i) => {
       const angle = Math.random() * Math.PI * 2;
-      const distance = 45 + Math.random() * 65;
-      const tx = Math.cos(angle) * distance;
-      const ty = Math.sin(angle) * distance - 25; // Float upwards
+      const initialVelocity = 40 + Math.random() * 45;
+      const finalFall = initialVelocity + 20;
+
+      // Midpoints (outward explosion phase)
+      const txMid = Math.cos(angle) * initialVelocity;
+      const tyMid = Math.sin(angle) * initialVelocity - 10;
+      
+      // Endpoints (gravity falling phase)
+      const txEnd = Math.cos(angle) * finalFall;
+      const tyEnd = Math.sin(angle) * finalFall + 140; // Gravity pull Y
+
+      // Rotations
+      const rotMid = `${30 + Math.random() * 120}deg`;
+      const rotEnd = `${360 + Math.random() * 540}deg`;
+
       return {
         id: Date.now() + i + Math.random(),
         x,
         y,
-        tx,
-        ty,
-        color: colors[Math.floor(Math.random() * colors.length)]
+        txMid,
+        tyMid,
+        txEnd,
+        tyEnd,
+        rotMid,
+        rotEnd,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        shape: shapes[Math.floor(Math.random() * shapes.length)],
+        size: 5 + Math.random() * 6
       };
     });
 
     setParticles(prev => [...prev, ...newParticles]);
     setTimeout(() => {
       setParticles(prev => prev.filter(p => !newParticles.find(np => np.id === p.id)));
-    }, 800);
+    }, 1100);
   };
 
   // Build full images list
@@ -386,22 +421,42 @@ function ReelProductCard({
         </button>
       </div>
 
-      {/* Confetti particles burst */}
-      {particles.map((p) => (
-        <span
-          key={p.id}
-          className="absolute z-50 pointer-events-none rounded-full animate-particle"
-          style={{
-            left: p.x - 4,
-            top: p.y - 4,
-            width: 8,
-            height: 8,
-            backgroundColor: p.color,
-            '--tx': `${p.tx}px`,
-            '--ty': `${p.ty}px`
-          } as React.CSSProperties}
-        />
-      ))}
+      {/* Google-style confetti particles burst */}
+      {particles.map((p) => {
+        let shapeClasses = "";
+        let borderStyle: React.CSSProperties = {};
+
+        if (p.shape === 'circle') {
+          shapeClasses = "rounded-full";
+        } else if (p.shape === 'triangle') {
+          borderStyle = {
+            clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
+          };
+        } else {
+          shapeClasses = "rounded-sm";
+        }
+
+        return (
+          <span
+            key={p.id}
+            className={`absolute z-50 pointer-events-none animate-google-confetti ${shapeClasses}`}
+            style={{
+              left: p.x - p.size / 2,
+              top: p.y - p.size / 2,
+              width: p.shape === 'rect' ? p.size * 0.75 : p.size,
+              height: p.shape === 'rect' ? p.size * 1.35 : p.size,
+              backgroundColor: p.color,
+              ...borderStyle,
+              '--tx-mid': `${p.txMid}px`,
+              '--ty-mid': `${p.tyMid}px`,
+              '--tx-end': `${p.txEnd}px`,
+              '--ty-end': `${p.tyEnd}px`,
+              '--rot-mid': p.rotMid,
+              '--rot-end': p.rotEnd
+            } as React.CSSProperties}
+          />
+        );
+      })}
 
     </div>
   );

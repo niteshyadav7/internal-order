@@ -148,19 +148,23 @@ body {
   animation: horizontal-peek 1.2s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-@keyframes particle-fade-up {
+@keyframes google-confetti {
   0% {
-    transform: translate(0, 0) scale(1.2);
+    transform: translate(0, 0) rotate(0deg) scale(0);
+    opacity: 1;
+  }
+  15% {
+    transform: translate(var(--tx-mid), var(--ty-mid)) rotate(var(--rot-mid)) scale(1.2);
     opacity: 1;
   }
   100% {
-    transform: translate(var(--tx), var(--ty)) scale(0.2);
+    transform: translate(var(--tx-end), var(--ty-end)) rotate(var(--rot-end)) scale(0.4);
     opacity: 0;
   }
 }
 
-.animate-particle {
-  animation: particle-fade-up 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+.animate-google-confetti {
+  animation: google-confetti 1.1s cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
 }
 
 @keyframes spring-pop {
