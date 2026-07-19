@@ -6,6 +6,18 @@ import ProductDetailSheet from './ProductDetailSheet';
 import { transformImageUrl } from '../../lib/image';
 import Loader from '../atoms/Loader';
 
+const triggerHaptic = (type: 'light' | 'double' | 'success') => {
+  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (type === 'light') {
+      navigator.vibrate(10);
+    } else if (type === 'double') {
+      navigator.vibrate([12, 50, 12]);
+    } else if (type === 'success') {
+      navigator.vibrate([15, 30, 10]);
+    }
+  }
+};
+
 // ──────────────────────────────────────────────
 // ReelProductCard — single full-screen product
 // Vertical scroll = next product, Horizontal swipe = next variant image
@@ -100,10 +112,11 @@ function ReelProductCard({
     : '';
   const isWeb = currentImageUrl.startsWith('http') || currentImageUrl.startsWith('https') || currentImageUrl.startsWith('data:image/');
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (hapticType: 'double' | 'success' = 'double') => {
     const variantName = activeVariant?.name;
     const selectUrl = imagesList[activeImgIdx]?.url || product.imageUrl;
     onToggleProduct(product.id || '', variantName, selectUrl);
+    triggerHaptic(hapticType);
   };
 
   return (
@@ -116,11 +129,13 @@ function ReelProductCard({
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      onDoubleClick={handleAddToCart}
+      onDoubleClick={() => handleAddToCart('double')}
     >
       {/* Full-screen product image — pointer-events-none/select-none stops native drag from breaking gestures */}
       {isWeb ? (
-        <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95">
+        <div className={`absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95 ${
+          idx === activeReelIdx && hasMultipleImages ? 'animate-peek' : ''
+        }`}>
           {/* Blurred background copy for full-screen cover */}
           <img
             src={currentImageUrl}
@@ -159,6 +174,7 @@ function ReelProductCard({
           onClick={(e) => {
             e.stopPropagation();
             setShowFiltersPanel(!showFiltersPanel);
+            triggerHaptic('light');
           }}
           className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all active:scale-90 shadow-lg cursor-pointer ${
             showFiltersPanel
@@ -178,7 +194,7 @@ function ReelProductCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleAddToCart();
+            handleAddToCart('double');
           }}
           className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
             isSelected
@@ -278,6 +294,7 @@ function ReelProductCard({
                     onClick={() => {
                       if (v.imageIndex >= 0 && v.imageIndex < imagesList.length) {
                         setActiveImgIdx(v.imageIndex);
+                        triggerHaptic('light');
                       }
                     }}
                     className={`flex-shrink-0 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${
@@ -309,7 +326,7 @@ function ReelProductCard({
 
         {/* Add to Cart button — fixed at bottom, does not slide away */}
         <button
-          onClick={handleAddToCart}
+          onClick={() => handleAddToCart('success')}
           className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] flex-shrink-0 ${
             isSelected
               ? 'bg-white text-[#5d51e8] shadow-lg'

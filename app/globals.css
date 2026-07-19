@@ -129,3 +129,23 @@ body {
   animation: text-wave 2s ease-in-out infinite;
 }
 
+@keyframes horizontal-peek {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-18px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+.animate-peek {
+  animation: horizontal-peek 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+
