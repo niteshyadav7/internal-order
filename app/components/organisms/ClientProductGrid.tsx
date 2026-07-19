@@ -4,6 +4,7 @@ import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
 import ProductDetailSheet from './ProductDetailSheet';
 import { transformImageUrl } from '../../lib/image';
+import Loader from '../atoms/Loader';
 
 // ──────────────────────────────────────────────
 // ReelProductCard — single full-screen product
@@ -46,6 +47,7 @@ function ReelProductCard({
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const swiping = useRef(false);
+  const lastTapRef = useRef<number>(0);
 
   // Build full images list
   const imagesList = product.images && product.images.length > 0
@@ -81,6 +83,15 @@ function ReelProductCard({
         // Swipe right → prev image
         setActiveImgIdx(prev => prev - 1);
       }
+    } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+      // Tap detected (low/no movement)
+      const now = Date.now();
+      const DOUBLE_PRESS_DELAY = 300;
+      if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
+        // Double tap!
+        handleAddToCart();
+      }
+      lastTapRef.current = now;
     }
   };
 
@@ -105,18 +116,32 @@ function ReelProductCard({
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onDoubleClick={handleAddToCart}
     >
       {/* Full-screen product image — pointer-events-none/select-none stops native drag from breaking gestures */}
       {isWeb ? (
-        <img
-          src={currentImageUrl}
-          alt={product.nameEn}
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none select-none"
-          loading={idx === activeReelIdx ? 'eager' : 'lazy'}
-          // @ts-ignore
-          fetchPriority={idx === activeReelIdx ? 'high' : 'auto'}
-          draggable={false}
-        />
+        <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95">
+          {/* Blurred background copy for full-screen cover */}
+          <img
+            src={currentImageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none select-none"
+            loading={idx <= activeReelIdx + 1 ? 'eager' : 'lazy'}
+            // @ts-ignore
+            fetchPriority={idx <= activeReelIdx + 1 ? 'high' : 'auto'}
+            draggable={false}
+          />
+          {/* Crisp centered foreground copy for full detail (uncropped) */}
+          <img
+            src={currentImageUrl}
+            alt={product.nameEn}
+            className="relative z-10 max-w-full max-h-full object-contain transition-opacity duration-305 pointer-events-none select-none"
+            loading={idx <= activeReelIdx + 1 ? 'eager' : 'lazy'}
+            // @ts-ignore
+            fetchPriority={idx <= activeReelIdx + 1 ? 'high' : 'auto'}
+            draggable={false}
+          />
+        </div>
       ) : (
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
           <span className="text-white/30 text-6xl font-black uppercase">{product.category}</span>
@@ -127,9 +152,9 @@ function ReelProductCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
 
-      {/* ── Left Sidebar Action Buttons (like Insta likes, comments) ── */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-45 flex flex-col gap-5">
-        {/* Search/Filter Button */}
+      {/* ── Top Action Buttons (Filter & Select) ── */}
+      <div className="absolute left-4 top-16 z-45 flex flex-row gap-3.5">
+        {/* Search/Filter Button (Teal/Cyan theme) */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -137,19 +162,19 @@ function ReelProductCard({
           }}
           className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all active:scale-90 shadow-lg cursor-pointer ${
             showFiltersPanel
-              ? 'bg-[#5d51e8] border-[#5d51e8] text-white shadow-[#5d51e8]/30'
-              : 'bg-black/40 backdrop-blur-md border-white/15 text-white/80'
+              ? 'bg-gradient-to-tr from-[#06b6d4] to-[#0ea5e9] border-[#06b6d4] text-white shadow-lg shadow-cyan-500/25'
+              : 'bg-black/40 backdrop-blur-md border-cyan-500/20 text-cyan-200/90'
           }`}
         >
           {showFiltersPanel ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
           <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Filter</span>
           {/* Active filter dot */}
           {(selectedCategory !== 'All' || searchQuery || priceFilter < absoluteMaxPrice) && !showFiltersPanel && (
-            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#5d51e8] rounded-full border-2 border-black animate-pulse" />
+            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-cyan-400 rounded-full border-2 border-black animate-pulse" />
           )}
         </button>
 
-        {/* Select Button */}
+        {/* Select Button (Rose/Pink theme) */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -157,8 +182,8 @@ function ReelProductCard({
           }}
           className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
             isSelected
-              ? 'bg-[#5d51e8] text-white border-[#5d51e8] scale-110 shadow-lg shadow-[#5d51e8]/40'
-              : 'bg-black/40 backdrop-blur-md border-white/15 text-white/80 hover:text-white'
+              ? 'bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white border-[#ec4899] scale-110 shadow-lg shadow-pink-500/25'
+              : 'bg-black/40 backdrop-blur-md border-pink-500/20 text-pink-200/90 hover:text-pink-100'
           }`}
         >
           <Check className="w-4 h-4 stroke-[3]" />
@@ -419,6 +444,47 @@ export default function ClientProductGrid({
     return matchesSearch && matchesCategory && matchesPrice;
   });
 
+  // Predictive prefetching for smooth reels navigation and variant selection
+  useEffect(() => {
+    if (!isMobile || finalFilteredProducts.length === 0) return;
+
+    const urlsToPreload = new Set<string>();
+
+    // 1. Preload the next product's main image
+    const nextProduct = finalFilteredProducts[activeReelIdx + 1];
+    if (nextProduct) {
+      const nextUrl = nextProduct.images && nextProduct.images.length > 0
+        ? nextProduct.images[0].url
+        : nextProduct.imageUrl;
+      if (nextUrl) urlsToPreload.add(transformImageUrl(nextUrl));
+    }
+
+    // 2. Preload the active product's variant images (for instant horizontal switching)
+    const currentProduct = finalFilteredProducts[activeReelIdx];
+    if (currentProduct && currentProduct.images) {
+      currentProduct.images.slice(1).forEach(img => {
+        urlsToPreload.add(transformImageUrl(img.url));
+      });
+    }
+
+    // 3. Preload the next-next product's main image
+    const nextNextProduct = finalFilteredProducts[activeReelIdx + 2];
+    if (nextNextProduct) {
+      const nextNextUrl = nextNextProduct.images && nextNextProduct.images.length > 0
+        ? nextNextProduct.images[0].url
+        : nextNextProduct.imageUrl;
+      if (nextNextUrl) urlsToPreload.add(transformImageUrl(nextNextUrl));
+    }
+
+    // Trigger background loading
+    urlsToPreload.forEach(url => {
+      if (url.startsWith('http') || url.startsWith('data:')) {
+        const img = new Image();
+        img.src = url;
+      }
+    });
+  }, [activeReelIdx, finalFilteredProducts, isMobile]);
+
   // Reset page limit when filters/search changes
   useEffect(() => {
     setVisibleCount(12);
@@ -488,12 +554,7 @@ export default function ClientProductGrid({
   // ──────────────────────────────────────────────
   if (isMobile) {
     if (loading) {
-      return (
-        <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-black z-30">
-          <Loader2 className="w-10 h-10 animate-spin text-white" />
-          <p className="text-xs font-bold text-white/60">Loading products...</p>
-        </div>
-      );
+      return <Loader variant="fullscreen" text={lang === 'en' ? 'Loading products...' : 'उत्पाद लोड हो रहे हैं...'} />;
     }
 
     if (finalFilteredProducts.length === 0) {
@@ -515,7 +576,7 @@ export default function ClientProductGrid({
     return (
       <>
         {/* Product Counter — top right */}
-        <div className="fixed top-16 right-4 z-50 bg-black/40 backdrop-blur-xl text-white text-[10px] font-black px-2.5 py-1.5 rounded-full border border-white/15 shadow-lg tabular-nums">
+        <div className="fixed top-16 right-4 z-50 bg-black/40 backdrop-blur-md text-amber-200/90 text-[10px] font-black px-2.5 py-1.5 rounded-full border border-amber-400/30 shadow-lg tabular-nums">
           {activeReelIdx + 1} / {finalFilteredProducts.length}
         </div>
 
@@ -629,7 +690,7 @@ export default function ClientProductGrid({
           }}
         >
           {finalFilteredProducts.map((product, idx) => {
-            const isVisible = Math.abs(idx - activeReelIdx) <= 1;
+            const isVisible = idx >= activeReelIdx - 1 && idx <= activeReelIdx + 2;
 
             if (!isVisible) {
               return (
@@ -820,12 +881,7 @@ export default function ClientProductGrid({
       </div>
 
       {loading ? (
-        <div className="py-24 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-10 h-10 animate-spin text-[#5d51e8]" />
-          <p className="text-xs font-bold text-slate-400 dark:text-zinc-550">
-            {lang === 'en' ? 'Fetching products catalog...' : 'सामग्री सूची लोड हो रही है...'}
-          </p>
-        </div>
+        <Loader variant="skeleton-grid" />
       ) : paginatedProducts.length === 0 ? (
         <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-3xl">
           <p className="text-sm font-bold text-slate-400 dark:text-zinc-550">
@@ -948,11 +1004,8 @@ export default function ClientProductGrid({
           </div>
 
           {visibleCount < filteredProducts.length && (
-            <div ref={sentinelRef} className="py-8 flex flex-col items-center justify-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-[#5d51e8]" />
-              <p className="text-xs font-bold text-slate-400 dark:text-zinc-550">
-                {lang === 'en' ? 'Loading more products...' : 'अधिक उत्पाद लोड हो रहे हैं...'}
-              </p>
+            <div ref={sentinelRef} className="py-8 flex justify-center w-full">
+              <Loader variant="inline" text={lang === 'en' ? 'Loading more products...' : 'अधिक उत्पाद लोड हो रहे हैं...'} />
             </div>
           )}
         </div>

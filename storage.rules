@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if the user has admin role in Firestore
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'admin@gmail.com' ||
+        (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    // Products folder - containing product images
+    match /products/{allPaths=**} {
+      // Any authenticated client, salesman, or admin can read product images
+      allow read: if request.auth != null;
+      
+      // Only admins can upload, edit, or delete product images
+      // Ensures the upload is an image and is less than 10MB to prevent abuse
+      allow write: if isAdmin() 
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}

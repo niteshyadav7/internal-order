@@ -41,6 +41,7 @@ import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { compressImage } from '../lib/image';
+import { uploadImageToStorage } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
 
 // Icons for metrics cards
@@ -1054,16 +1055,17 @@ export default function AdminDashboard() {
     try {
       for (let i = 0; i < files.length; i++) {
         const compressed = await compressImage(files[i]);
+        const storageUrl = await uploadImageToStorage(compressed, files[i].name);
         setNewProdImages(prev => {
-          const newImages = [...prev, { url: compressed, label: `Image ${prev.length + 1}` }];
+          const newImages = [...prev, { url: storageUrl, label: `Image ${prev.length + 1}` }];
           // Also set imageUrl to the first image for backward compat
-          if (newImages.length === 1) setNewProdImageUrl(compressed);
+          if (newImages.length === 1) setNewProdImageUrl(storageUrl);
           return newImages;
         });
       }
     } catch (err) {
-      console.error("Compression error:", err);
-      setAdminToast({ message: "Failed to compress and upload image.", type: "error" });
+      console.error("Upload error:", err);
+      setAdminToast({ message: "Failed to upload image.", type: "error" });
     } finally {
       setIsNewProdCompressing(false);
       // Reset file input

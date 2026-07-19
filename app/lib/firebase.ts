@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,6 +20,7 @@ const app = hasFirebaseKeys
 
 const auth = app ? getAuth(app) : null;
 const googleProvider = app ? new GoogleAuthProvider() : null;
+const storage = app ? getStorage(app) : null;
 
 // Google Provider configured without forced account chooser to enable fast login
-export { app, auth, googleProvider };
+export { app, auth, googleProvider, storage };

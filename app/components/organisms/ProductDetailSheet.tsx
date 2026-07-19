@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
+import { X, Check, ChevronLeft, ChevronRight, ShoppingCart, ZoomIn } from 'lucide-react';
 import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import { transformImageUrl } from '../../lib/image';
 
@@ -28,11 +28,40 @@ export default function ProductDetailSheet({
 }: ProductDetailSheetProps) {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
+  const [isZoomEnabled, setIsZoomEnabled] = useState(false);
+  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({
+    transform: 'scale(1)',
+    transformOrigin: 'center center'
+  });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isZoomEnabled) return;
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transform: 'scale(2.2)',
+      transformOrigin: `${x}% ${y}%`,
+      cursor: 'zoom-in'
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({
+      transform: 'scale(1)',
+      transformOrigin: 'center center'
+    });
+  };
 
   // Reset indices on opening/changing product
   useEffect(() => {
     if (product) {
       setActiveImageIdx(0);
+      setIsZoomEnabled(false);
+      setZoomStyle({
+        transform: 'scale(1)',
+        transformOrigin: 'center center'
+      });
       
       // Auto-select first variant if variants exist
       if (product.variants && product.variants.length > 0) {
@@ -48,6 +77,15 @@ export default function ProductDetailSheet({
       }
     }
   }, [product, isOpen, selectedVariantName]);
+
+  // Reset zoom when active image index changes
+  useEffect(() => {
+    setIsZoomEnabled(false);
+    setZoomStyle({
+      transform: 'scale(1)',
+      transformOrigin: 'center center'
+    });
+  }, [activeImageIdx]);
 
   // Derive selection state from the active variant key
   const isSelected = product ? selectedIds.has((product.id || '') + '|' + (activeVariant?.name || '')) : false;
@@ -112,17 +150,40 @@ export default function ProductDetailSheet({
         {/* Scrollable Body */}
         <div className="overflow-y-auto flex-grow pb-8">
           {/* Gallery Carousel Section */}
-          <div className="relative h-64 sm:h-80 bg-slate-100 dark:bg-zinc-950 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <div 
+            className="relative h-64 sm:h-80 bg-slate-100 dark:bg-zinc-950 flex items-center justify-center overflow-hidden flex-shrink-0"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
             {isWebLink ? (
               <img 
                 src={activeImageUrl} 
                 alt={product.nameEn} 
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover transition-transform duration-150 ease-out" 
+                style={zoomStyle}
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                 <span className="text-white text-lg font-black uppercase tracking-wider">{product.category}</span>
               </div>
+            )}
+
+            {/* Toggleable Zoom Button (Top Row / Corner) */}
+            {isWebLink && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsZoomEnabled(!isZoomEnabled);
+                }}
+                className={`absolute top-4 left-4 z-20 w-9 h-9 flex items-center justify-center rounded-full border shadow-md transition-all active:scale-90 cursor-pointer ${
+                  isZoomEnabled
+                    ? 'bg-[#5d51e8] border-[#5d51e8] text-white shadow-[#5d51e8]/20'
+                    : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700'
+                }`}
+                title="Toggle hover zoom"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
             )}
             
             {/* Gallery Navigation Overlay */}

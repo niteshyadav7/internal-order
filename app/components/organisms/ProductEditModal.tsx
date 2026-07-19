@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Loader2, Upload, Trash2, Plus, Images } from 'lucide-react';
 import { Product, ProductImage, ProductVariant, updateGlobalSettings } from '../../lib/db';
 import { compressImage } from '../../lib/image';
+import { uploadImageToStorage } from '../../lib/storage';
 
 interface ProductEditModalProps {
   isOpen: boolean;
@@ -102,12 +103,13 @@ export default function ProductEditModal({
       const newImages = [...images];
       for (let i = 0; i < files.length; i++) {
         const compressed = await compressImage(files[i]);
-        newImages.push({ url: compressed, label: `Image ${newImages.length + 1}` });
+        const storageUrl = await uploadImageToStorage(compressed, files[i].name);
+        newImages.push({ url: storageUrl, label: `Image ${newImages.length + 1}` });
       }
       onImagesChange(newImages);
     } catch (err) {
-      console.error("Compression error:", err);
-      alert("Failed to compress and upload image.");
+      console.error("Upload error:", err);
+      alert("Failed to upload image.");
     } finally {
       setIsCompressing(false);
       // Reset input element
