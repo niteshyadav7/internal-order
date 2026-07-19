@@ -47,29 +47,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setLoading(true);
       setUser(currentUser);
       if (currentUser) {
-        // Query or initialize user profile in Firestore
-        const profile = await getOrCreateUserProfile(
-          currentUser.uid,
-          currentUser.email || '',
-          currentUser.displayName || ''
-        );
-        if (profile) {
-          setUserProfile(profile);
-          setProfileStatus(profile.status);
-          setProfileName(profile.name);
-        } else {
-          setUserProfile(null);
-          setProfileStatus('pending');
+        // Try reading cached profile from localStorage first
+        const cacheKey = `auth_profile_${currentUser.uid}`;
+        const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+        let hasCache = false;
+        
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            setUserProfile(parsed);
+            setProfileStatus(parsed.status);
+            setProfileName(parsed.name);
+            setLoading(false); // Hide the loader immediately!
+            hasCache = true;
+          } catch (e) {
+            console.error('Error parsing cached user profile:', e);
+          }
+        }
+        
+        if (!hasCache) {
+          setLoading(true);
+        }
+
+        // Fetch fresh profile in background
+        try {
+          const profile = await getOrCreateUserProfile(
+            currentUser.uid,
+            currentUser.email || '',
+            currentUser.displayName || ''
+          );
+          if (profile) {
+            setUserProfile(profile);
+            setProfileStatus(profile.status);
+            setProfileName(profile.name);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(cacheKey, JSON.stringify(profile));
+            }
+          } else {
+            setUserProfile(null);
+            setProfileStatus('pending');
+          }
+        } catch (err) {
+          console.error("Error retrieving fresh user profile:", err);
+        } finally {
+          setLoading(false);
         }
       } else {
         setUserProfile(null);
         setProfileStatus(null);
         setProfileName('');
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -81,6 +111,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserProfile(profile);
         setProfileStatus(profile.status);
         setProfileName(profile.name);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`auth_profile_${auth.currentUser.uid}`, JSON.stringify(profile));
+        }
       }
     }
   };
@@ -128,12 +161,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email,
           name || email.split('@')[0]
         );
-        if (profile && name && profile.name !== name && db) {
-          const userRef = doc(db, 'users', userCredential.user.uid);
-          await updateDoc(userRef, { name });
-          profile.name = name;
-          setUserProfile(profile);
-          setProfileName(name);
+        if (profile) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`auth_profile_${userCredential.user.uid}`, JSON.stringify(profile));
+          }
+          if (name && profile.name !== name && db) {
+            const userRef = doc(db, 'users', userCredential.user.uid);
+            await updateDoc(userRef, { name });
+            profile.name = name;
+            setUserProfile(profile);
+            setProfileName(name);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`auth_profile_${userCredential.user.uid}`, JSON.stringify(profile));
+            }
+          }
         }
       }
     } catch (error) {
@@ -155,6 +196,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setLoading(true);
     try {
+      if (user && typeof window !== 'undefined') {
+        localStorage.removeItem(`auth_profile_${user.uid}`);
+      }
       await signOut(auth);
       setUserProfile(null);
       setProfileStatus(null);
