@@ -60,6 +60,36 @@ function ReelProductCard({
   const touchStartY = useRef(0);
   const swiping = useRef(false);
   const lastTapRef = useRef<number>(0);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; tx: number; ty: number; color: string }[]>([]);
+
+  const triggerParticles = (clientX: number, clientY: number) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const colors = ['#06b6d4', '#ec4899', '#f59e0b', '#a855f7', '#10b981'];
+    const newParticles = Array.from({ length: 12 }).map((_, i) => {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 45 + Math.random() * 65;
+      const tx = Math.cos(angle) * distance;
+      const ty = Math.sin(angle) * distance - 25; // Float upwards
+      return {
+        id: Date.now() + i + Math.random(),
+        x,
+        y,
+        tx,
+        ty,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      };
+    });
+
+    setParticles(prev => [...prev, ...newParticles]);
+    setTimeout(() => {
+      setParticles(prev => prev.filter(p => !newParticles.find(np => np.id === p.id)));
+    }, 800);
+  };
 
   // Build full images list
   const imagesList = product.images && product.images.length > 0
@@ -101,7 +131,9 @@ function ReelProductCard({
       const DOUBLE_PRESS_DELAY = 300;
       if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
         // Double tap!
-        handleAddToCart();
+        const touch = e.changedTouches[0];
+        triggerParticles(touch.clientX, touch.clientY);
+        handleAddToCart('double');
       }
       lastTapRef.current = now;
     }
@@ -121,6 +153,7 @@ function ReelProductCard({
 
   return (
     <div
+      ref={cardRef}
       className="relative w-full flex-shrink-0"
       style={{
         height: '100dvh',
@@ -129,7 +162,10 @@ function ReelProductCard({
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      onDoubleClick={() => handleAddToCart('double')}
+      onDoubleClick={(e) => {
+        triggerParticles(e.clientX, e.clientY);
+        handleAddToCart('double');
+      }}
     >
       {/* Full-screen product image — pointer-events-none/select-none stops native drag from breaking gestures */}
       {isWeb ? (
@@ -231,7 +267,10 @@ function ReelProductCard({
 
       {/* Active variant label — floating pill */}
       {activeVariant && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 bg-gradient-to-r from-[#5d51e8] to-[#8b5cf6] text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-purple-500/30 animate-in fade-in duration-200">
+        <div 
+          key={activeVariant.name}
+          className="absolute top-20 left-1/2 z-40 bg-gradient-to-r from-[#5d51e8] to-[#8b5cf6] text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-purple-500/30 animate-spring-pop"
+        >
           {activeVariant.name}
         </div>
       )}
@@ -347,6 +386,23 @@ function ReelProductCard({
         </button>
       </div>
 
+      {/* Confetti particles burst */}
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          className="absolute z-50 pointer-events-none rounded-full animate-particle"
+          style={{
+            left: p.x - 4,
+            top: p.y - 4,
+            width: 8,
+            height: 8,
+            backgroundColor: p.color,
+            '--tx': `${p.tx}px`,
+            '--ty': `${p.ty}px`
+          } as React.CSSProperties}
+        />
+      ))}
+
     </div>
   );
 }
@@ -434,6 +490,29 @@ export default function ClientProductGrid({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [priceFilter, setPriceFilter] = useState(absoluteMaxPrice);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+
+  // Bottom Sheet drag state
+  const [dragY, setDragY] = useState(0);
+  const dragStartY = useRef(0);
+
+  const handleDragStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+  };
+
+  const handleDragMove = (e: React.TouchEvent) => {
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - dragStartY.current;
+    if (diffY > 0) {
+      setDragY(diffY);
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (dragY > 80) {
+      setShowFiltersPanel(false);
+    }
+    setDragY(0);
+  };
 
   // Mobile reels state
   const [activeReelIdx, setActiveReelIdx] = useState(0);
@@ -597,10 +676,23 @@ export default function ClientProductGrid({
           {activeReelIdx + 1} / {finalFilteredProducts.length}
         </div>
 
-        {/* ── Filter Panel (slides down on tap) ── */}
+        {/* ── Filter Bottom Sheet (slides up on tap, swipe-to-dismiss) ── */}
         {showFiltersPanel && (
-          <div className="fixed top-28 left-3 right-3 z-50 bg-black/60 backdrop-blur-2xl rounded-3xl border border-white/10 p-5 space-y-4 shadow-2xl animate-in slide-in-from-top-2 fade-in duration-200">
-            
+          <div 
+            className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/10 p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom duration-300"
+            onTouchStart={handleDragStart}
+            onTouchMove={handleDragMove}
+            onTouchEnd={handleDragEnd}
+            style={{
+              transform: `translateY(${dragY}px)`,
+              transition: dragY === 0 ? 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
+            }}
+          >
+            {/* Drag Handle Bar */}
+            <div className="flex justify-center pb-5 cursor-grab active:cursor-grabbing">
+              <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+            </div>
+
             {/* Search */}
             <div className="flex items-center gap-2.5 bg-white/10 rounded-2xl px-4 py-3 border border-white/10">
               <Search className="w-4 h-4 text-white/40 flex-shrink-0" />
@@ -619,24 +711,23 @@ export default function ClientProductGrid({
               )}
             </div>
 
-            {/* Category pills */}
-            <div>
-              <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Category</p>
-              <div className="flex flex-wrap gap-1.5">
+            {/* Categories */}
+            <div className="space-y-2 mt-4">
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Category</span>
+              <div className="flex flex-wrap gap-2">
                 {['All', ...categoriesList].map((cat) => {
-                  const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
+                  const isSel = selectedCategory.toLowerCase() === cat.toLowerCase();
                   return (
                     <button
                       key={cat}
-                      type="button"
                       onClick={() => setSelectedCategory(cat)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all border ${isActive
-                        ? 'bg-white text-black border-white shadow-md'
-                        : 'bg-white/8 text-white/70 border-white/10 active:scale-95'
-                        }`}
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                        isSel
+                          ? 'bg-[#5d51e8] text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/15'
+                      }`}
                     >
-                      {cat !== 'All' && getProductIcon(cat, "w-3 h-3")}
-                      <span>{cat}</span>
+                      {cat}
                     </button>
                   );
                 })}
@@ -644,7 +735,7 @@ export default function ClientProductGrid({
             </div>
 
             {/* Price range */}
-            <div className="space-y-2">
+            <div className="space-y-2 mt-4">
               <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
                 <span className="text-white/40">Max Price</span>
                 <span className="text-[#a89aff]">₹{priceFilter.toLocaleString('en-IN')}</span>
@@ -665,7 +756,7 @@ export default function ClientProductGrid({
             </div>
 
             {/* Actions row */}
-            <div className="flex items-center gap-3 pt-1">
+            <div className="flex items-center gap-3 pt-3 mt-4">
               <button
                 onClick={() => {
                   setSelectedCategory('All');
