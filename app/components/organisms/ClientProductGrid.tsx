@@ -38,6 +38,7 @@ function ReelProductCard({
   absoluteMaxPrice,
   priceRangePct = 5,
   activeReelIdx,
+  readOnly = false,
 }: {
   product: Product;
   idx: number;
@@ -54,6 +55,7 @@ function ReelProductCard({
   absoluteMaxPrice: number;
   priceRangePct?: number;
   activeReelIdx: number;
+  readOnly?: boolean;
 }) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const touchStartX = useRef(0);
@@ -166,9 +168,11 @@ function ReelProductCard({
       const DOUBLE_PRESS_DELAY = 300;
       if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
         // Double tap!
-        const touch = e.changedTouches[0];
-        triggerParticles(touch.clientX, touch.clientY);
-        handleAddToCart('double');
+        if (!readOnly) {
+          const touch = e.changedTouches[0];
+          triggerParticles(touch.clientX, touch.clientY);
+          handleAddToCart('double');
+        }
       }
       lastTapRef.current = now;
     }
@@ -198,8 +202,10 @@ function ReelProductCard({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onDoubleClick={(e) => {
-        triggerParticles(e.clientX, e.clientY);
-        handleAddToCart('double');
+        if (!readOnly) {
+          triggerParticles(e.clientX, e.clientY);
+          handleAddToCart('double');
+        }
       }}
     >
       {/* Full-screen product image — pointer-events-none/select-none stops native drag from breaking gestures */}
@@ -262,20 +268,22 @@ function ReelProductCard({
         </button>
 
         {/* Select Button (Rose/Pink theme) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAddToCart('double');
-          }}
-          className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
-            isSelected
-              ? 'bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white border-[#ec4899] scale-110 shadow-lg shadow-pink-500/25'
-              : 'bg-black/40 backdrop-blur-md border-pink-500/20 text-pink-200/90 hover:text-pink-100'
-          }`}
-        >
-          <Check className="w-4 h-4 stroke-[3]" />
-          <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Select</span>
-        </button>
+        {!readOnly && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToCart('double');
+            }}
+            className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
+              isSelected
+                ? 'bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white border-[#ec4899] scale-110 shadow-lg shadow-pink-500/25'
+                : 'bg-black/40 backdrop-blur-md border-pink-500/20 text-pink-200/90 hover:text-pink-100'
+            }`}
+          >
+            <Check className="w-4 h-4 stroke-[3]" />
+            <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Select</span>
+          </button>
+        )}
       </div>
 
       {/* Left/Right tap zones for image navigation */}
@@ -398,27 +406,38 @@ function ReelProductCard({
           )}
         </div>
 
-        {/* Add to Cart button — fixed at bottom, does not slide away */}
-        <button
-          onClick={() => handleAddToCart('success')}
-          className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] flex-shrink-0 ${
-            isSelected
-              ? 'bg-white text-[#5d51e8] shadow-lg'
-              : 'bg-gradient-to-r from-[#5d51e8] to-[#7c3aed] text-white shadow-lg shadow-[#5d51e8]/30'
-          }`}
-        >
-          {isSelected ? (
-            <>
-              <Check className="w-4 h-4" />
-              <span>Selected{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="w-4 h-4" />
-              <span>Add to Cart{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
-            </>
-          )}
-        </button>
+        {/* Add to Cart button or Stock status */}
+        {readOnly ? (
+          <div className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 flex-shrink-0 ${
+            product.inStock 
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+            <span>{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => handleAddToCart('success')}
+            className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] flex-shrink-0 ${
+              isSelected
+                ? 'bg-white text-[#5d51e8] shadow-lg'
+                : 'bg-gradient-to-r from-[#5d51e8] to-[#7c3aed] text-white shadow-lg shadow-[#5d51e8]/30'
+            }`}
+          >
+            {isSelected ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Selected{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="w-4 h-4" />
+                <span>Add to Cart{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Google-style confetti particles burst */}
@@ -889,6 +908,7 @@ export default function ClientProductGrid({
                 absoluteMaxPrice={absoluteMaxPrice}
                 priceRangePct={priceRangePct}
                 activeReelIdx={activeReelIdx}
+                readOnly={readOnly}
               />
             );
           })}
