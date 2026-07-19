@@ -111,7 +111,7 @@ function ReelProductCard({
         <img
           src={currentImageUrl}
           alt={product.nameEn}
-          className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 pointer-events-none select-none"
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none select-none"
           loading={idx === activeReelIdx ? 'eager' : 'lazy'}
           // @ts-ignore
           fetchPriority={idx === activeReelIdx ? 'high' : 'auto'}

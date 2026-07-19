@@ -22,7 +22,6 @@ import {
 import { Order, UserProfile, Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
 import Badge from '../atoms/Badge';
-import { transformImageUrl } from '../../lib/image';
 
 interface OrdersListProps {
   orders: Order[];
@@ -1046,10 +1045,10 @@ export default function OrdersList({
                                   {item.selectedImageUrl && (
                                     <div className="w-14 h-14 rounded-xl overflow-hidden border border-slate-150 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex-shrink-0 relative group shadow-sm print:shadow-none print:border-slate-300">
                                       <img 
-                                        src={transformImageUrl(item.selectedImageUrl)} 
+                                        src={item.selectedImageUrl} 
                                         alt={item.nameEn} 
                                         className="w-full h-full object-cover transition-transform duration-250 group-hover:scale-110 cursor-zoom-in print:cursor-default" 
-                                        onClick={() => setLightboxImage({ url: transformImageUrl(item.selectedImageUrl!), title: `${item.nameEn} - ${item.selectedVariant || 'Standard'}` })}
+                                        onClick={() => setLightboxImage({ url: item.selectedImageUrl!, title: `${item.nameEn} - ${item.selectedVariant || 'Standard'}` })}
                                       />
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-widest cursor-zoom-in print:hidden">
                                         Zoom

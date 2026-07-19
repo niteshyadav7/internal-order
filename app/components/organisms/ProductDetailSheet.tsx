@@ -117,7 +117,7 @@ export default function ProductDetailSheet({
               <img 
                 src={activeImageUrl} 
                 alt={product.nameEn} 
-                className="w-full h-full object-contain" 
+                className="w-full h-full object-cover" 
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
