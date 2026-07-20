@@ -63,70 +63,6 @@ function ReelProductCard({
   const swiping = useRef(false);
   const lastTapRef = useRef<number>(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const [particles, setParticles] = useState<{
-    id: number;
-    x: number;
-    y: number;
-    txMid: number;
-    tyMid: number;
-    txEnd: number;
-    tyEnd: number;
-    rotMid: string;
-    rotEnd: string;
-    color: string;
-    shape: 'circle' | 'rect' | 'triangle';
-    size: number;
-  }[]>([]);
-
-  const triggerParticles = (clientX: number, clientY: number) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-
-    // Google Brand Colors Palette
-    const colors = ['#4285F4', '#EA4335', '#FBBC05', '#34A853'];
-    const shapes: ('circle' | 'rect' | 'triangle')[] = ['circle', 'rect', 'triangle'];
-
-    // Generate 18 particles for a rich, satisfying burst
-    const newParticles = Array.from({ length: 18 }).map((_, i) => {
-      const angle = Math.random() * Math.PI * 2;
-      const initialVelocity = 40 + Math.random() * 45;
-      const finalFall = initialVelocity + 20;
-
-      // Midpoints (outward explosion phase)
-      const txMid = Math.cos(angle) * initialVelocity;
-      const tyMid = Math.sin(angle) * initialVelocity - 10;
-      
-      // Endpoints (gravity falling phase)
-      const txEnd = Math.cos(angle) * finalFall;
-      const tyEnd = Math.sin(angle) * finalFall + 140; // Gravity pull Y
-
-      // Rotations
-      const rotMid = `${30 + Math.random() * 120}deg`;
-      const rotEnd = `${360 + Math.random() * 540}deg`;
-
-      return {
-        id: Date.now() + i + Math.random(),
-        x,
-        y,
-        txMid,
-        tyMid,
-        txEnd,
-        tyEnd,
-        rotMid,
-        rotEnd,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        shape: shapes[Math.floor(Math.random() * shapes.length)],
-        size: 5 + Math.random() * 6
-      };
-    });
-
-    setParticles(prev => [...prev, ...newParticles]);
-    setTimeout(() => {
-      setParticles(prev => prev.filter(p => !newParticles.find(np => np.id === p.id)));
-    }, 1100);
-  };
 
   // Build full images list
   const imagesList = product.images && product.images.length > 0
@@ -162,15 +98,13 @@ function ReelProductCard({
         // Swipe right → prev image
         setActiveImgIdx(prev => prev - 1);
       }
-    } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+    } else if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
       // Tap detected (low/no movement)
       const now = Date.now();
-      const DOUBLE_PRESS_DELAY = 300;
+      const DOUBLE_PRESS_DELAY = 350;
       if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
         // Double tap!
         if (!readOnly) {
-          const touch = e.changedTouches[0];
-          triggerParticles(touch.clientX, touch.clientY);
           handleAddToCart('double');
         }
       }
@@ -199,20 +133,21 @@ function ReelProductCard({
         scrollSnapAlign: 'start',
         scrollSnapStop: 'always',
       }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onDoubleClick={(e) => {
-        if (!readOnly) {
-          triggerParticles(e.clientX, e.clientY);
-          handleAddToCart('double');
-        }
-      }}
     >
       {/* Full-screen product image — pointer-events-none/select-none stops native drag from breaking gestures */}
       {isWeb ? (
-        <div className={`absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95 ${
-          idx === activeReelIdx && hasMultipleImages ? 'animate-peek' : ''
-        }`}>
+        <div 
+          className={`absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95 ${
+            idx === activeReelIdx && hasMultipleImages ? 'animate-peek' : ''
+          }`}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onDoubleClick={() => {
+            if (!readOnly) {
+              handleAddToCart('double');
+            }
+          }}
+        >
           {/* Blurred background copy for full-screen cover */}
           <img
             src={currentImageUrl}
@@ -235,7 +170,16 @@ function ReelProductCard({
           />
         </div>
       ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+        <div 
+          className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onDoubleClick={() => {
+            if (!readOnly) {
+              handleAddToCart('double');
+            }
+          }}
+        >
           <span className="text-white/30 text-6xl font-black uppercase">{product.category}</span>
         </div>
       )}
@@ -439,43 +383,6 @@ function ReelProductCard({
           </button>
         )}
       </div>
-
-      {/* Google-style confetti particles burst */}
-      {particles.map((p) => {
-        let shapeClasses = "";
-        let borderStyle: React.CSSProperties = {};
-
-        if (p.shape === 'circle') {
-          shapeClasses = "rounded-full";
-        } else if (p.shape === 'triangle') {
-          borderStyle = {
-            clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
-          };
-        } else {
-          shapeClasses = "rounded-sm";
-        }
-
-        return (
-          <span
-            key={p.id}
-            className={`absolute z-50 pointer-events-none animate-google-confetti ${shapeClasses}`}
-            style={{
-              left: p.x - p.size / 2,
-              top: p.y - p.size / 2,
-              width: p.shape === 'rect' ? p.size * 0.75 : p.size,
-              height: p.shape === 'rect' ? p.size * 1.35 : p.size,
-              backgroundColor: p.color,
-              ...borderStyle,
-              '--tx-mid': `${p.txMid}px`,
-              '--ty-mid': `${p.tyMid}px`,
-              '--tx-end': `${p.txEnd}px`,
-              '--ty-end': `${p.tyEnd}px`,
-              '--rot-mid': p.rotMid,
-              '--rot-end': p.rotEnd
-            } as React.CSSProperties}
-          />
-        );
-      })}
 
     </div>
   );
