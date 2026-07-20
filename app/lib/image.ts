@@ -5,9 +5,9 @@
  */
 export function compressImage(
   file: File,
-  maxWidth = 1600,
-  maxHeight = 1600,
-  quality = 0.9
+  maxWidth = 1080,
+  maxHeight = 1080,
+  quality = 0.75
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // If we're on the server, skip compression
@@ -50,7 +50,7 @@ export function compressImage(
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const dataUrl = canvas.toDataURL('image/webp', quality);
         resolve(dataUrl);
       };
       img.onerror = (err) => {
