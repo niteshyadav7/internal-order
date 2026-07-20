@@ -98,17 +98,19 @@ function ReelProductCard({
         // Swipe right → prev image
         setActiveImgIdx(prev => prev - 1);
       }
-    } else if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
+    } else if (Math.abs(deltaX) < 20 && Math.abs(deltaY) < 20) {
       // Tap detected (low/no movement)
       const now = Date.now();
-      const DOUBLE_PRESS_DELAY = 350;
+      const DOUBLE_PRESS_DELAY = 380;
       if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
         // Double tap!
         if (!readOnly) {
           handleAddToCart('double');
         }
+        lastTapRef.current = 0; // Reset to prevent consecutive multi-tap triggers
+      } else {
+        lastTapRef.current = now;
       }
-      lastTapRef.current = now;
     }
   };
 
@@ -140,6 +142,7 @@ function ReelProductCard({
           className={`absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95 ${
             idx === activeReelIdx && hasMultipleImages ? 'animate-peek' : ''
           }`}
+          style={{ touchAction: 'manipulation' }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onDoubleClick={() => {
@@ -172,6 +175,7 @@ function ReelProductCard({
       ) : (
         <div 
           className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center"
+          style={{ touchAction: 'manipulation' }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onDoubleClick={() => {
