@@ -35,10 +35,57 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [profileStatus, setProfileStatus] = useState<UserStatus>(null);
-  const [profileName, setProfileName] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const lastUid = localStorage.getItem('auth_last_logged_in_uid');
+        if (lastUid) {
+          const cached = localStorage.getItem(`auth_profile_${lastUid}`);
+          return cached ? JSON.parse(cached) : null;
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [profileStatus, setProfileStatus] = useState<UserStatus>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const lastUid = localStorage.getItem('auth_last_logged_in_uid');
+        if (lastUid) {
+          const cached = localStorage.getItem(`auth_profile_${lastUid}`);
+          return cached ? JSON.parse(cached)?.status : null;
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [profileName, setProfileName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const lastUid = localStorage.getItem('auth_last_logged_in_uid');
+        if (lastUid) {
+          const cached = localStorage.getItem(`auth_profile_${lastUid}`);
+          return cached ? JSON.parse(cached)?.name : '';
+        }
+      } catch (e) {}
+    }
+    return '';
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const lastUid = localStorage.getItem('auth_last_logged_in_uid');
+        if (lastUid) {
+          const cached = localStorage.getItem(`auth_profile_${lastUid}`);
+          return !cached;
+        }
+        return false; // If no user was logged in, they are a guest - skip loader!
+      } catch (e) {
+        return true;
+      }
+    }
+    return true;
+  });
 
   // Sync profile details when auth state transitions
   useEffect(() => {
@@ -49,6 +96,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('auth_last_logged_in_uid', currentUser.uid);
+          } catch (e) {}
+        }
         // Try reading cached profile from localStorage first
         const cacheKey = `auth_profile_${currentUser.uid}`;
         const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
@@ -83,7 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfileStatus(profile.status);
             setProfileName(profile.name);
             if (typeof window !== 'undefined') {
-              localStorage.setItem(cacheKey, JSON.stringify(profile));
+              try {
+                localStorage.setItem(cacheKey, JSON.stringify(profile));
+              } catch (e) {}
             }
           } else {
             setUserProfile(null);
@@ -95,6 +149,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
       } else {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('auth_last_logged_in_uid');
+          } catch (e) {}
+        }
         setUserProfile(null);
         setProfileStatus(null);
         setProfileName('');
@@ -196,8 +255,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setLoading(true);
     try {
-      if (user && typeof window !== 'undefined') {
-        localStorage.removeItem(`auth_profile_${user.uid}`);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('auth_last_logged_in_uid');
+          if (user) {
+            localStorage.removeItem(`auth_profile_${user.uid}`);
+          }
+        } catch (e) {}
       }
       await signOut(auth);
       setUserProfile(null);
