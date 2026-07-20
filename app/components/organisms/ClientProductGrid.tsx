@@ -152,10 +152,10 @@ function ReelProductCard({
           <img
             src={currentImageUrl}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none select-none"
-            loading={idx <= activeReelIdx + 1 ? 'eager' : 'lazy'}
+            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none select-none accelerate-gpu"
+            loading="eager"
             // @ts-ignore
-            fetchPriority={idx <= activeReelIdx + 1 ? 'high' : 'auto'}
+            fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
             draggable={false}
           />
           {/* Crisp centered foreground copy for full detail (uncropped) */}
@@ -163,9 +163,9 @@ function ReelProductCard({
             src={currentImageUrl}
             alt={product.nameEn}
             className="relative z-10 max-w-full max-h-full object-contain transition-opacity duration-305 pointer-events-none select-none"
-            loading={idx <= activeReelIdx + 1 ? 'eager' : 'lazy'}
+            loading="eager"
             // @ts-ignore
-            fetchPriority={idx <= activeReelIdx + 1 ? 'high' : 'auto'}
+            fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
             draggable={false}
           />
         </div>
@@ -779,9 +779,9 @@ export default function ClientProductGrid({
           }}
         >
           {finalFilteredProducts.map((product, idx) => {
-            const isVisible = idx >= activeReelIdx - 1 && idx <= activeReelIdx + 2;
+            const isRendered = idx >= activeReelIdx - 8 && idx <= activeReelIdx + 4;
 
-            if (!isVisible) {
+            if (!isRendered) {
               return (
                 <div
                   key={product.id}

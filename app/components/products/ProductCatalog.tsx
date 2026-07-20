@@ -321,12 +321,43 @@ export default function ProductCatalog() {
     }
   };
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_catalog_products');
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [lastVisible, setLastVisible] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_global_settings');
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedProd = localStorage.getItem('cached_catalog_products');
+        const cachedSet = localStorage.getItem('cached_global_settings');
+        return !(cachedProd && cachedSet);
+      } catch (e) {
+        return true;
+      }
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -426,6 +457,16 @@ export default function ProductCatalog() {
   // Load products from database paginated
   useEffect(() => {
     async function loadProducts() {
+      // Legacy cache cleanup: if cached catalog is too large, clear it to avoid quota limits
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('cached_catalog_products');
+          if (cached && cached.length > 500000) {
+            localStorage.removeItem('cached_catalog_products');
+            localStorage.removeItem('cached_salesman_products');
+          }
+        } catch (e) {}
+      }
       try {
         const [res, settings] = await Promise.all([
           getProductsPaginated(null, 15),
@@ -435,9 +476,26 @@ export default function ProductCatalog() {
         setLastVisible(res.lastVisible);
         setHasMore(res.hasMore);
         setGlobalSettings(settings);
+        if (typeof window !== 'undefined') {
+          try {
+            const cacheProds = res.products.slice(0, 10).map((p: any) => ({
+              ...p,
+              imageUrl: p.imageUrl?.startsWith('data:') ? '' : p.imageUrl,
+              images: p.images?.map((img: any) => ({
+                ...img,
+                url: img.url.startsWith('data:') ? '' : img.url
+              })) || []
+            }));
+            localStorage.setItem('cached_catalog_products', JSON.stringify(cacheProds));
+            localStorage.setItem('cached_global_settings', JSON.stringify(settings));
+          } catch (e) {
+            console.warn("Unable to cache products (quota exceeded):", e);
+          }
+        }
       } catch (err) {
         console.error("Error loading products:", err);
-        setProducts([]);
+        // Retain existing cached products on error to avoid blanking out the grid
+        setProducts(prev => prev.length > 0 ? prev : []);
       } finally {
         setLoading(false);
       }

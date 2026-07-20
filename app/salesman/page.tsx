@@ -53,9 +53,39 @@ export default function SalesmanPortal() {
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'products'>('available');
 
   // Catalog and translation states
-  const [globalSettings, setGlobalSettings] = useState<any>(null);
-  const [productsList, setProductsList] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_global_settings');
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [productsList, setProductsList] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_salesman_products');
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [loadingProducts, setLoadingProducts] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedProds = localStorage.getItem('cached_salesman_products');
+        return !cachedProds;
+      } catch (e) {
+        return true;
+      }
+    }
+    return true;
+  });
   const [productsSearchQuery, setProductsSearchQuery] = useState('');
   const [lang, setLang] = useState<LangType>('en');
   const t = (key: any) => getTranslation(lang, key);
@@ -78,6 +108,13 @@ export default function SalesmanPortal() {
     getGlobalSettings().then(settings => {
       setGlobalSettings(settings);
       setPriceRangePct(settings.priceRangePct || 5);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('cached_global_settings', JSON.stringify(settings));
+        } catch (e) {
+          console.warn("Unable to cache global settings:", e);
+        }
+      }
     });
   }, []);
 
@@ -101,19 +138,38 @@ export default function SalesmanPortal() {
     return () => unsubscribe();
   }, [user, userProfile]);
 
-  // Fetch products on demand when products tab is opened
+  // Fetch products on demand when products tab is opened (SWR caching)
   useEffect(() => {
-    if (activeTab === 'products' && productsList.length === 0) {
-      setLoadingProducts(true);
+    if (activeTab === 'products') {
+      const hasCache = productsList.length > 0;
+      if (!hasCache) {
+        setLoadingProducts(true);
+      }
       getProducts().then(prods => {
         setProductsList(prods);
-        setLoadingProducts(false);
+        if (typeof window !== 'undefined') {
+          try {
+            // Limit to first 10 products and strip inline base64 images to save space
+            const cacheProds = prods.slice(0, 10).map((p: any) => ({
+              ...p,
+              imageUrl: p.imageUrl?.startsWith('data:') ? '' : p.imageUrl,
+              images: p.images?.map((img: any) => ({
+                ...img,
+                url: img.url.startsWith('data:') ? '' : img.url
+              })) || []
+            }));
+            localStorage.setItem('cached_salesman_products', JSON.stringify(cacheProds));
+          } catch (e) {
+            console.warn("Unable to cache salesman products (quota exceeded):", e);
+          }
+        }
       }).catch(err => {
         console.error("Error fetching products:", err);
+      }).finally(() => {
         setLoadingProducts(false);
       });
     }
-  }, [activeTab, productsList.length]);
+  }, [activeTab]);
 
   // Helper to get Category/Product Icons for Retail Store
   const getProductIcon = (category: string, size = "w-6 h-6") => {
