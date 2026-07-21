@@ -7,6 +7,7 @@ import {
   collection, 
   getDocs, 
   query,
+  where,
   addDoc,
   deleteDoc,
   onSnapshot,
@@ -67,7 +68,8 @@ export async function getOrCreateUserProfile(
 
     // Check if user was pre-registered by Admin using their email
     const usersRef = collection(db, 'users');
-    const q = query(usersRef);
+    const emailList = Array.from(new Set([email, email.toLowerCase(), email.toUpperCase()]));
+    const q = query(usersRef, where('email', 'in', emailList));
     const querySnapshot = await getDocs(q);
     let preRegisteredProfile: UserProfile | null = null;
     let oldDocId = '';

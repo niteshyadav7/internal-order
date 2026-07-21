@@ -4,7 +4,7 @@ import { Loader2, ShoppingBag, ShoppingCart, Search, Check } from 'lucide-react'
 interface LoaderProps {
   text?: string;
   fullscreen?: boolean;
-  variant?: 'fullscreen' | 'skeleton-grid' | 'skeleton-reels' | 'inline' | 'simple';
+  variant?: 'fullscreen' | 'skeleton-grid' | 'skeleton-reels' | 'inline' | 'simple' | 'brand';
 }
 
 export default function Loader({ 
@@ -16,7 +16,7 @@ export default function Loader({
   const activeVariant = variant || (fullscreen ? 'fullscreen' : 'simple');
 
   // 1. FULLSCREEN BRAND LOADER (Zomato/Swiggy Premium Bouncing Bag & Glow Rings)
-  if (activeVariant === 'fullscreen') {
+  if (activeVariant === 'brand') {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-50/90 dark:bg-zinc-950/90 backdrop-blur-md z-[100] transition-opacity duration-300">
         <div className="relative flex items-center justify-center w-32 h-32 mb-6">
@@ -39,6 +39,27 @@ export default function Loader({
         <p className="text-[10px] text-slate-400 dark:text-zinc-550 font-bold mt-1.5 tracking-wide">
           Balaji Storefront Premium
         </p>
+      </div>
+    );
+  }
+
+  // 1.5. MODERN TOP PROGRESS BAR LOADER
+  if (activeVariant === 'fullscreen') {
+    return (
+      <div className="fixed inset-0 bg-slate-50/20 dark:bg-zinc-950/20 backdrop-blur-[1px] z-[1000]">
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes topProgress {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(-30%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-top-progress {
+            animation: topProgress 1.4s infinite linear;
+          }
+        `}} />
+        <div className="w-full h-[4px] bg-slate-100 dark:bg-zinc-900 overflow-hidden relative">
+          <div className="absolute top-0 bottom-0 left-0 w-full bg-gradient-to-r from-[#5d51e8] via-[#a855f7] to-[#ec4899] animate-top-progress shadow-[0_2px_10px_rgba(168,85,247,0.5)]" />
+        </div>
       </div>
     );
   }

@@ -21,23 +21,31 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  getProducts, 
-  getProductsPaginated,
-  createOrder, 
   getProfileFields, 
   completeUserProfileRegistration, 
   Product, 
   OrderItem, 
   ProfileField,
-  getOrders,
-  updateOrder,
-  deleteOrder,
   Order,
-  getGlobalSettings,
   GlobalSettings
 } from '../../lib/db';
 import { getTranslation, LangType } from '../../lib/translations';
 import ConfirmModal from '../ui/ConfirmModal';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../store/store';
+import { 
+  fetchProductsThunk, 
+  fetchMoreProductsThunk, 
+  loadGlobalSettingsThunk,
+  setLocalCachedProducts,
+  setLocalCachedSettings
+} from '../../store/productsSlice';
+import {
+  fetchUserOrdersThunk,
+  createOrderThunk,
+  cancelOrderThunk,
+  updateOrderThunk
+} from '../../store/ordersSlice';
 
 // Organisms
 import ClientProductGrid from '../organisms/ClientProductGrid';
@@ -321,48 +329,14 @@ export default function ProductCatalog() {
     }
   };
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_catalog_products');
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
-  const [lastVisible, setLastVisible] = useState<any>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_global_settings');
-        return cached ? JSON.parse(cached) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
-  const [loading, setLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cachedProd = localStorage.getItem('cached_catalog_products');
-        const cachedSet = localStorage.getItem('cached_global_settings');
-        return !(cachedProd && cachedSet);
-      } catch (e) {
-        return true;
-      }
-    }
-    return true;
-  });
+  const dispatch = useDispatch<AppDispatch>();
+  const { products, globalSettings, loading, loadingMore, hasMore, lastVisible } = useSelector((state: RootState) => state.products);
+  const { userOrders, loadingUserOrders: loadingOrders, submittingOrder } = useSelector((state: RootState) => state.orders);
+
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedVariants, setSelectedVariants] = useState<Record<string, { variantName?: string; imageUrl?: string }>>({});
-  const [submittingOrder, setSubmittingOrder] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [activeView, setActiveView] = useState<'products' | 'orders' | 'profile'>('products');
@@ -376,8 +350,7 @@ export default function ProductCatalog() {
     };
     document.title = viewTitles[activeView] || 'Balaji Textiles';
   }, [activeView]);
-  const [userOrders, setUserOrders] = useState<Order[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
+
 
   // Profile edit states
   const [profileFields, setProfileFields] = useState<ProfileField[]>([]);
@@ -456,92 +429,43 @@ export default function ProductCatalog() {
 
   // Load products from database paginated
   useEffect(() => {
-    async function loadProducts() {
-      // Legacy cache cleanup: if cached catalog is too large, clear it to avoid quota limits
-      if (typeof window !== 'undefined') {
-        try {
-          const cached = localStorage.getItem('cached_catalog_products');
-          if (cached && cached.length > 500000) {
-            localStorage.removeItem('cached_catalog_products');
-            localStorage.removeItem('cached_salesman_products');
-          }
-        } catch (e) {}
-      }
+    // Initial cache hydrate
+    if (typeof window !== 'undefined') {
       try {
-        const [res, settings] = await Promise.all([
-          getProductsPaginated(null, 15),
-          getGlobalSettings()
-        ]);
-        setProducts(res.products);
-        setLastVisible(res.lastVisible);
-        setHasMore(res.hasMore);
-        setGlobalSettings(settings);
-        if (typeof window !== 'undefined') {
-          try {
-            const cacheProds = res.products.slice(0, 10).map((p: any) => ({
-              ...p,
-              imageUrl: p.imageUrl?.startsWith('data:') ? '' : p.imageUrl,
-              images: p.images?.map((img: any) => ({
-                ...img,
-                url: img.url.startsWith('data:') ? '' : img.url
-              })) || []
-            }));
-            localStorage.setItem('cached_catalog_products', JSON.stringify(cacheProds));
-            localStorage.setItem('cached_global_settings', JSON.stringify(settings));
-          } catch (e) {
-            console.warn("Unable to cache products (quota exceeded):", e);
-          }
+        const cachedProds = localStorage.getItem('cached_catalog_products');
+        if (cachedProds) {
+          dispatch(setLocalCachedProducts(JSON.parse(cachedProds)));
         }
-      } catch (err) {
-        console.error("Error loading products:", err);
-        // Retain existing cached products on error to avoid blanking out the grid
-        setProducts(prev => prev.length > 0 ? prev : []);
-      } finally {
-        setLoading(false);
-      }
+        const cachedSettings = localStorage.getItem('cached_global_settings');
+        if (cachedSettings) {
+          dispatch(setLocalCachedSettings(JSON.parse(cachedSettings)));
+        }
+      } catch (e) {}
     }
-    loadProducts();
-  }, []);
+    dispatch(fetchProductsThunk());
+    dispatch(loadGlobalSettingsThunk());
+  }, [dispatch]);
 
-  const handleLoadMoreProducts = async () => {
+  const handleLoadMoreProducts = () => {
     if (loadingMore || !hasMore || !lastVisible) return;
-    setLoadingMore(true);
-    try {
-      const res = await getProductsPaginated(lastVisible, 15);
-      setProducts(prev => [...prev, ...res.products]);
-      setLastVisible(res.lastVisible);
-      setHasMore(res.hasMore);
-    } catch (err) {
-      console.error("Error loading more products:", err);
-    } finally {
-      setLoadingMore(false);
-    }
+    dispatch(fetchMoreProductsThunk(lastVisible));
   };
 
-  const fetchUserOrders = async () => {
-    if (!user) return;
-    setLoadingOrders(true);
-    try {
-      const allOrders = await getOrders();
-      const filtered = allOrders.filter(o => o.userUid === user.uid);
-      setUserOrders(filtered);
-    } catch (err) {
-      console.error("Failed to load user orders:", err);
-    } finally {
-      setLoadingOrders(false);
+  const fetchUserOrders = () => {
+    if (user) {
+      dispatch(fetchUserOrdersThunk(user.uid));
     }
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && activeView === 'orders') {
       fetchUserOrders();
     }
-  }, [user]);
+  }, [user, activeView]);
 
   const handleCancelOrder = async (orderId: string) => {
     try {
-      await deleteOrder(orderId);
-      setUserOrders(prev => prev.filter(o => o.id !== orderId));
+      await dispatch(cancelOrderThunk(orderId)).unwrap();
     } catch (err) {
       console.error("Failed to cancel order:", err);
       alert("Failed to cancel order. Please try again.");
@@ -550,10 +474,7 @@ export default function ProductCatalog() {
 
   const handleUpdateOrder = async (orderId: string, updatedItems: OrderItem[]) => {
     try {
-      await updateOrder(orderId, {
-        items: updatedItems
-      });
-      setUserOrders(prev => prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o));
+      await dispatch(updateOrderThunk({ orderId, updatedItems })).unwrap();
     } catch (err) {
       console.error("Failed to update order:", err);
       alert("Failed to update order. Please try again.");
@@ -588,7 +509,6 @@ export default function ProductCatalog() {
 
   const handlePlaceOrder = async () => {
     if (selectedIds.size === 0 || !user) return;
-    setSubmittingOrder(true);
 
     try {
       const items: OrderItem[] = [];
@@ -618,12 +538,12 @@ export default function ProductCatalog() {
         }
       });
 
-      await createOrder({
+      await dispatch(createOrderThunk({
         userUid: user.uid,
         userName: profileName || user.displayName || 'Client',
         userEmail: user.email || '',
         items
-      });
+      })).unwrap();
 
       setShowSuccessModal(true);
       setSelectedIds(new Set());
@@ -632,8 +552,6 @@ export default function ProductCatalog() {
     } catch (err) {
       console.error("Order submission failed:", err);
       alert("Failed to submit order request. Please try again or call us.");
-    } finally {
-      setSubmittingOrder(false);
     }
   };
 

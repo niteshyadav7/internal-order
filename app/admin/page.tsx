@@ -1,41 +1,29 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import Toast, { ToastType } from '../components/ui/Toast';
 import {
-  updateUserProfileStatus,
   UserProfile,
-  getOrders,
   updateOrderStatus,
-  getProducts,
   createProduct,
-  getProfileFields,
-  createProfileField,
-  deleteProfileField,
-  updateProfileField,
   ProfileField,
   Order,
   Product,
   ProductImage,
   ProductVariant,
-  subscribeToUserProfiles,
-  deleteUserProfile,
-  updateUserProfile,
   updateProduct,
   deleteProduct,
-  deleteOrder,
-  updateOrder,
-  subscribeToOrders,
   syncAdminProfile,
-  preRegisterUserProfile,
-  getGlobalSettings,
   updateGlobalSettings,
   GlobalSettings,
   subscribeToStockAlerts,
   resolveStockAlert,
-  StockAlert
+  StockAlert,
+  preRegisterUserProfile,
+  deleteOrder,
+  updateOrder
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
@@ -43,6 +31,25 @@ import { signOut } from 'firebase/auth';
 import { compressImage } from '../lib/image';
 import { uploadImageToStorage } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../store/store';
+import { 
+  subscribeToUsersAction,
+  fetchProfileFieldsThunk,
+  updateUserProfileStatusThunk,
+  deleteUserProfileThunk,
+  updateUserProfileThunk,
+  createProfileFieldThunk,
+  deleteProfileFieldThunk,
+  updateProfileFieldThunk
+} from '../store/adminSlice';
+import { 
+  subscribeToOrdersAction 
+} from '../store/ordersSlice';
+import {
+  loadGlobalSettingsThunk,
+  fetchProductsThunk
+} from '../store/productsSlice';
 
 // Icons for metrics cards
 import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX, WifiOff } from 'lucide-react';
@@ -83,9 +90,13 @@ export default function AdminDashboard() {
     document.title = tabTitles[activeTab] || 'Admin Portal';
   }, [activeTab]);
 
+  const dispatch = useDispatch<AppDispatch>();
+  const { usersList, loadingUsers: loadingData, fieldsList, loadingFields } = useSelector((state: RootState) => state.admin);
+  const { orders: ordersList, loadingOrders } = useSelector((state: RootState) => state.orders);
+  const { products: productsList, loading: loadingProducts } = useSelector((state: RootState) => state.products);
+  const { globalSettings } = useSelector((state: RootState) => state.products);
+
   // Tab 1: Users
-  const [usersList, setUsersList] = useState<UserProfile[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -94,8 +105,6 @@ export default function AdminDashboard() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Tab 2: Orders
-  const [ordersList, setOrdersList] = useState<Order[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
   const [stockAlertsList, setStockAlertsList] = useState<StockAlert[]>([]);
 
   // Notifications read/cleared states
@@ -146,8 +155,6 @@ export default function AdminDashboard() {
   };
 
   // Tab 3: Products
-  const [productsList, setProductsList] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
 
   // Product form states
@@ -176,8 +183,6 @@ export default function AdminDashboard() {
   const [newProdImageUrlInput, setNewProdImageUrlInput] = useState('');
 
   // Tab 4: Dynamic Fields
-  const [fieldsList, setFieldsList] = useState<ProfileField[]>([]);
-  const [loadingFields, setLoadingFields] = useState(false);
   const [addingField, setAddingField] = useState(false);
 
   // Field form states
@@ -241,7 +246,7 @@ export default function AdminDashboard() {
   const [adminToast, setAdminToast] = useState<{ message: string; type: ToastType; onClick?: () => void } | null>(null);
 
   // Global B2B Settings
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
+  const [globalSettingsLocal, setGlobalSettingsLocal] = useState<GlobalSettings | null>(null);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsCategories, setSettingsCategories] = useState<string[]>([]);
@@ -345,50 +350,30 @@ export default function AdminDashboard() {
   // Real-time user profiles listener
   useEffect(() => {
     if (!isAdmin || !isFirebaseLoaded || !auth?.currentUser) return;
-    setLoadingData(true);
-    const unsubscribeUsers = subscribeToUserProfiles((data) => {
-      setUsersList(data);
-      setLoadingData(false);
-    });
+    const unsubscribeUsers = dispatch(subscribeToUsersAction());
     return () => {
-      unsubscribeUsers();
+      if (typeof unsubscribeUsers === 'function') unsubscribeUsers();
     };
-  }, [isAdmin, isFirebaseLoaded]);
+  }, [isAdmin, isFirebaseLoaded, dispatch]);
 
   // Fetch functions
   const fetchFields = async () => {
-    setLoadingFields(true);
     try {
-      const data = await getProfileFields();
-      setFieldsList(data);
+      await dispatch(fetchProfileFieldsThunk()).unwrap();
     } catch (err) {
       console.error("Failed to load profile fields:", err);
-    } finally {
-      setLoadingFields(false);
     }
   };
 
   const fetchOrders = async () => {
-    setLoadingOrders(true);
-    try {
-      const ordersData = await getOrders();
-      setOrdersList(ordersData);
-    } catch (err) {
-      console.error("Failed to load orders:", err);
-    } finally {
-      setLoadingOrders(false);
-    }
+    // Redux orders slice subscribes in real time, no manual fetch needed
   };
 
   const fetchProducts = async () => {
-    setLoadingProducts(true);
     try {
-      const data = await getProducts();
-      setProductsList(data);
+      await dispatch(fetchProductsThunk()).unwrap();
     } catch (err) {
       console.error("Failed to load products:", err);
-    } finally {
-      setLoadingProducts(false);
     }
   };
 
@@ -424,54 +409,47 @@ export default function AdminDashboard() {
     }
   };
 
+  const prevOrdersRef = useRef<Order[]>([]);
+
   useEffect(() => {
     if (!isAdmin || !isFirebaseLoaded || !auth?.currentUser) return;
-    setLoadingOrders(true);
-    let isFirstLoad = true;
-
-    const unsubscribeOrders = subscribeToOrders((newOrders) => {
-      if (!isFirstLoad && newOrders.length > 0) {
-        setOrdersList(prevList => {
-          const prevIds = new Set(prevList.map(o => o.id));
-          const addedOrders = newOrders.filter(o => o.id && !prevIds.has(o.id));
-
-          if (addedOrders.length > 0) {
-            addedOrders.forEach(order => {
-              const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-              setAdminToast({
-                message: `New Order Request from ${order.userName} (₹${orderTotal.toLocaleString()})!`,
-                type: 'success',
-                onClick: () => {
-                  setActiveTab('orders');
-                }
-              });
-              playNotificationSound();
-            });
-          }
-          return newOrders;
-        });
-      } else {
-        setOrdersList(newOrders);
-        isFirstLoad = false;
-      }
-      setLoadingOrders(false);
-    });
-
+    const unsubscribeOrders = dispatch(subscribeToOrdersAction());
     const unsubscribeStockAlerts = subscribeToStockAlerts((alerts) => {
       setStockAlertsList(alerts);
     });
 
     return () => {
-      unsubscribeOrders();
+      if (typeof unsubscribeOrders === 'function') unsubscribeOrders();
       unsubscribeStockAlerts();
     };
-  }, [isAdmin, isFirebaseLoaded]);
+  }, [isAdmin, isFirebaseLoaded, dispatch]);
+
+  useEffect(() => {
+    if (prevOrdersRef.current.length > 0 && ordersList.length > prevOrdersRef.current.length) {
+      const prevIds = new Set(prevOrdersRef.current.map(o => o.id));
+      const addedOrders = ordersList.filter(o => o.id && !prevIds.has(o.id));
+
+      if (addedOrders.length > 0) {
+        addedOrders.forEach(order => {
+          const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          setAdminToast({
+            message: `New Order Request from ${order.userName} (₹${orderTotal.toLocaleString()})!`,
+            type: 'success',
+            onClick: () => {
+              setActiveTab('orders');
+            }
+          });
+          playNotificationSound();
+        });
+      }
+    }
+    prevOrdersRef.current = ordersList;
+  }, [ordersList]);
 
   const fetchSettings = async () => {
     setLoadingSettings(true);
     try {
-      const settings = await getGlobalSettings();
-      setGlobalSettings(settings);
+      const settings = await dispatch(loadGlobalSettingsThunk()).unwrap() as any;
       const cats = settings.categories || [];
       setSettingsCategories(cats);
       setSettingsPriceRangePct(String(settings.priceRangePct || 5));
@@ -535,7 +513,7 @@ export default function AdminDashboard() {
       const success = await updateGlobalSettings({ categories: updatedCategories });
       if (success) {
         setSettingsCategories(updatedCategories);
-        setGlobalSettings(prev => prev ? { ...prev, categories: updatedCategories } : null);
+        setGlobalSettingsLocal(prev => prev ? { ...prev, categories: updatedCategories } : null);
         setSettingsNewCategory('');
         setAdminToast({ message: `Category "${cat}" added successfully!`, type: "success" });
       } else {
@@ -558,7 +536,7 @@ export default function AdminDashboard() {
       const success = await updateGlobalSettings({ categories: updatedCategories });
       if (success) {
         setSettingsCategories(updatedCategories);
-        setGlobalSettings(prev => prev ? { ...prev, categories: updatedCategories } : null);
+        setGlobalSettingsLocal(prev => prev ? { ...prev, categories: updatedCategories } : null);
         setAdminToast({ message: `Category "${catToRemove}" removed successfully!`, type: "success" });
       } else {
         setAdminToast({ message: "Failed to remove category.", type: "error" });
@@ -582,7 +560,7 @@ export default function AdminDashboard() {
     try {
       const success = await updateGlobalSettings({ priceRangePct: pct });
       if (success) {
-        setGlobalSettings(prev => prev ? { ...prev, priceRangePct: pct } : null);
+        setGlobalSettingsLocal(prev => prev ? { ...prev, priceRangePct: pct } : null);
         setAdminToast({ message: `Price range variance set to ±${pct}% successfully!`, type: "success" });
       } else {
         setAdminToast({ message: "Failed to save price range variance.", type: "error" });
@@ -603,18 +581,15 @@ export default function AdminDashboard() {
     }
     setAddingField(true);
     try {
-      const field = await createProfileField({
+      await dispatch(createProfileFieldThunk({
         labelEn: newFieldLabelEn,
         labelHi: newFieldLabelEn,
         type: newFieldType,
         required: newFieldRequired
-      });
-      if (field) {
-        setFieldsList(prev => [...prev, field]);
-        setNewFieldLabelEn('');
-        setNewFieldType('text');
-        setNewFieldRequired(true);
-      }
+      })).unwrap();
+      setNewFieldLabelEn('');
+      setNewFieldType('text');
+      setNewFieldRequired(true);
     } catch (err) {
       console.error("Error creating field:", err);
     } finally {
@@ -631,8 +606,7 @@ export default function AdminDashboard() {
     const fieldId = deletingFieldId;
     setDeletingFieldId(null);
     try {
-      await deleteProfileField(fieldId);
-      setFieldsList(prev => prev.filter(f => f.id !== fieldId));
+      await dispatch(deleteProfileFieldThunk(fieldId)).unwrap();
     } catch (err) {
       console.error("Failed to delete field:", err);
       alert("Error deleting profile field.");
@@ -662,19 +636,15 @@ export default function AdminDashboard() {
     }
     setUpdatingField(true);
     try {
-      await updateProfileField(editingFieldId, {
-        labelEn: editFieldLabelEn,
-        labelHi: editFieldLabelEn,
-        type: editFieldType,
-        required: editFieldRequired
-      });
-      setFieldsList(prev => prev.map(f => f.id === editingFieldId ? {
-        ...f,
-        labelEn: editFieldLabelEn,
-        labelHi: editFieldLabelEn,
-        type: editFieldType,
-        required: editFieldRequired
-      } : f));
+      await dispatch(updateProfileFieldThunk({
+        fieldId: editingFieldId,
+        updates: {
+          labelEn: editFieldLabelEn,
+          labelHi: editFieldLabelEn,
+          type: editFieldType,
+          required: editFieldRequired
+        }
+      })).unwrap();
       handleCancelEdit();
     } catch (err) {
       console.error("Failed to update profile field:", err);
@@ -714,7 +684,7 @@ export default function AdminDashboard() {
   const handleStatusUpdate = async (uid: string, nextStatus: 'approved' | 'rejected') => {
     setActionLoading(uid);
     try {
-      await updateUserProfileStatus(uid, nextStatus);
+      await dispatch(updateUserProfileStatusThunk({ uid, status: nextStatus })).unwrap();
     } catch (err) {
       console.error("Failed to update status:", err);
       alert("Error modifying user approval status.");
@@ -733,7 +703,7 @@ export default function AdminDashboard() {
     setDeletingUserUid(null);
     setActionLoading(uid);
     try {
-      await deleteUserProfile(uid);
+      await dispatch(deleteUserProfileThunk(uid)).unwrap();
       setSelectedUserUids(prev => prev.filter(id => id !== uid));
     } catch (err) {
       console.error("Failed to delete user profile:", err);
@@ -745,15 +715,12 @@ export default function AdminDashboard() {
 
   const handleConfirmBatchDelete = async () => {
     setShowBatchDeleteModal(false);
-    setLoadingData(true);
     try {
-      await Promise.all(selectedUserUids.map(uid => deleteUserProfile(uid)));
+      await Promise.all(selectedUserUids.map(uid => dispatch(deleteUserProfileThunk(uid)).unwrap()));
       setSelectedUserUids([]);
     } catch (err) {
       console.error("Failed to delete selected users:", err);
       alert("Error performing batch delete.");
-    } finally {
-      setLoadingData(false);
     }
   };
 
@@ -763,7 +730,7 @@ export default function AdminDashboard() {
     setRejectingUserUid(null);
     setActionLoading(uid);
     try {
-      await updateUserProfileStatus(uid, 'rejected');
+      await dispatch(updateUserProfileStatusThunk({ uid, status: 'rejected' })).unwrap();
     } catch (err) {
       console.error("Failed to reject user profile:", err);
       alert("Error rejecting user profile.");
@@ -775,7 +742,7 @@ export default function AdminDashboard() {
   const handleBatchStatusUpdate = async (nextStatus: 'approved' | 'rejected') => {
     if (selectedUserUids.length === 0) return;
     try {
-      await Promise.all(selectedUserUids.map(uid => updateUserProfileStatus(uid, nextStatus)));
+      await Promise.all(selectedUserUids.map(uid => dispatch(updateUserProfileStatusThunk({ uid, status: nextStatus })).unwrap()));
       setSelectedUserUids([]);
     } catch (err) {
       console.error("Failed to update status for selected users:", err);
@@ -791,7 +758,7 @@ export default function AdminDashboard() {
   const handleConfirmBatchReject = async () => {
     setShowBatchRejectModal(false);
     try {
-      await Promise.all(selectedUserUids.map(uid => updateUserProfileStatus(uid, 'rejected')));
+      await Promise.all(selectedUserUids.map(uid => dispatch(updateUserProfileStatusThunk({ uid, status: 'rejected' })).unwrap()));
       setSelectedUserUids([]);
     } catch (err) {
       console.error("Failed to reject selected users:", err);
@@ -823,13 +790,16 @@ export default function AdminDashboard() {
     }
     setSavingEditedUser(true);
     try {
-      await updateUserProfile(editingUser.uid, {
-        name: editUserName,
-        email: editUserEmail,
-        customDetails: editUserCustomDetails,
-        role: editUserRole,
-        requestedFirmName: ""
-      });
+      await dispatch(updateUserProfileThunk({
+        uid: editingUser.uid,
+        updates: {
+          name: editUserName,
+          email: editUserEmail,
+          customDetails: editUserCustomDetails,
+          role: editUserRole,
+          requestedFirmName: ""
+        }
+      })).unwrap();
       setEditingUser(null);
     } catch (err) {
       console.error("Failed to update user profile:", err);
@@ -891,7 +861,6 @@ export default function AdminDashboard() {
   const handleOrderStatusUpdate = async (orderId: string, nextStatus: 'pending' | 'processing' | 'completed' | 'cancelled') => {
     try {
       await updateOrderStatus(orderId, nextStatus);
-      setOrdersList(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
     } catch (err) {
       console.error("Failed to update order status:", err);
       alert("Error updating order status.");
@@ -908,7 +877,6 @@ export default function AdminDashboard() {
     setDeletingOrderId(null);
     try {
       await deleteOrder(orderId);
-      setOrdersList(prev => prev.filter(o => o.id !== orderId));
     } catch (err) {
       console.error("Failed to delete order:", err);
       alert("Error deleting order request.");
@@ -918,7 +886,6 @@ export default function AdminDashboard() {
   const handleUpdateOrderDetails = async (orderId: string, details: any) => {
     try {
       await updateOrder(orderId, details);
-      setOrdersList(prev => prev.map(o => o.id === orderId ? { ...o, ...details } : o));
     } catch (err) {
       console.error("Failed to update order details:", err);
       alert("Error updating order details.");
@@ -933,10 +900,7 @@ export default function AdminDashboard() {
       await updateProduct(product.id, {
         inStock: nextInStock
       });
-      setProductsList(prev => prev.map(p => p.id === product.id ? {
-        ...p,
-        inStock: nextInStock
-      } : p));
+      dispatch(fetchProductsThunk());
     } catch (err) {
       console.error("Failed to toggle product stock status:", err);
       alert("Error updating product stock status.");
@@ -946,7 +910,7 @@ export default function AdminDashboard() {
   const handleMarkOutOfStock = async (productId: string) => {
     try {
       await updateProduct(productId, { inStock: false });
-      setProductsList(prev => prev.map(p => p.id === productId ? { ...p, inStock: false } : p));
+      dispatch(fetchProductsThunk());
       setAdminToast({ message: "Product marked as Out of Stock successfully!", type: "success" });
     } catch (err) {
       console.error("Failed to mark product out of stock:", err);
@@ -964,7 +928,7 @@ export default function AdminDashboard() {
     setDeletingProductId(null);
     try {
       await deleteProduct(id);
-      setProductsList(prev => prev.filter(p => p.id !== id));
+      dispatch(fetchProductsThunk());
       setSelectedProductIds(prev => prev.filter(item => item !== id));
     } catch (err) {
       console.error("Failed to delete product:", err);
@@ -1017,25 +981,7 @@ export default function AdminDashboard() {
         minPrice: editProdMinPrice.trim() ? parseFloat(editProdMinPrice) : (null as any),
         maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : (null as any)
       });
-      setProductsList(prev => prev.map(p => p.id === editingProduct.id ? {
-        ...p,
-        nameEn: editProdNameEn,
-        nameHi: editProdNameEn,
-        descEn: editProdDescEn,
-        descHi: editProdDescEn,
-        price: parseFloat(editProdPrice),
-        unit: editProdUnit,
-        category: editProdCategory,
-        imageUrl: editProdImages.length > 0 ? editProdImages[0].url : editProdImageUrl,
-        inStock: editProdInStock,
-        code: editProdCode,
-        design: editProdDesign,
-        images: editProdImages,
-        variants: editProdVariants,
-        priceRangePct: editProdPriceRangePct.trim() ? parseFloat(editProdPriceRangePct) : undefined,
-        minPrice: editProdMinPrice.trim() ? parseFloat(editProdMinPrice) : undefined,
-        maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : undefined
-      } : p));
+      dispatch(fetchProductsThunk());
       setEditingProduct(null);
       setAdminToast({ message: "Product updated successfully!", type: "success" });
     } catch (err: any) {
@@ -1109,7 +1055,7 @@ export default function AdminDashboard() {
         maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
       } as any);
       if (addedProduct) {
-        setProductsList(prev => [addedProduct, ...prev]);
+        dispatch(fetchProductsThunk());
         setNewProdNameEn('');
         setNewProdDescEn('');
         setNewProdPrice('');
@@ -1139,16 +1085,13 @@ export default function AdminDashboard() {
 
   const handleConfirmBatchDeleteProducts = async () => {
     setShowBatchDeleteProductsModal(false);
-    setLoadingProducts(true);
     try {
       await Promise.all(selectedProductIds.map(id => deleteProduct(id)));
-      setProductsList(prev => prev.filter(p => !selectedProductIds.includes(p.id || '')));
+      dispatch(fetchProductsThunk());
       setSelectedProductIds([]);
     } catch (err) {
       console.error("Failed to batch delete products:", err);
       alert("Error performing batch delete.");
-    } finally {
-      setLoadingProducts(false);
     }
   };
 
@@ -1159,7 +1102,6 @@ export default function AdminDashboard() {
   const handleConfirmSeedCatalog = async () => {
     setShowSeedCatalogConfirm(false);
     setSeedingCatalog(true);
-    setLoadingProducts(true);
     try {
       await Promise.all(FALLBACK_PRODUCTS.map(p => createProduct({
         nameEn: p.nameEn,
@@ -1171,15 +1113,13 @@ export default function AdminDashboard() {
         imageUrl: p.imageUrl,
         category: p.category
       })));
-      const updatedProds = await getProducts();
-      setProductsList(updatedProds);
+      dispatch(fetchProductsThunk());
       alert("Database seeded successfully with default catalog!");
     } catch (err) {
       console.error("Failed to seed catalog:", err);
       alert("Error seeding catalog.");
     } finally {
       setSeedingCatalog(false);
-      setLoadingProducts(false);
     }
   };
 
@@ -1293,7 +1233,6 @@ export default function AdminDashboard() {
     if (csvProductsToImport.length === 0) return;
     const items = csvProductsToImport;
     setCsvProductsToImport([]);
-    setLoadingProducts(true);
     try {
       let successCount = 0;
       for (const item of items) {
@@ -1370,13 +1309,10 @@ export default function AdminDashboard() {
         successCount++;
       }
       alert(`Successfully imported ${successCount} products!`);
-      const updatedProds = await getProducts();
-      setProductsList(updatedProds);
+      dispatch(fetchProductsThunk());
     } catch (err) {
       console.error("Error importing CSV:", err);
       alert("Failed to import products. Please try again.");
-    } finally {
-      setLoadingProducts(false);
     }
   };
 
@@ -2007,7 +1943,7 @@ export default function AdminDashboard() {
                                     try {
                                       await updateGlobalSettings({ categories: updated });
                                       setSettingsCategories(updated);
-                                      setGlobalSettings(prev => prev ? { ...prev, categories: updated } : null);
+                                      setGlobalSettingsLocal(prev => prev ? { ...prev, categories: updated } : null);
                                       setNewProdCategory(cat);
                                       setCustomCategoryInput('');
                                       setIsAddingCustomCategory(false);

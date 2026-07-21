@@ -5,19 +5,23 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import {
   Order,
-  subscribeToOrders,
-  claimOrder,
-  completeOrder,
-  updateOrder,
-  releaseOrder,
   getPriceRange,
-  getGlobalSettings,
-  getProducts,
-  updateProduct,
   Product,
-  createStockAlert,
   addSalesmanNote
 } from '../lib/db';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../store/store';
+import { 
+  subscribeToOrdersAction,
+  claimOrderThunk,
+  completeOrderThunk,
+  releaseOrderThunk,
+  updateOrderThunk
+} from '../store/ordersSlice';
+import {
+  fetchProductsThunk,
+  flagProductOutOfStockThunk
+} from '../store/productsSlice';
 import {
   ShoppingBag,
   CheckCircle,
@@ -48,44 +52,11 @@ import { getTranslation, LangType } from '../lib/translations';
 export default function SalesmanPortal() {
   const { user, userProfile, loading, logout } = useAuth();
   const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
-  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'products'>('available');
+  const dispatch = useDispatch<AppDispatch>();
+  const { orders, loadingOrders } = useSelector((state: RootState) => state.orders);
+  const { products: productsList, loading: loadingProducts, globalSettings } = useSelector((state: RootState) => state.products);
 
-  // Catalog and translation states
-  const [globalSettings, setGlobalSettings] = useState<any>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_global_settings');
-        return cached ? JSON.parse(cached) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
-  const [productsList, setProductsList] = useState<Product[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_salesman_products');
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
-  const [loadingProducts, setLoadingProducts] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cachedProds = localStorage.getItem('cached_salesman_products');
-        return !cachedProds;
-      } catch (e) {
-        return true;
-      }
-    }
-    return true;
-  });
+  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'products'>('available');
   const [productsSearchQuery, setProductsSearchQuery] = useState('');
   const [lang, setLang] = useState<LangType>('en');
   const t = (key: any) => getTranslation(lang, key);
@@ -102,21 +73,7 @@ export default function SalesmanPortal() {
   }, [activeTab]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const [priceRangePct, setPriceRangePct] = useState(5);
-
-  useEffect(() => {
-    getGlobalSettings().then(settings => {
-      setGlobalSettings(settings);
-      setPriceRangePct(settings.priceRangePct || 5);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('cached_global_settings', JSON.stringify(settings));
-        } catch (e) {
-          console.warn("Unable to cache global settings:", e);
-        }
-      }
-    });
-  }, []);
+  const priceRangePct = globalSettings?.priceRangePct || 5;
 
   // Authenticate user and restrict access to Salesmen only
   useEffect(() => {
@@ -130,46 +87,18 @@ export default function SalesmanPortal() {
   // Real-time listener for orders
   useEffect(() => {
     if (!user || (userProfile && userProfile.role !== 'salesman')) return;
-    setLoadingOrders(true);
-    const unsubscribe = subscribeToOrders((newOrders) => {
-      setOrders(newOrders);
-      setLoadingOrders(false);
-    });
-    return () => unsubscribe();
-  }, [user, userProfile]);
+    const unsubscribe = dispatch(subscribeToOrdersAction());
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [user, userProfile, dispatch]);
 
-  // Fetch products on demand when products tab is opened (SWR caching)
+  // Fetch products on demand when products tab is opened
   useEffect(() => {
     if (activeTab === 'products') {
-      const hasCache = productsList.length > 0;
-      if (!hasCache) {
-        setLoadingProducts(true);
-      }
-      getProducts().then(prods => {
-        setProductsList(prods);
-        if (typeof window !== 'undefined') {
-          try {
-            // Limit to first 10 products and strip inline base64 images to save space
-            const cacheProds = prods.slice(0, 10).map((p: any) => ({
-              ...p,
-              imageUrl: p.imageUrl?.startsWith('data:') ? '' : p.imageUrl,
-              images: p.images?.map((img: any) => ({
-                ...img,
-                url: img.url.startsWith('data:') ? '' : img.url
-              })) || []
-            }));
-            localStorage.setItem('cached_salesman_products', JSON.stringify(cacheProds));
-          } catch (e) {
-            console.warn("Unable to cache salesman products (quota exceeded):", e);
-          }
-        }
-      }).catch(err => {
-        console.error("Error fetching products:", err);
-      }).finally(() => {
-        setLoadingProducts(false);
-      });
+      dispatch(fetchProductsThunk());
     }
-  }, [activeTab]);
+  }, [activeTab, dispatch]);
 
   // Helper to get Category/Product Icons for Retail Store
   const getProductIcon = (category: string, size = "w-6 h-6") => {
@@ -218,7 +147,7 @@ export default function SalesmanPortal() {
     setActionLoading(orderId);
     try {
       const name = userProfile?.name || user.email || 'Salesman';
-      await claimOrder(orderId, user.uid, name);
+      await dispatch(claimOrderThunk({ orderId, salesmanUid: user.uid, salesmanName: name })).unwrap();
     } catch (e) {
       console.error(e);
       alert("Error claiming order.");
@@ -296,22 +225,17 @@ export default function SalesmanPortal() {
         ...item,
         prepStatus: prepStates[idx] || 'found'
       }));
-      await updateOrder(prepOrder.id, {
-        items: updatedItems as any,
-        completedAt: new Date().toISOString()
-      });
-      await completeOrder(prepOrder.id);
+      await dispatch(updateOrderThunk({ orderId: prepOrder.id, updatedItems: updatedItems as any })).unwrap();
+      await dispatch(completeOrderThunk(prepOrder.id)).unwrap();
 
       // Auto-create stock alerts for items marked as not_found
       const notFoundItems = prepOrder.items.filter((_, idx) => prepStates[idx] === 'not_found');
       for (const item of notFoundItems) {
-        await createStockAlert({
-          productId: item.productId,
-          productName: item.nameEn,
-          reportedByUid: user.uid,
-          reportedByName: userProfile?.name || 'Salesman',
-          reason: `Item not found during order preparation (Order: ${prepOrder.userName})`
-        });
+        await dispatch(flagProductOutOfStockThunk({
+          product: { id: item.productId, nameEn: item.nameEn } as any,
+          user,
+          userProfile
+        })).unwrap();
       }
       if (notFoundItems.length > 0) {
         showToast(`${notFoundItems.length} stock alert(s) sent to admin`, 'success');
@@ -337,7 +261,7 @@ export default function SalesmanPortal() {
   const handleRelease = async (orderId: string) => {
     setActionLoading(orderId);
     try {
-      await releaseOrder(orderId);
+      await dispatch(releaseOrderThunk(orderId)).unwrap();
     } catch (e) {
       console.error(e);
       alert("Error releasing order.");
@@ -397,16 +321,7 @@ export default function SalesmanPortal() {
     if (!product.id || !user) return;
     setFlaggingProductId(product.id);
     try {
-      await updateProduct(product.id, { inStock: false });
-      await createStockAlert({
-        productId: product.id,
-        productName: product.nameEn,
-        reportedByUid: user.uid,
-        reportedByName: userProfile?.name || 'Salesman',
-        reason: 'Manually flagged as out of stock by salesman'
-      });
-      // Update local state
-      setProductsList(prev => prev.map(p => p.id === product.id ? { ...p, inStock: false } : p));
+      await dispatch(flagProductOutOfStockThunk({ product, user, userProfile })).unwrap();
       showToast(`"${product.nameEn}" flagged out of stock. Admin notified.`, 'success');
     } catch (e) {
       console.error(e);
