@@ -152,7 +152,7 @@ function ReelProductCard({
           <img
             src={currentImageUrl}
             alt={product.nameEn}
-            className="relative z-10 max-w-full max-h-full object-contain transition-opacity duration-305 pointer-events-none select-none"
+            className="relative z-10 max-w-full max-h-full object-contain pointer-events-none select-none"
             loading="eager"
             // @ts-ignore
             fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
@@ -799,23 +799,6 @@ export default function ClientProductGrid({
           }}
         >
           {finalFilteredProducts.map((product, idx) => {
-            const isRendered = idx >= activeReelIdx - 8 && idx <= activeReelIdx + 4;
-
-            if (!isRendered) {
-              return (
-                <div
-                  key={product.id}
-                  style={{
-                    height: '100dvh',
-                    scrollSnapAlign: 'start',
-                    scrollSnapStop: 'always',
-                  }}
-                  className="w-full flex-shrink-0 bg-black/95 flex items-center justify-center"
-                >
-                  <Loader2 className="w-5 h-5 animate-spin text-white/10" />
-                </div>
-              );
-            }
 
             return (
               <ReelProductCard
