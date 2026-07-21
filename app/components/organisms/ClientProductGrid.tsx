@@ -144,6 +144,7 @@ function ReelProductCard({
             alt=""
             className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none select-none accelerate-gpu"
             loading="eager"
+            decoding="sync"
             // @ts-ignore
             fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
             draggable={false}
@@ -154,6 +155,7 @@ function ReelProductCard({
             alt={product.nameEn}
             className="relative z-10 max-w-full max-h-full object-contain pointer-events-none select-none"
             loading="eager"
+            decoding="sync"
             // @ts-ignore
             fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
             draggable={false}
