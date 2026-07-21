@@ -32,10 +32,7 @@ function ReelProductCard({
   lang,
   showFiltersPanel,
   setShowFiltersPanel,
-  selectedCategory,
-  searchQuery,
-  priceFilter,
-  absoluteMaxPrice,
+  isFilterActive,
   priceRangePct = 5,
   activeReelIdx,
   readOnly = false,
@@ -49,10 +46,7 @@ function ReelProductCard({
   lang: 'en' | 'hi';
   showFiltersPanel: boolean;
   setShowFiltersPanel: React.Dispatch<React.SetStateAction<boolean>>;
-  selectedCategory: string;
-  searchQuery: string;
-  priceFilter: number;
-  absoluteMaxPrice: number;
+  isFilterActive: boolean;
   priceRangePct?: number;
   activeReelIdx: number;
   readOnly?: boolean;
@@ -100,16 +94,8 @@ function ReelProductCard({
       }
     } else if (Math.abs(deltaX) < 20 && Math.abs(deltaY) < 20) {
       // Tap detected (low/no movement)
-      const now = Date.now();
-      const DOUBLE_PRESS_DELAY = 380;
-      if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
-        // Double tap!
-        if (!readOnly) {
-          handleAddToCart('double');
-        }
-        lastTapRef.current = 0; // Reset to prevent consecutive multi-tap triggers
-      } else {
-        lastTapRef.current = now;
+      if (!readOnly) {
+        handleAddToCart('light');
       }
     }
   };
@@ -119,7 +105,7 @@ function ReelProductCard({
     : '';
   const isWeb = currentImageUrl.startsWith('http') || currentImageUrl.startsWith('https') || currentImageUrl.startsWith('data:image/');
 
-  const handleAddToCart = (hapticType: 'double' | 'success' = 'double') => {
+  const handleAddToCart = (hapticType: 'light' | 'double' | 'success' = 'light') => {
     const variantName = activeVariant?.name;
     const selectUrl = imagesList[activeImgIdx]?.url || product.imageUrl;
     onToggleProduct(product.id || '', variantName, selectUrl);
@@ -145,9 +131,9 @@ function ReelProductCard({
           style={{ touchAction: 'manipulation' }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          onDoubleClick={() => {
+          onClick={() => {
             if (!readOnly) {
-              handleAddToCart('double');
+              handleAddToCart('light');
             }
           }}
         >
@@ -178,9 +164,9 @@ function ReelProductCard({
           style={{ touchAction: 'manipulation' }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          onDoubleClick={() => {
+          onClick={() => {
             if (!readOnly) {
-              handleAddToCart('double');
+              handleAddToCart('light');
             }
           }}
         >
@@ -210,7 +196,7 @@ function ReelProductCard({
           {showFiltersPanel ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
           <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Filter</span>
           {/* Active filter dot */}
-          {(selectedCategory !== 'All' || searchQuery || priceFilter < absoluteMaxPrice) && !showFiltersPanel && (
+          {isFilterActive && !showFiltersPanel && (
             <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-cyan-400 rounded-full border-2 border-black animate-pulse" />
           )}
         </button>
@@ -474,7 +460,10 @@ export default function ClientProductGrid({
 
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [priceFilter, setPriceFilter] = useState(absoluteMaxPrice);
+  const [minPriceFilter, setMinPriceFilter] = useState(absoluteMinPrice);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+
+  const isFilterActive = selectedCategory !== 'All' || !!searchQuery || priceFilter < absoluteMaxPrice || minPriceFilter > absoluteMinPrice;
 
   // Bottom Sheet drag state
   const [dragY, setDragY] = useState(0);
@@ -507,8 +496,9 @@ export default function ClientProductGrid({
   useEffect(() => {
     if (products.length > 0) {
       setPriceFilter(absoluteMaxPrice);
+      setMinPriceFilter(absoluteMinPrice);
     }
-  }, [products, absoluteMaxPrice]);
+  }, [products, absoluteMinPrice, absoluteMaxPrice]);
 
   // Combined product filtering logic
   const finalFilteredProducts = products.filter(product => {
@@ -521,7 +511,7 @@ export default function ClientProductGrid({
     const matchesCategory =
       selectedCategory === 'All' ||
       product.category.toLowerCase() === selectedCategory.toLowerCase();
-    const matchesPrice = product.price <= priceFilter;
+    const matchesPrice = product.price >= minPriceFilter && product.price <= priceFilter;
     return matchesSearch && matchesCategory && matchesPrice;
   });
 
@@ -720,23 +710,47 @@ export default function ClientProductGrid({
             </div>
 
             {/* Price range */}
-            <div className="space-y-2 mt-4">
-              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                <span className="text-white/40">Max Price</span>
-                <span className="text-[#a89aff]">₹{priceFilter.toLocaleString('en-IN')}</span>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              {/* Min Price Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                  <span className="text-white/40">Min Price</span>
+                  <span className="text-[#a89aff]">₹{minPriceFilter.toLocaleString('en-IN')}</span>
+                </div>
+                <input
+                  type="range"
+                  min={absoluteMinPrice}
+                  max={absoluteMaxPrice}
+                  step={50}
+                  value={minPriceFilter}
+                  onChange={(e) => setMinPriceFilter(Math.min(Number(e.target.value), priceFilter))}
+                  className="w-full accent-[#5d51e8] cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] font-bold text-white/20">
+                  <span>₹{absoluteMinPrice.toLocaleString('en-IN')}</span>
+                  <span>₹{absoluteMaxPrice.toLocaleString('en-IN')}</span>
+                </div>
               </div>
-              <input
-                type="range"
-                min={absoluteMinPrice}
-                max={absoluteMaxPrice}
-                step={50}
-                value={priceFilter}
-                onChange={(e) => setPriceFilter(Number(e.target.value))}
-                className="w-full accent-[#5d51e8] cursor-pointer"
-              />
-              <div className="flex justify-between text-[9px] font-bold text-white/20">
-                <span>₹{absoluteMinPrice.toLocaleString('en-IN')}</span>
-                <span>₹{absoluteMaxPrice.toLocaleString('en-IN')}</span>
+
+              {/* Max Price Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                  <span className="text-white/40">Max Price</span>
+                  <span className="text-[#a89aff]">₹{priceFilter.toLocaleString('en-IN')}</span>
+                </div>
+                <input
+                  type="range"
+                  min={absoluteMinPrice}
+                  max={absoluteMaxPrice}
+                  step={50}
+                  value={priceFilter}
+                  onChange={(e) => setPriceFilter(Math.max(Number(e.target.value), minPriceFilter))}
+                  className="w-full accent-[#5d51e8] cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] font-bold text-white/20">
+                  <span>₹{absoluteMinPrice.toLocaleString('en-IN')}</span>
+                  <span>₹{absoluteMaxPrice.toLocaleString('en-IN')}</span>
+                </div>
               </div>
             </div>
 
@@ -746,6 +760,7 @@ export default function ClientProductGrid({
                 onClick={() => {
                   setSelectedCategory('All');
                   setPriceFilter(absoluteMaxPrice);
+                  setMinPriceFilter(absoluteMinPrice);
                   onSearchChange('');
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-white/10 text-white/60 text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
@@ -813,10 +828,7 @@ export default function ClientProductGrid({
                 lang={lang}
                 showFiltersPanel={showFiltersPanel}
                 setShowFiltersPanel={setShowFiltersPanel}
-                selectedCategory={selectedCategory}
-                searchQuery={searchQuery}
-                priceFilter={priceFilter}
-                absoluteMaxPrice={absoluteMaxPrice}
+                isFilterActive={isFilterActive}
                 priceRangePct={priceRangePct}
                 activeReelIdx={activeReelIdx}
                 readOnly={readOnly}
@@ -914,10 +926,32 @@ export default function ClientProductGrid({
         </div>
 
         {showFiltersPanel && (
-          <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left animate-in slide-in-from-top duration-200">
+          <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left animate-in slide-in-from-top duration-200">
+            {/* Min Price */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-wider">
-                <span>{lang === 'en' ? 'Max Budget' : 'अधिकतम मूल्य'}</span>
+                <span>{lang === 'en' ? 'Min Price' : 'न्यूनतम मूल्य'}</span>
+                <span className="text-[#5d51e8] dark:text-indigo-400">₹{minPriceFilter.toLocaleString('en-IN')}</span>
+              </div>
+              <input
+                type="range"
+                min={absoluteMinPrice}
+                max={absoluteMaxPrice}
+                step={50}
+                value={minPriceFilter}
+                onChange={(e) => setMinPriceFilter(Math.min(Number(e.target.value), priceFilter))}
+                className="w-full accent-[#5d51e8] cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] font-bold text-slate-350 dark:text-zinc-600">
+                <span>₹{absoluteMinPrice.toLocaleString('en-IN')}</span>
+                <span>₹{absoluteMaxPrice.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            {/* Max Price */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-wider">
+                <span>{lang === 'en' ? 'Max Price' : 'अधिकतम मूल्य'}</span>
                 <span className="text-[#5d51e8] dark:text-indigo-400">₹{priceFilter.toLocaleString('en-IN')}</span>
               </div>
               <input
@@ -926,7 +960,7 @@ export default function ClientProductGrid({
                 max={absoluteMaxPrice}
                 step={50}
                 value={priceFilter}
-                onChange={(e) => setPriceFilter(Number(e.target.value))}
+                onChange={(e) => setPriceFilter(Math.max(Number(e.target.value), minPriceFilter))}
                 className="w-full accent-[#5d51e8] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] font-bold text-slate-350 dark:text-zinc-600">
@@ -941,6 +975,7 @@ export default function ClientProductGrid({
                 onClick={() => {
                   setSelectedCategory('All');
                   setPriceFilter(absoluteMaxPrice);
+                  setMinPriceFilter(absoluteMinPrice);
                 }}
                 className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
