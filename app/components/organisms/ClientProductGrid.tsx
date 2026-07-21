@@ -95,6 +95,7 @@ function ReelProductCard({
     } else if (Math.abs(deltaX) < 20 && Math.abs(deltaY) < 20) {
       // Tap detected (low/no movement)
       if (!readOnly) {
+        e.preventDefault();
         handleAddToCart('light');
       }
     }
