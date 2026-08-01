@@ -144,33 +144,59 @@ export default function ClientOrdersList({
 
                 {/* Items grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {order.items.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 rounded-2xl p-3 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2.5 text-left">
-                        <div className="bg-[#5d51e8]/10 text-[#5d51e8] p-1.5 rounded-lg flex-shrink-0">
-                          <Truck className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 line-clamp-1">
-                            {item.nameEn}
-                            {item.selectedVariant && (
-                              <span className="text-[10px] text-[#5d51e8] dark:text-indigo-400 font-extrabold ml-1.5 uppercase">({item.selectedVariant})</span>
+                  {order.items.map((item, idx) => {
+                    const itemImage = item.selectedImageUrl;
+                    const isUrl = itemImage && (itemImage.startsWith('http') || itemImage.startsWith('data:') || itemImage.startsWith('/'));
+
+                    return (
+                      <div 
+                        key={idx} 
+                        className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/50 dark:border-zinc-850 rounded-2xl p-3 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3 text-left">
+                          {/* Variant Image Thumbnail */}
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800 flex-shrink-0 flex items-center justify-center relative shadow-sm">
+                            {isUrl ? (
+                              <img 
+                                src={itemImage} 
+                                alt={item.nameEn}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const parent = (e.target as HTMLElement).parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = `<div class="w-full h-full bg-[#5d51e8]/10 text-[#5d51e8] flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z"></path></svg></div>`;
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-[#5d51e8]/10 text-[#5d51e8] flex items-center justify-center">
+                                <Truck className="w-5 h-5" />
+                              </div>
                             )}
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-bold">
-                            Qty: {item.quantity}
-                            {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
-                          </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-200 line-clamp-1">
+                              {item.nameEn}
+                              {item.selectedVariant && (
+                                <span className="text-[10px] sm:text-xs text-[#5d51e8] dark:text-indigo-400 font-black ml-1.5 uppercase bg-[#5d51e8]/10 dark:bg-[#5d51e8]/20 px-1.5 py-0.5 rounded">
+                                  {item.selectedVariant}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold mt-0.5">
+                              Qty: {item.quantity}
+                              {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
+                            </p>
+                          </div>
                         </div>
+
+                        <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white whitespace-nowrap ml-2">
+                          {getPriceRange(item.price * item.quantity, item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct, item.minPrice ? item.minPrice * item.quantity : undefined, item.maxPrice ? item.maxPrice * item.quantity : undefined)}
+                        </span>
                       </div>
-                      <span className="text-xs font-black text-slate-900 dark:text-white whitespace-nowrap ml-2">
-                        {getPriceRange(item.price * item.quantity, item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct, item.minPrice ? item.minPrice * item.quantity : undefined, item.maxPrice ? item.maxPrice * item.quantity : undefined)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Action buttons (only show if pending) */}
@@ -218,20 +244,35 @@ export default function ClientOrdersList({
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-                {editItems.map((item) => (
-                  <div key={item.productId + '_' + (item.selectedVariant || '')} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-955 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
-                    <div className="space-y-0.5 text-left max-w-[55%]">
-                      <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">
-                        {item.nameEn}
-                        {item.selectedVariant && (
-                          <span className="text-[10px] text-[#5d51e8] dark:text-indigo-400 font-extrabold ml-1.5 uppercase">({item.selectedVariant})</span>
-                        )}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-bold">
-                        {getPriceRange(item.price, item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct, item.minPrice, item.maxPrice)} / {item.unit}
-                        {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
-                      </p>
-                    </div>
+                {editItems.map((item) => {
+                  const itemImage = item.selectedImageUrl;
+                  const isUrl = itemImage && (itemImage.startsWith('http') || itemImage.startsWith('data:') || itemImage.startsWith('/'));
+
+                  return (
+                    <div key={item.productId + '_' + (item.selectedVariant || '')} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-955 border border-slate-150/50 dark:border-zinc-850 p-3 rounded-2xl">
+                      <div className="flex items-center gap-2.5 max-w-[55%]">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800 flex-shrink-0 flex items-center justify-center shadow-sm">
+                          {isUrl ? (
+                            <img src={itemImage} alt={item.nameEn} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-[#5d51e8]/10 text-[#5d51e8] flex items-center justify-center">
+                              <Truck className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-0.5 text-left truncate">
+                          <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">
+                            {item.nameEn}
+                            {item.selectedVariant && (
+                              <span className="text-[10px] text-[#5d51e8] dark:text-indigo-400 font-extrabold ml-1.5 uppercase">({item.selectedVariant})</span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-bold">
+                            {getPriceRange(item.price, item.priceRangePct !== undefined ? item.priceRangePct : priceRangePct, item.minPrice, item.maxPrice)} / {item.unit}
+                            {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
+                          </p>
+                        </div>
+                      </div>
 
                     <div className="flex items-center gap-3.5">
                       <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-0.5">
@@ -263,7 +304,8 @@ export default function ClientOrdersList({
                       </button>
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
