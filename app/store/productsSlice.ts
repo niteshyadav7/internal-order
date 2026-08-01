@@ -81,7 +81,6 @@ export const flagProductOutOfStockThunk = createAsyncThunk(
       return rejectWithValue("Invalid product or user context");
     }
     try {
-      await updateProduct(product.id, { inStock: false });
       await createStockAlert({
         productId: product.id,
         productName: product.nameEn,
@@ -89,6 +88,14 @@ export const flagProductOutOfStockThunk = createAsyncThunk(
         reportedByName: userProfile?.name || 'Salesman',
         reason: 'Manually flagged as out of stock by salesman'
       });
+
+      // Attempt to update product inStock flag (swallow permission errors for non-admin salesmen)
+      try {
+        await updateProduct(product.id, { inStock: false });
+      } catch (prodErr) {
+        console.warn("Could not update product inStock directly:", prodErr);
+      }
+
       return product.id;
     } catch (err: any) {
       return rejectWithValue(err.message || "Failed to flag product");

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Smartphone,
   Laptop,
@@ -17,9 +18,11 @@ import {
   ClipboardList,
   User,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { auth } from '../../lib/firebase';
 import { 
   getProfileFields, 
   completeUserProfileRegistration, 
@@ -310,11 +313,43 @@ export const FALLBACK_PRODUCTS: Product[] = [
 ];
 
 export default function ProductCatalog() {
+  const router = useRouter();
   const [lang, setLang] = useState<LangType>('en');
   const { user, profileName, userProfile, refreshProfile, logout } = useAuth();
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [openingAdmin, setOpeningAdmin] = useState(false);
+
+  const handleOpenAdminPanel = async () => {
+    setOpeningAdmin(true);
+    try {
+      if (auth) {
+        await auth.authStateReady();
+        if (auth.currentUser) {
+          const idToken = await auth.currentUser.getIdToken(true);
+          const res = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            router.push('/admin');
+            return;
+          } else {
+            console.error("Admin SSO verification failed:", data.error);
+          }
+        }
+      }
+      router.push('/admin');
+    } catch (err) {
+      console.error("Error redirecting to admin panel:", err);
+      router.push('/admin');
+    } finally {
+      setOpeningAdmin(false);
+    }
+  };
 
   const handleSignOutClick = () => {
     setShowSignOutModal(true);
@@ -654,6 +689,23 @@ export default function ProductCatalog() {
               <User className="w-3.5 h-3.5" />
               <span>Profile</span>
             </button>
+
+            {userProfile?.role === 'admin' && (
+              <button
+                type="button"
+                onClick={handleOpenAdminPanel}
+                disabled={openingAdmin}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all cursor-pointer bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-md shadow-amber-500/25 active:scale-95 disabled:opacity-50"
+                title="Admin Portal"
+              >
+                {openingAdmin ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Shield className="w-3.5 h-3.5" />
+                )}
+                <span>Admin Portal</span>
+              </button>
+            )}
           </div>
 
           {/* Desktop Sign Out */}
@@ -712,6 +764,29 @@ export default function ProductCatalog() {
 
             {/* Navigation Items */}
             <div className="px-4 pb-5 space-y-1.5">
+              {userProfile?.role === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    handleOpenAdminPanel();
+                  }}
+                  disabled={openingAdmin}
+                  className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[0.98] cursor-pointer bg-gradient-to-r from-amber-500/15 to-amber-600/10 border border-amber-500/30"
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-amber-500 text-white shadow-md shadow-amber-500/20">
+                    {openingAdmin ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Shield className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-amber-600 dark:text-amber-400">Admin Portal</p>
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Access administrator management dashboard</p>
+                  </div>
+                </button>
+              )}
               {[
                 { key: 'products' as const, icon: Package, label: 'Shop Products', desc: 'Browse & add items to your order' },
                 { key: 'orders' as const, icon: ClipboardList, label: 'My Orders', desc: 'Track your order history & status' },

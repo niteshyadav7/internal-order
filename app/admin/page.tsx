@@ -303,6 +303,8 @@ export default function AdminDashboard() {
 
   // Verification of admin session
   useEffect(() => {
+    if (!isFirebaseLoaded) return;
+
     const verifyAdminSession = async () => {
       try {
         const res = await fetch('/api/admin/check');
@@ -310,6 +312,25 @@ export default function AdminDashboard() {
         if (data.authenticated) {
           setIsAdmin(true);
           setAdminEmail(data.adminEmail || 'admin@balajitextiles.com');
+        } else if (auth?.currentUser) {
+          // Attempt automatic single sign-on with current Firebase user ID token
+          try {
+            const idToken = await auth.currentUser.getIdToken();
+            const loginRes = await fetch('/api/admin/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idToken })
+            });
+            const loginData = await loginRes.json();
+            if (loginRes.ok && loginData.success) {
+              setIsAdmin(true);
+              setAdminEmail(auth.currentUser.email || 'admin@balajitextiles.com');
+              return;
+            }
+          } catch (ssoErr) {
+            console.error("SSO attempt failed:", ssoErr);
+          }
+          router.push('/admin/login');
         } else {
           router.push('/admin/login');
         }
@@ -321,7 +342,7 @@ export default function AdminDashboard() {
       }
     };
     verifyAdminSession();
-  }, [router]);
+  }, [router, isFirebaseLoaded]);
 
   // Synchronize Firebase Auth and Admin Cookie Session to prevent permission errors
   useEffect(() => {

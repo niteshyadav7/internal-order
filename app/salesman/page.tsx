@@ -231,11 +231,15 @@ export default function SalesmanPortal() {
       // Auto-create stock alerts for items marked as not_found
       const notFoundItems = prepOrder.items.filter((_, idx) => prepStates[idx] === 'not_found');
       for (const item of notFoundItems) {
-        await dispatch(flagProductOutOfStockThunk({
-          product: { id: item.productId, nameEn: item.nameEn } as any,
-          user,
-          userProfile
-        })).unwrap();
+        try {
+          await dispatch(flagProductOutOfStockThunk({
+            product: { id: item.productId, nameEn: item.nameEn } as any,
+            user,
+            userProfile
+          })).unwrap();
+        } catch (alertErr) {
+          console.warn("Stock alert creation warning:", alertErr);
+        }
       }
       if (notFoundItems.length > 0) {
         showToast(`${notFoundItems.length} stock alert(s) sent to admin`, 'success');
