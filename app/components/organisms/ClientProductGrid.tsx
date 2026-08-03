@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight, PackageX, Sparkles } from 'lucide-react';
 import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
 import ProductDetailSheet from './ProductDetailSheet';
@@ -619,21 +619,7 @@ export default function ClientProductGrid({
       return <Loader variant="fullscreen" text={lang === 'en' ? 'Loading products...' : 'उत्पाद लोड हो रहे हैं...'} />;
     }
 
-    if (finalFilteredProducts.length === 0) {
-      return (
-        <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-black z-30">
-          <p className="text-sm font-bold text-white/50">No products match your search.</p>
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange('')}
-              className="px-4 py-2 bg-white/10 text-white text-xs font-bold rounded-full"
-            >
-              Clear Search
-            </button>
-          )}
-        </div>
-      );
-    }
+
 
     return (
       <>
@@ -823,42 +809,117 @@ export default function ClientProductGrid({
           />
         )}
 
-        {/* Full-Screen Snap Scroll Container */}
-        <div
-          ref={reelsContainerRef}
-          onScroll={handleReelScroll}
-          className="fixed inset-0 overflow-y-auto z-30"
-          style={{
-            scrollSnapType: 'y mandatory',
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
-          {finalFilteredProducts.map((product, idx) => {
+        {/* Full-Screen Snap Scroll Container OR Premium Empty State */}
+        {finalFilteredProducts.length === 0 ? (
+          <div className="fixed inset-0 pt-28 pb-16 px-6 flex flex-col items-center justify-center bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-center z-30 overflow-y-auto">
+            {/* Glowing Icon Badge */}
+            <div className="relative mb-5">
+              <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-2xl animate-pulse" />
+              <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-cyan-500/30 flex items-center justify-center shadow-2xl shadow-cyan-500/10">
+                <PackageX className="w-10 h-10 text-cyan-400" />
+              </div>
+            </div>
 
-            return (
-              <ReelProductCard
-                key={product.id}
-                product={product}
-                idx={idx}
-                totalProducts={finalFilteredProducts.length}
-                selectedIds={selectedIds}
-                onToggleProduct={onToggleProduct}
-                getProductIcon={getProductIcon}
-                lang={lang}
-                showFiltersPanel={showFiltersPanel}
-                setShowFiltersPanel={setShowFiltersPanel}
-                showSearchInput={showSearchInput}
-                setShowSearchInput={setShowSearchInput}
-                searchQuery={searchQuery}
-                onSearchChange={onSearchChange}
-                isFilterActive={isFilterActive}
-                priceRangePct={priceRangePct}
-                activeReelIdx={activeReelIdx}
-                readOnly={readOnly}
-              />
-            );
-          })}
-        </div>
+            {/* Title & Description */}
+            <h3 className="text-lg font-black text-white tracking-tight mb-2">
+              {lang === 'en' ? 'No Matching Products Found' : 'कोई उत्पाद नहीं मिला'}
+            </h3>
+            <p className="text-xs font-extrabold text-white/50 leading-relaxed max-w-xs mb-6">
+              {searchQuery ? (
+                <>We couldn't find anything matching <span className="text-cyan-300 font-extrabold">"{searchQuery}"</span>. Try checking for typos or searching by saree code, design name, or category.</>
+              ) : (
+                <>No products match your current filters. Try resetting category or price range.</>
+              )}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              {searchQuery && (
+                <button
+                  onClick={() => onSearchChange('')}
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Clear Search Query</span>
+                </button>
+              )}
+
+              {isFilterActive && (
+                <button
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    setPriceFilter(absoluteMaxPrice);
+                    setMinPriceFilter(absoluteMinPrice);
+                    onSearchChange('');
+                  }}
+                  className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-extrabold flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset All Filters</span>
+                </button>
+              )}
+            </div>
+
+            {/* Popular Suggestions */}
+            {categoriesList && categoriesList.length > 0 && (
+              <div className="w-full max-w-xs space-y-2.5 border-t border-white/10 pt-5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/40 block">
+                  Popular Categories
+                </span>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {categoriesList.slice(0, 6).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        onSearchChange('');
+                      }}
+                      className="px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-cyan-500/40 text-cyan-200/90 text-[11px] font-bold active:scale-95 transition-all cursor-pointer"
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            ref={reelsContainerRef}
+            onScroll={handleReelScroll}
+            className="fixed inset-0 overflow-y-auto z-30"
+            style={{
+              scrollSnapType: 'y mandatory',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {finalFilteredProducts.map((product, idx) => {
+
+              return (
+                <ReelProductCard
+                  key={product.id}
+                  product={product}
+                  idx={idx}
+                  totalProducts={finalFilteredProducts.length}
+                  selectedIds={selectedIds}
+                  onToggleProduct={onToggleProduct}
+                  getProductIcon={getProductIcon}
+                  lang={lang}
+                  showFiltersPanel={showFiltersPanel}
+                  setShowFiltersPanel={setShowFiltersPanel}
+                  showSearchInput={showSearchInput}
+                  setShowSearchInput={setShowSearchInput}
+                  searchQuery={searchQuery}
+                  onSearchChange={onSearchChange}
+                  isFilterActive={isFilterActive}
+                  priceRangePct={priceRangePct}
+                  activeReelIdx={activeReelIdx}
+                  readOnly={readOnly}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {/* Floating Bottom Order Bar */}
         {selectedIds.size > 0 && (
@@ -1035,10 +1096,45 @@ export default function ClientProductGrid({
       {loading ? (
         <Loader variant="skeleton-grid" />
       ) : paginatedProducts.length === 0 ? (
-        <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-3xl">
-          <p className="text-sm font-bold text-slate-400 dark:text-zinc-550">
-            No products match selected filters or search.
-          </p>
+        <div className="py-16 px-6 text-center border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-3xl space-y-4 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 flex items-center justify-center mx-auto text-[#5d51e8] dark:text-indigo-400">
+            <PackageX className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-base font-black text-slate-800 dark:text-white">
+              {lang === 'en' ? 'No Matching Products Found' : 'कोई उत्पाद नहीं मिला'}
+            </h3>
+            <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 max-w-md mx-auto mt-1">
+              {searchQuery ? (
+                <>We couldn't find anything matching <span className="text-[#5d51e8] dark:text-indigo-400 font-extrabold">"{searchQuery}"</span>. Try checking for typos or searching by saree code, design name, or category.</>
+              ) : (
+                <>No products match your selected filters. Try adjusting your category or price range settings.</>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="px-4 py-2 bg-[#5d51e8] hover:bg-[#4b3fd3] text-white text-xs font-black rounded-xl transition-all shadow-md shadow-[#5d51e8]/20 cursor-pointer"
+              >
+                Clear Search
+              </button>
+            )}
+            {isFilterActive && (
+              <button
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setPriceFilter(absoluteMaxPrice);
+                  setMinPriceFilter(absoluteMinPrice);
+                  onSearchChange('');
+                }}
+                className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-300 text-xs font-black rounded-xl transition-all cursor-pointer"
+              >
+                Reset All Filters
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="space-y-8">
