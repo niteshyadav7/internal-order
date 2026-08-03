@@ -32,6 +32,10 @@ function ReelProductCard({
   lang,
   showFiltersPanel,
   setShowFiltersPanel,
+  showSearchInput,
+  setShowSearchInput,
+  searchQuery,
+  onSearchChange,
   isFilterActive,
   priceRangePct = 5,
   activeReelIdx,
@@ -46,6 +50,10 @@ function ReelProductCard({
   lang: 'en' | 'hi';
   showFiltersPanel: boolean;
   setShowFiltersPanel: React.Dispatch<React.SetStateAction<boolean>>;
+  showSearchInput: boolean;
+  setShowSearchInput: React.Dispatch<React.SetStateAction<boolean>>;
+  searchQuery: string;
+  onSearchChange: (val: string) => void;
   isFilterActive: boolean;
   priceRangePct?: number;
   activeReelIdx: number;
@@ -181,47 +189,26 @@ function ReelProductCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
 
-      {/* ── Top Action Buttons (Filter & Select) ── */}
-      <div className="absolute left-4 top-16 z-45 flex flex-row gap-3.5">
-        {/* Search/Filter Button (Teal/Cyan theme) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowFiltersPanel(!showFiltersPanel);
-            triggerHaptic('light');
-          }}
-          className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all active:scale-90 shadow-lg cursor-pointer ${
-            showFiltersPanel
-              ? 'bg-gradient-to-tr from-[#06b6d4] to-[#0ea5e9] border-[#06b6d4] text-white shadow-lg shadow-cyan-500/25'
-              : 'bg-black/40 backdrop-blur-md border-cyan-500/20 text-cyan-200/90'
-          }`}
-        >
-          {showFiltersPanel ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
-          <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Filter</span>
-          {/* Active filter dot */}
-          {isFilterActive && !showFiltersPanel && (
-            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-cyan-400 rounded-full border-2 border-black animate-pulse" />
-          )}
-        </button>
-
-        {/* Select Button (Rose/Pink theme) */}
-        {!readOnly && (
+      {/* ── Top Card Select Button ── */}
+      {!readOnly && (
+        <div className="absolute left-4 top-28 z-45 flex flex-row gap-2">
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleAddToCart('double');
             }}
-            className={`w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
+            className={`h-9 px-3.5 rounded-full flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer shadow-xl active:scale-95 ${
               isSelected
-                ? 'bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white border-[#ec4899] scale-110 shadow-lg shadow-pink-500/25'
-                : 'bg-black/40 backdrop-blur-md border-pink-500/20 text-pink-200/90 hover:text-pink-100'
+                ? 'bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white border-[#ec4899] scale-105 shadow-pink-500/30 font-black'
+                : 'bg-black/50 backdrop-blur-md border-pink-500/30 text-pink-200 hover:text-white font-extrabold'
             }`}
+            title="Select item"
           >
-            <Check className="w-4 h-4 stroke-[3]" />
-            <span className="text-[7px] font-black uppercase mt-0.5 leading-none">Select</span>
+            <Check className="w-3.5 h-3.5 stroke-[3]" />
+            <span className="text-[9px] uppercase tracking-wider">{isSelected ? 'Selected' : 'Select'}</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Left/Right tap zones for image navigation */}
       {hasMultipleImages && (
@@ -465,6 +452,7 @@ export default function ClientProductGrid({
   const [priceFilter, setPriceFilter] = useState(absoluteMaxPrice);
   const [minPriceFilter, setMinPriceFilter] = useState(absoluteMinPrice);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [showSearchInput, setShowSearchInput] = useState(false);
 
   const isFilterActive = selectedCategory !== 'All' || !!searchQuery || priceFilter < absoluteMaxPrice || minPriceFilter > absoluteMinPrice;
 
@@ -649,9 +637,54 @@ export default function ClientProductGrid({
 
     return (
       <>
-        {/* Product Counter — top right */}
-        <div className="fixed top-16 right-4 z-50 bg-black/40 backdrop-blur-md text-amber-200/90 text-[10px] font-black px-2.5 py-1.5 rounded-full border border-amber-400/30 shadow-lg tabular-nums">
-          {activeReelIdx + 1} / {finalFilteredProducts.length}
+        {/* ── Always Open Top Mobile Bar (Search Bar, Filter Button, Counter) ── */}
+        <div className="fixed top-16 left-3.5 right-3.5 z-45 flex items-center gap-2">
+          {/* Always-Open Search Input Bar */}
+          <div className="flex-1 flex items-center gap-2 bg-black/65 backdrop-blur-2xl border border-cyan-500/35 hover:border-cyan-400 focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25 px-3.5 py-2.5 rounded-2xl shadow-2xl transition-all">
+            <Search className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+            <input
+              type="text"
+              placeholder={lang === 'en' ? 'Search saree code, design, name...' : 'साड़ी कोड, डिजाइन या नाम खोजें...'}
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full bg-transparent text-white text-xs font-bold placeholder-white/40 outline-none"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => onSearchChange('')} 
+                className="p-1 rounded-full text-white/50 hover:text-white active:scale-90 transition-transform"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Toggle Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFiltersPanel(prev => !prev);
+              triggerHaptic('light');
+            }}
+            className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-90 shadow-xl cursor-pointer flex-shrink-0 relative ${
+              showFiltersPanel
+                ? 'bg-gradient-to-tr from-[#8b5cf6] to-[#6366f1] border-[#8b5cf6] text-white shadow-purple-500/30'
+                : 'bg-black/65 backdrop-blur-2xl border-purple-500/35 text-purple-200 hover:text-white'
+            }`}
+            title="Filter category & price"
+          >
+            {showFiltersPanel ? <X className="w-4 h-4 stroke-[2.5]" /> : <SlidersHorizontal className="w-4 h-4 stroke-[2.5]" />}
+            <span className="text-[6px] font-black uppercase tracking-tight leading-none">Filter</span>
+            {isFilterActive && !showFiltersPanel && (
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-purple-400 rounded-full border-2 border-black animate-pulse" />
+            )}
+          </button>
+
+          {/* Product Counter */}
+          <div className="bg-black/65 backdrop-blur-2xl text-amber-200 text-[10px] font-black px-2.5 py-2.5 rounded-2xl border border-amber-400/30 shadow-xl tabular-nums flex-shrink-0">
+            {activeReelIdx + 1}/{finalFilteredProducts.length}
+          </div>
         </div>
 
         {/* ── Filter Bottom Sheet (slides up on tap, swipe-to-dismiss) ── */}
@@ -814,6 +847,10 @@ export default function ClientProductGrid({
                 lang={lang}
                 showFiltersPanel={showFiltersPanel}
                 setShowFiltersPanel={setShowFiltersPanel}
+                showSearchInput={showSearchInput}
+                setShowSearchInput={setShowSearchInput}
+                searchQuery={searchQuery}
+                onSearchChange={onSearchChange}
                 isFilterActive={isFilterActive}
                 priceRangePct={priceRangePct}
                 activeReelIdx={activeReelIdx}

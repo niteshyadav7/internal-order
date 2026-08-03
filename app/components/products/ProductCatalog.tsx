@@ -19,7 +19,8 @@ import {
   User,
   Menu,
   X,
-  Shield
+  Shield,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { auth } from '../../lib/firebase';
@@ -717,6 +718,21 @@ export default function ProductCatalog() {
           >
             <LogOut className="w-5 h-5" />
           </button>
+
+          {/* Mobile Header Search Button */}
+          {activeView === 'products' && (
+            <button
+              type="button"
+              onClick={() => {
+                const searchBtn = document.querySelector('button[title="Search catalog"]') as HTMLButtonElement;
+                if (searchBtn) searchBtn.click();
+              }}
+              className="md:hidden w-10 h-10 border border-white/20 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-md active:scale-95 transition-all cursor-pointer hover:bg-white/20"
+              title="Quick Search"
+            >
+              <Search className="w-4.5 h-4.5" />
+            </button>
+          )}
 
           {/* Mobile Hamburger Menu Button */}
           <button
