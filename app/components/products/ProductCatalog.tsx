@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Smartphone,
@@ -56,6 +56,7 @@ import ClientProductGrid from '../organisms/ClientProductGrid';
 import ClientProfileTab from '../organisms/ClientProfileTab';
 import OrderSuccessModal from '../organisms/OrderSuccessModal';
 import ClientOrdersList from '../organisms/ClientOrdersList';
+import OrderPreviewModal, { OrderPreviewItem } from '../organisms/OrderPreviewModal';
 
 // 21 Retail E-commerce products matching Amazon/Flipkart
 export const FALLBACK_PRODUCTS: Product[] = [
@@ -374,6 +375,25 @@ export default function ProductCatalog() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedVariants, setSelectedVariants] = useState<Record<string, { variantName?: string; imageUrl?: string }>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  const previewItems = useMemo(() => {
+    const list: OrderPreviewItem[] = [];
+    selectedIds.forEach(cartKey => {
+      const [id, variantName] = cartKey.split('|');
+      const product = products.find(p => p.id === id);
+      if (product) {
+        const details = selectedVariants[cartKey];
+        list.push({
+          cartKey,
+          product,
+          variantName: details?.variantName || variantName,
+          imageUrl: details?.imageUrl || product.imageUrl,
+        });
+      }
+    });
+    return list;
+  }, [selectedIds, products, selectedVariants]);
 
   const [activeView, setActiveView] = useState<'products' | 'orders' | 'profile'>('products');
   
@@ -920,6 +940,7 @@ export default function ProductCatalog() {
             selectedIds={selectedIds}
             onToggleProduct={handleToggleProduct}
             onPlaceOrder={handlePlaceOrder}
+            onPreviewOrder={() => setShowPreviewModal(true)}
             submittingOrder={submittingOrder}
             lang={lang}
             t={t}
@@ -932,6 +953,32 @@ export default function ProductCatalog() {
           />
         )}
       </main>
+
+      {/* Order Preview Modal */}
+      <OrderPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        items={previewItems}
+        onRemoveItem={(cartKey) => {
+          setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.delete(cartKey);
+            return next;
+          });
+          setSelectedVariants(prev => {
+            const next = { ...prev };
+            delete next[cartKey];
+            return next;
+          });
+        }}
+        onConfirmOrder={async () => {
+          await handlePlaceOrder();
+          setShowPreviewModal(false);
+        }}
+        submittingOrder={submittingOrder}
+        lang={lang}
+        priceRangePct={globalSettings?.priceRangePct || 5}
+      />
 
       {/* Success Popup Modal */}
       <OrderSuccessModal

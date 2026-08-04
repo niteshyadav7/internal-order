@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight, PackageX, Sparkles } from 'lucide-react';
+import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight, PackageX, Sparkles, Eye } from 'lucide-react';
 import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
 import ProductDetailSheet from './ProductDetailSheet';
@@ -368,6 +368,7 @@ interface ClientProductGridProps {
   selectedIds: Set<string>;
   onToggleProduct: (id: string, variantName?: string, imageUrl?: string) => void;
   onPlaceOrder: () => void;
+  onPreviewOrder?: () => void;
   submittingOrder: boolean;
   lang: 'en' | 'hi';
   t: (key: string) => string;
@@ -403,6 +404,7 @@ export default function ClientProductGrid({
   selectedIds,
   onToggleProduct,
   onPlaceOrder,
+  onPreviewOrder,
   submittingOrder,
   lang,
   t,
@@ -666,7 +668,7 @@ export default function ClientProductGrid({
         {/* ── Filter Bottom Sheet (slides up on tap, swipe-to-dismiss) ── */}
         {showFiltersPanel && (
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/10 p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom duration-300"
+            className="fixed bottom-0 left-0 right-0 z-[70] bg-zinc-950/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/10 p-6 pb-14 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-y-auto"
             onTouchStart={handleDragStart}
             onTouchMove={handleDragMove}
             onTouchEnd={handleDragEnd}
@@ -722,11 +724,26 @@ export default function ClientProductGrid({
 
             {/* Price range */}
             <div className="grid grid-cols-2 gap-4 mt-4">
-              {/* Min Price Slider */}
+              {/* Min Price Slider & Number Input */}
               <div className="space-y-2">
-                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                <div className="flex items-center justify-between gap-1 text-[9px] font-black uppercase tracking-widest">
                   <span className="text-white/40">Min Price</span>
-                  <span className="text-[#a89aff]">₹{minPriceFilter.toLocaleString('en-IN')}</span>
+                  <div className="flex items-center gap-1 bg-white/10 border border-white/15 rounded-lg px-2 py-0.5 focus-within:border-[#5d51e8]">
+                    <span className="text-white/50 text-[10px]">₹</span>
+                    <input
+                      type="number"
+                      min={absoluteMinPrice}
+                      max={priceFilter}
+                      value={minPriceFilter}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val)) {
+                          setMinPriceFilter(Math.min(Math.max(val, absoluteMinPrice), priceFilter));
+                        }
+                      }}
+                      className="w-14 bg-transparent text-right text-[#a89aff] text-[10px] font-black outline-none"
+                    />
+                  </div>
                 </div>
                 <input
                   type="range"
@@ -743,11 +760,26 @@ export default function ClientProductGrid({
                 </div>
               </div>
 
-              {/* Max Price Slider */}
+              {/* Max Price Slider & Number Input */}
               <div className="space-y-2">
-                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                <div className="flex items-center justify-between gap-1 text-[9px] font-black uppercase tracking-widest">
                   <span className="text-white/40">Max Price</span>
-                  <span className="text-[#a89aff]">₹{priceFilter.toLocaleString('en-IN')}</span>
+                  <div className="flex items-center gap-1 bg-white/10 border border-white/15 rounded-lg px-2 py-0.5 focus-within:border-[#5d51e8]">
+                    <span className="text-white/50 text-[10px]">₹</span>
+                    <input
+                      type="number"
+                      min={minPriceFilter}
+                      max={absoluteMaxPrice}
+                      value={priceFilter}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val)) {
+                          setPriceFilter(Math.max(Math.min(val, absoluteMaxPrice), minPriceFilter));
+                        }
+                      }}
+                      className="w-14 bg-transparent text-right text-[#a89aff] text-[10px] font-black outline-none"
+                    />
+                  </div>
                 </div>
                 <input
                   type="range"
@@ -774,16 +806,16 @@ export default function ClientProductGrid({
                   setMinPriceFilter(absoluteMinPrice);
                   onSearchChange('');
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white/60 text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                className="flex-1 py-3 rounded-xl bg-white/10 text-white/60 text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset</span>
               </button>
               <button
                 onClick={() => setShowFiltersPanel(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#5d51e8] text-white text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-lg shadow-[#5d51e8]/25"
+                className="flex-1 py-3 rounded-xl bg-[#5d51e8] text-white text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-lg shadow-[#5d51e8]/25 cursor-pointer"
               >
-                <Check className="w-3 h-3" />
+                <Check className="w-3.5 h-3.5" />
                 <span>Apply</span>
               </button>
             </div>
@@ -793,7 +825,7 @@ export default function ClientProductGrid({
         {/* Backdrop overlay when filter is open */}
         {showFiltersPanel && (
           <div
-            className="fixed inset-0 z-45 bg-black/30"
+            className="fixed inset-0 z-[65] bg-black/60 backdrop-blur-sm"
             onClick={() => setShowFiltersPanel(false)}
           />
         )}
@@ -926,31 +958,44 @@ export default function ClientProductGrid({
         )}
 
         {/* Floating Bottom Order Bar */}
-        {selectedIds.size > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 p-3 bg-black/70 backdrop-blur-xl border-t border-white/10 z-50">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#5d51e8] text-white p-2 rounded-xl">
+        {selectedIds.size > 0 && !showFiltersPanel && (
+          <div className="fixed bottom-0 left-0 right-0 p-3 bg-black/80 backdrop-blur-xl border-t border-white/10 z-50 animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="bg-[#5d51e8] text-white p-2 rounded-xl flex-shrink-0">
                   <ShoppingCart className="w-4 h-4" />
                 </div>
-                <div>
-                  <h4 className="font-extrabold text-xs text-white leading-tight">
+                <div className="truncate">
+                  <h4 className="font-extrabold text-xs text-white leading-tight truncate">
                     {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''} selected
                   </h4>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onPlaceOrder}
-                disabled={submittingOrder}
-                className="flex items-center gap-2 bg-[#5d51e8] hover:bg-[#4b3fd3] disabled:bg-indigo-300 text-white font-black text-xs py-3 px-6 rounded-full shadow-lg shadow-[#5d51e8]/25 active:scale-95 transition-transform cursor-pointer"
-              >
-                {submittingOrder ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                ) : (
-                  <span>{t('submitOrderBtn')}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {onPreviewOrder && (
+                  <button
+                    type="button"
+                    onClick={onPreviewOrder}
+                    className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-extrabold text-xs py-2.5 px-3.5 rounded-full active:scale-95 transition-all cursor-pointer"
+                    title="Preview selected order items"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-indigo-300" />
+                    <span>{lang === 'en' ? 'Preview' : 'पूर्वावलोकन'}</span>
+                  </button>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={onPlaceOrder}
+                  disabled={submittingOrder}
+                  className="flex items-center gap-1.5 bg-[#5d51e8] hover:bg-[#4b3fd3] disabled:bg-indigo-300 text-white font-black text-xs py-2.5 px-5 rounded-full shadow-lg shadow-[#5d51e8]/25 active:scale-95 transition-transform cursor-pointer"
+                >
+                  {submittingOrder ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <span>{t('submitOrderBtn')}</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1017,9 +1062,24 @@ export default function ClientProductGrid({
           <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left animate-in slide-in-from-top duration-200">
             {/* Min Price */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-wider">
+              <div className="flex items-center justify-between text-xs font-black text-slate-500 uppercase tracking-wider gap-2">
                 <span>{lang === 'en' ? 'Min Price' : 'न्यूनतम मूल्य'}</span>
-                <span className="text-[#5d51e8] dark:text-indigo-400">₹{minPriceFilter.toLocaleString('en-IN')}</span>
+                <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-0.5 focus-within:border-[#5d51e8]">
+                  <span className="text-slate-400 text-xs">₹</span>
+                  <input
+                    type="number"
+                    min={absoluteMinPrice}
+                    max={priceFilter}
+                    value={minPriceFilter}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (!isNaN(val)) {
+                        setMinPriceFilter(Math.min(Math.max(val, absoluteMinPrice), priceFilter));
+                      }
+                    }}
+                    className="w-16 bg-transparent text-right text-[#5d51e8] dark:text-indigo-400 font-extrabold text-xs outline-none"
+                  />
+                </div>
               </div>
               <input
                 type="range"
@@ -1038,9 +1098,24 @@ export default function ClientProductGrid({
 
             {/* Max Price */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-wider">
+              <div className="flex items-center justify-between text-xs font-black text-slate-500 uppercase tracking-wider gap-2">
                 <span>{lang === 'en' ? 'Max Price' : 'अधिकतम मूल्य'}</span>
-                <span className="text-[#5d51e8] dark:text-indigo-400">₹{priceFilter.toLocaleString('en-IN')}</span>
+                <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-0.5 focus-within:border-[#5d51e8]">
+                  <span className="text-slate-400 text-xs">₹</span>
+                  <input
+                    type="number"
+                    min={minPriceFilter}
+                    max={absoluteMaxPrice}
+                    value={priceFilter}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (!isNaN(val)) {
+                        setPriceFilter(Math.max(Math.min(val, absoluteMaxPrice), minPriceFilter));
+                      }
+                    }}
+                    className="w-16 bg-transparent text-right text-[#5d51e8] dark:text-indigo-400 font-extrabold text-xs outline-none"
+                  />
+                </div>
               </div>
               <input
                 type="range"
@@ -1244,7 +1319,7 @@ export default function ClientProductGrid({
         readOnly={readOnly}
       />
 
-      {selectedIds.size > 0 && !readOnly && (
+      {selectedIds.size > 0 && !readOnly && !showFiltersPanel && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 shadow-2xl z-40 transition-transform duration-300 animate-in slide-in-from-bottom duration-300">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1256,16 +1331,26 @@ export default function ClientProductGrid({
                   {t('selectedItems').replace('{count}', selectedIds.size.toString())}
                 </h4>
                 <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500">
-                  {lang === 'en' ? 'Click Order to send request for selected items' : 'चयनित वस्तुओं को मंगाने के लिए नीचे आर्डर भेजें पर क्लिक करें'}
+                  {lang === 'en' ? 'Click Order or Preview before sending request' : 'चयनित वस्तुओं को मंगाने के लिए नीचे आर्डर या पूर्वावलोकन पर क्लिक करें'}
                 </p>
               </div>
             </div>
-            <div className="w-full md:w-auto">
+            <div className="w-full md:w-auto flex items-center justify-end gap-3">
+              {onPreviewOrder && (
+                <button
+                  type="button"
+                  onClick={onPreviewOrder}
+                  className="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-white font-extrabold text-sm py-3.5 px-6 rounded-full border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer active:scale-95"
+                >
+                  <Eye className="w-4 h-4 text-[#5d51e8]" />
+                  <span>{lang === 'en' ? 'Preview Order' : 'ऑर्डर पूर्वावलोकन'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onPlaceOrder}
                 disabled={submittingOrder}
-                className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#5d51e8] hover:bg-[#4b3fd3] disabled:bg-indigo-300 text-white font-black text-sm py-3.5 px-8 rounded-full shadow-lg shadow-[#5d51e8]/25 active:scale-95 transition-transform cursor-pointer"
+                className="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-[#5d51e8] hover:bg-[#4b3fd3] disabled:bg-indigo-300 text-white font-black text-sm py-3.5 px-8 rounded-full shadow-lg shadow-[#5d51e8]/25 active:scale-95 transition-transform cursor-pointer"
               >
                 {submittingOrder ? (
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
