@@ -792,6 +792,10 @@ export default function SalesmanPortal() {
                             src={item.selectedImageUrl} 
                             alt={item.nameEn}
                             className="max-w-full max-h-full object-contain"
+                            loading="eager"
+                            decoding="async"
+                            // @ts-ignore
+                            fetchPriority="high"
                           />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity duration-200">
                             <span className="bg-black/60 backdrop-blur-sm text-white text-xs font-black px-4 py-2 rounded-xl border border-white/10 shadow-lg">
@@ -1122,7 +1126,7 @@ function OrderCard({
                     className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0 cursor-zoom-in hover:border-[#5d51e8] transition-all hover:scale-105 active:scale-95"
                     title="Click to view full screen"
                   >
-                    <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="w-10 h-10 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex items-center justify-center flex-shrink-0 text-slate-400">

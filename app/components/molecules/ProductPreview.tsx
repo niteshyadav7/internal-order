@@ -37,6 +37,7 @@ export default function ProductPreview({
           alt={name}
           className="w-full h-full object-cover"
           loading="lazy"
+          decoding="async"
         />
       ) : (
         <div className={`w-full h-full bg-gradient-to-br ${getGradientClass(category)}`} />

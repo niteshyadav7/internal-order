@@ -161,6 +161,10 @@ export default function ProductDetailSheet({
                 alt={product.nameEn} 
                 className="w-full h-full object-cover transition-transform duration-150 ease-out" 
                 style={zoomStyle}
+                loading="eager"
+                decoding="async"
+                // @ts-ignore
+                fetchPriority="high"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
@@ -290,6 +294,8 @@ export default function ProductDetailSheet({
                             src={varImgUrl}
                             alt={v.name}
                             className="w-full h-full object-cover rounded-full"
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-[10px] font-black text-white uppercase">

@@ -145,26 +145,20 @@ function ReelProductCard({
             }
           }}
         >
-          {/* Blurred background copy for full-screen cover */}
-          <img
-            src={currentImageUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none select-none accelerate-gpu"
-            loading="eager"
-            decoding="sync"
-            // @ts-ignore
-            fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
-            draggable={false}
+          {/* Background CSS blur using the cached image URL without duplicate <img> decoding pass */}
+          <div
+            className="absolute inset-0 w-full h-full bg-cover bg-center blur-xl opacity-40 scale-110 pointer-events-none select-none accelerate-gpu"
+            style={{ backgroundImage: `url("${currentImageUrl}")` }}
           />
-          {/* Crisp centered foreground copy for full detail (uncropped) */}
+          {/* Crisp centered foreground copy with priority preloading & async decoding */}
           <img
             src={currentImageUrl}
             alt={product.nameEn}
             className="relative z-10 max-w-full max-h-full object-contain pointer-events-none select-none"
-            loading="eager"
-            decoding="sync"
+            loading={idx === activeReelIdx || Math.abs(idx - activeReelIdx) <= 1 ? "eager" : "lazy"}
+            decoding="async"
             // @ts-ignore
-            fetchPriority={idx === activeReelIdx ? 'high' : 'low'}
+            fetchPriority={idx === activeReelIdx ? 'high' : Math.abs(idx - activeReelIdx) <= 1 ? 'low' : 'auto'}
             draggable={false}
           />
         </div>
@@ -312,6 +306,8 @@ function ReelProductCard({
                         src={varImgUrl}
                         alt={v.name}
                         className="w-full h-full object-cover rounded-full"
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-[10px] font-black text-white uppercase">
