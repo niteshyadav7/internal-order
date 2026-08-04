@@ -7,7 +7,9 @@ import {
   Order,
   getPriceRange,
   Product,
-  addSalesmanNote
+  addSalesmanNote,
+  subscribeToUserProfiles,
+  UserProfile
 } from '../lib/db';
 import { playOrderChime, initAudioContext, enableAudio } from '../lib/audio';
 import { requestNotificationPermissionAndGetToken } from '../lib/fcmClient';
@@ -29,6 +31,7 @@ import {
   CheckCircle,
   Clock,
   User,
+  Building2,
   LogOut,
   Calendar,
   Truck,
@@ -86,6 +89,34 @@ export default function SalesmanPortal() {
       }
     }
   }, [user, loading, router]);
+
+  const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
+
+  // Real-time listener for user profiles to resolve Firm Names
+  useEffect(() => {
+    if (!user || (userProfile && userProfile.role !== 'salesman')) return;
+    const unsub = subscribeToUserProfiles((profiles) => {
+      setUserProfiles(profiles);
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [user, userProfile]);
+
+  const getFirmName = (o: Order) => {
+    if (o.userFirmName && o.userFirmName.trim()) return o.userFirmName;
+    const match = userProfiles.find(
+      p => p.uid === o.userUid || (p.email && o.userEmail && p.email.toLowerCase() === o.userEmail.toLowerCase())
+    );
+    if (match) {
+      if (match.customDetails && Object.values(match.customDetails).length > 0) {
+        const val = Object.values(match.customDetails)[0];
+        if (val) return val;
+      }
+      if (match.requestedFirmName) return match.requestedFirmName;
+    }
+    return '';
+  };
 
   // Real-time listener for orders
   useEffect(() => {
@@ -631,6 +662,7 @@ export default function SalesmanPortal() {
                   <OrderCard
                     key={order.id}
                     order={order}
+                    firmName={getFirmName(order)}
                     primaryActionText="Claim & Start Preparing"
                     onPrimaryAction={handleClaim}
                     actionLoading={actionLoading}
@@ -652,6 +684,7 @@ export default function SalesmanPortal() {
                   <OrderCard
                     key={order.id}
                     order={order}
+                    firmName={getFirmName(order)}
                     primaryActionText="Complete & Dispatch"
                     onPrimaryAction={handleComplete}
                     secondaryActionText="Release Order"
@@ -677,6 +710,7 @@ export default function SalesmanPortal() {
                   <OrderCard
                     key={order.id}
                     order={order}
+                    firmName={getFirmName(order)}
                     isCompleted={true}
                     priceRangePct={priceRangePct}
                     onImageClick={setLightboxUrl}
@@ -976,6 +1010,7 @@ export default function SalesmanPortal() {
 // Reusable Sub-component Card for order подготовка
 interface OrderCardProps {
   order: Order;
+  firmName?: string;
   primaryActionText?: string;
   onPrimaryAction?: (id: string) => Promise<void>;
   secondaryActionText?: string;
@@ -990,6 +1025,7 @@ interface OrderCardProps {
 
 function OrderCard({
   order,
+  firmName,
   primaryActionText,
   onPrimaryAction,
   secondaryActionText,
@@ -1005,6 +1041,7 @@ function OrderCard({
   const isLoading = actionLoading === order.id;
   const [noteText, setNoteText] = React.useState(order.salesmanNotes || '');
   const [savingNote, setSavingNote] = React.useState(false);
+  const orderNum = order.id ? (order.id.length > 8 ? order.id.slice(-6).toUpperCase() : order.id) : '';
 
   // Sync state if order changes
   React.useEffect(() => {
@@ -1014,16 +1051,29 @@ function OrderCard({
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 hover:shadow-md transition-shadow text-left">
 
-      {/* Client details */}
+      {/* Client details & Order Number */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1 bg-[#5d51e8]/10 text-[#5d51e8] rounded-lg">
-              <User className="w-3.5 h-3.5" />
-            </span>
-            <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">{order.userName}</h4>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            {orderNum && (
+              <span className="px-2 py-0.5 bg-[#5d51e8]/10 text-[#5d51e8] dark:bg-indigo-950/40 dark:text-indigo-400 border border-[#5d51e8]/20 dark:border-indigo-800/60 rounded-md text-[10px] font-black uppercase tracking-wider">
+                Order #{orderNum}
+              </span>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className="p-1 bg-[#5d51e8]/10 text-[#5d51e8] rounded-lg">
+                <User className="w-3.5 h-3.5" />
+              </span>
+              <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">{order.userName}</h4>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-450 dark:text-zinc-550 pl-6">{order.userEmail}</p>
+
+          {firmName && (
+            <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-600 dark:text-zinc-400 pl-0.5">
+              <Building2 className="w-3.5 h-3.5 text-[#5d51e8] flex-shrink-0" />
+              <span>{firmName}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

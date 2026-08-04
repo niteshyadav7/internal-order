@@ -574,10 +574,19 @@ export default function ProductCatalog() {
         }
       });
 
+      let userFirmName = '';
+      if (userProfile?.customDetails) {
+        userFirmName = Object.values(userProfile.customDetails)[0] || '';
+      }
+      if (!userFirmName && userProfile?.requestedFirmName) {
+        userFirmName = userProfile.requestedFirmName;
+      }
+
       await dispatch(createOrderThunk({
         userUid: user.uid,
         userName: profileName || user.displayName || 'Client',
         userEmail: user.email || '',
+        userFirmName,
         items
       })).unwrap();
 

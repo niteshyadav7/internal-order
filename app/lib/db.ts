@@ -346,6 +346,7 @@ export interface Order {
   userUid: string;
   userName: string;
   userEmail: string;
+  userFirmName?: string;
   items: OrderItem[];
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   createdAt: string;
