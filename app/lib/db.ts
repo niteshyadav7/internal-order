@@ -321,6 +321,9 @@ export function getPriceRange(price: number, pct: number = 5, minPrice?: number,
   if (minPrice !== undefined && maxPrice !== undefined && minPrice !== null && maxPrice !== null && minPrice > 0 && maxPrice > 0) {
     return `₹${minPrice.toLocaleString('en-IN')} - ₹${maxPrice.toLocaleString('en-IN')}`;
   }
+  if (pct === 0) {
+    return `₹${price.toLocaleString('en-IN')} - ₹${price.toLocaleString('en-IN')}`;
+  }
   const factor = pct / 100;
   let min = price * (1 - factor);
   let max = price * (1 + factor);

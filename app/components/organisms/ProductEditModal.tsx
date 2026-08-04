@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, Upload, Trash2, Plus, Images } from 'lucide-react';
-import { Product, ProductImage, ProductVariant, updateGlobalSettings } from '../../lib/db';
+import { Product, ProductImage, ProductVariant, updateGlobalSettings, getPriceRange } from '../../lib/db';
 import { compressImage } from '../../lib/image';
 import { uploadImageToStorage } from '../../lib/storage';
 
@@ -398,21 +398,12 @@ export default function ProductEditModal({
                 const maxVal = parseFloat(maxPrice);
                 const u = unit || 'Unit';
 
-                let displayRange = '';
-                let reason = '';
-
-                if (!isNaN(minVal) && !isNaN(maxVal) && minVal > 0 && maxVal > 0) {
-                  displayRange = `₹${minVal.toLocaleString('en-IN')} - ₹${maxVal.toLocaleString('en-IN')}`;
-                  reason = 'Custom Min/Max overrides';
-                } else {
-                  const pct = parseFloat(priceRangePct);
-                  const finalPct = !isNaN(pct) && pct >= 0 && pct <= 100 ? pct : 5;
-                  const factor = finalPct / 100;
-                  const minCalculated = Math.floor(basePrice * (1 - factor));
-                  const maxCalculated = Math.ceil(basePrice * (1 + factor));
-                  displayRange = `₹${minCalculated.toLocaleString('en-IN')} - ₹${maxCalculated.toLocaleString('en-IN')}`;
-                  reason = !isNaN(pct) ? `Custom ±${finalPct}% variance` : `Global default ±${finalPct}%`;
-                }
+                const pct = parseFloat(priceRangePct);
+                const finalPct = !isNaN(pct) && pct >= 0 && pct <= 100 ? pct : 5;
+                const displayRange = getPriceRange(basePrice, finalPct, !isNaN(minVal) ? minVal : undefined, !isNaN(maxVal) ? maxVal : undefined);
+                const reason = (!isNaN(minVal) && !isNaN(maxVal) && minVal > 0 && maxVal > 0)
+                  ? 'Custom Min/Max overrides'
+                  : !isNaN(pct) ? `Custom ±${finalPct}% variance` : `Global default ±${finalPct}%`;
 
                 return (
                   <div className="mt-2 p-2 bg-emerald-50/50 dark:bg-emerald-955/10 border border-emerald-200/60 dark:border-emerald-900/35 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-300">
