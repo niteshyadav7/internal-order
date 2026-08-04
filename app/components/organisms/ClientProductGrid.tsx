@@ -133,10 +133,9 @@ function ReelProductCard({
     >
       {/* Full-screen product image — pointer-events-none/select-none stops native drag from breaking gestures */}
       {isWeb ? (
-        <div 
-          className={`absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95 ${
-            idx === activeReelIdx && hasMultipleImages ? 'animate-peek' : ''
-          }`}
+        <div
+          className={`absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black/95 ${idx === activeReelIdx && hasMultipleImages ? 'animate-peek' : ''
+            }`}
           style={{ touchAction: 'manipulation' }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -170,7 +169,7 @@ function ReelProductCard({
           />
         </div>
       ) : (
-        <div 
+        <div
           className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center"
           style={{ touchAction: 'manipulation' }}
           onTouchStart={handleTouchStart}
@@ -197,11 +196,10 @@ function ReelProductCard({
               e.stopPropagation();
               handleAddToCart('double');
             }}
-            className={`h-9 px-3.5 rounded-full flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer shadow-xl active:scale-95 ${
-              isSelected
+            className={`h-9 px-3.5 rounded-full flex items-center justify-center gap-1.5 border-2 transition-all cursor-pointer shadow-xl active:scale-95 ${isSelected
                 ? 'bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white border-[#ec4899] scale-105 shadow-pink-500/30 font-black'
                 : 'bg-black/50 backdrop-blur-md border-pink-500/30 text-pink-200 hover:text-white font-extrabold'
-            }`}
+              }`}
             title="Select item"
           >
             <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -234,7 +232,7 @@ function ReelProductCard({
 
       {/* Active variant label — floating pill */}
       {activeVariant && (
-        <div 
+        <div
           key={activeVariant.name}
           className="absolute top-20 left-1/2 z-40 bg-gradient-to-r from-[#5d51e8] to-[#8b5cf6] text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-purple-500/30 animate-spring-pop"
         >
@@ -245,7 +243,7 @@ function ReelProductCard({
 
       {/* Bottom overlay with product info */}
       <div className="absolute bottom-0 left-0 right-0 z-40 p-5 pb-6 flex flex-col max-h-[60dvh]">
-        
+
         {/* Scrollable product details wrapper (name, desc, variants) */}
         <div className="overflow-y-auto scrollbar-none space-y-2.5 mb-2.5 pr-1">
           {/* Category badge — vibrant color */}
@@ -303,11 +301,10 @@ function ReelProductCard({
                         triggerHaptic('light');
                       }
                     }}
-                    className={`flex-shrink-0 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${
-                      isActiveVar
+                    className={`flex-shrink-0 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${isActiveVar
                         ? 'w-11 h-11 rounded-full ring-2 ring-white scale-110 shadow-lg'
                         : 'w-9 h-9 rounded-full opacity-60 hover:opacity-100 border border-white/10'
-                    }`}
+                      }`}
                     title={v.name}
                   >
                     {isVarImgWeb ? (
@@ -332,22 +329,20 @@ function ReelProductCard({
 
         {/* Add to Cart button or Stock status */}
         {readOnly ? (
-          <div className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 flex-shrink-0 ${
-            product.inStock 
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+          <div className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 flex-shrink-0 ${product.inStock
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
               : 'bg-red-500/10 text-red-400 border border-red-500/20'
-          }`}>
+            }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
             <span>{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
           </div>
         ) : (
           <button
             onClick={() => handleAddToCart('success')}
-            className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] flex-shrink-0 ${
-              isSelected
+            className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] flex-shrink-0 ${isSelected
                 ? 'bg-white text-[#5d51e8] shadow-lg'
                 : 'bg-gradient-to-r from-[#5d51e8] to-[#7c3aed] text-white shadow-lg shadow-[#5d51e8]/30'
-            }`}
+              }`}
           >
             {isSelected ? (
               <>
@@ -590,7 +585,7 @@ export default function ClientProductGrid({
     const scrollTop = container.scrollTop;
     const height = container.clientHeight;
     const idx = Math.round(scrollTop / height);
-    
+
     const active = Math.min(idx, finalFilteredProducts.length - 1);
     setActiveReelIdx(active);
 
@@ -636,8 +631,8 @@ export default function ClientProductGrid({
               className="w-full bg-transparent text-white text-xs font-bold placeholder-white/40 outline-none"
             />
             {searchQuery && (
-              <button 
-                onClick={() => onSearchChange('')} 
+              <button
+                onClick={() => onSearchChange('')}
                 className="p-1 rounded-full text-white/50 hover:text-white active:scale-90 transition-transform"
                 title="Clear search"
               >
@@ -653,11 +648,10 @@ export default function ClientProductGrid({
               setShowFiltersPanel(prev => !prev);
               triggerHaptic('light');
             }}
-            className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-90 shadow-xl cursor-pointer flex-shrink-0 relative ${
-              showFiltersPanel
+            className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-90 shadow-xl cursor-pointer flex-shrink-0 relative ${showFiltersPanel
                 ? 'bg-gradient-to-tr from-[#8b5cf6] to-[#6366f1] border-[#8b5cf6] text-white shadow-purple-500/30'
                 : 'bg-black/65 backdrop-blur-2xl border-purple-500/35 text-purple-200 hover:text-white'
-            }`}
+              }`}
             title="Filter category & price"
           >
             {showFiltersPanel ? <X className="w-4 h-4 stroke-[2.5]" /> : <SlidersHorizontal className="w-4 h-4 stroke-[2.5]" />}
@@ -675,7 +669,7 @@ export default function ClientProductGrid({
 
         {/* ── Filter Bottom Sheet (slides up on tap, swipe-to-dismiss) ── */}
         {showFiltersPanel && (
-          <div 
+          <div
             className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/10 p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom duration-300"
             onTouchStart={handleDragStart}
             onTouchMove={handleDragMove}
@@ -718,11 +712,10 @@ export default function ClientProductGrid({
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                        isSel
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${isSel
                           ? 'bg-[#5d51e8] text-white'
                           : 'bg-white/10 text-white/70 hover:bg-white/15'
-                      }`}
+                        }`}
                     >
                       {cat}
                     </button>
@@ -1096,45 +1089,10 @@ export default function ClientProductGrid({
       {loading ? (
         <Loader variant="skeleton-grid" />
       ) : paginatedProducts.length === 0 ? (
-        <div className="py-16 px-6 text-center border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-3xl space-y-4 shadow-sm">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 flex items-center justify-center mx-auto text-[#5d51e8] dark:text-indigo-400">
-            <PackageX className="w-8 h-8" />
-          </div>
-          <div>
-            <h3 className="text-base font-black text-slate-800 dark:text-white">
-              {lang === 'en' ? 'No Matching Products Found' : 'कोई उत्पाद नहीं मिला'}
-            </h3>
-            <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 max-w-md mx-auto mt-1">
-              {searchQuery ? (
-                <>We couldn't find anything matching <span className="text-[#5d51e8] dark:text-indigo-400 font-extrabold">"{searchQuery}"</span>. Try checking for typos or searching by saree code, design name, or category.</>
-              ) : (
-                <>No products match your selected filters. Try adjusting your category or price range settings.</>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            {searchQuery && (
-              <button
-                onClick={() => onSearchChange('')}
-                className="px-4 py-2 bg-[#5d51e8] hover:bg-[#4b3fd3] text-white text-xs font-black rounded-xl transition-all shadow-md shadow-[#5d51e8]/20 cursor-pointer"
-              >
-                Clear Search
-              </button>
-            )}
-            {isFilterActive && (
-              <button
-                onClick={() => {
-                  setSelectedCategory('All');
-                  setPriceFilter(absoluteMaxPrice);
-                  setMinPriceFilter(absoluteMinPrice);
-                  onSearchChange('');
-                }}
-                className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-300 text-xs font-black rounded-xl transition-all cursor-pointer"
-              >
-                Reset All Filters
-              </button>
-            )}
-          </div>
+        <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-3xl">
+          <p className="text-sm font-bold text-slate-400 dark:text-zinc-550">
+            No products match selected filters or search.
+          </p>
         </div>
       ) : (
         <div className="space-y-8">

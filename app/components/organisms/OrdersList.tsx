@@ -292,6 +292,49 @@ export default function OrdersList({
     return filteredSortedOrders.slice(startIndex, startIndex + pageSize);
   }, [filteredSortedOrders, startIndex, pageSize]);
 
+  // Helper to render Account Approval Status & Role badges
+  const renderUserBadges = (profile?: UserProfile) => {
+    const status = profile?.status || 'approved'; // default approved for legacy/admin
+    const role = profile?.role || 'client';
+
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        {/* Status Pill */}
+        {status === 'approved' ? (
+          <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[8.5px] font-black px-1.5 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-900/50 uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Approved
+          </span>
+        ) : status === 'rejected' ? (
+          <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-955/40 text-rose-700 dark:text-rose-300 text-[8.5px] font-black px-1.5 py-0.5 rounded-md border border-rose-200/60 dark:border-rose-900/50 uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+            Rejected
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-955/40 text-amber-700 dark:text-amber-300 text-[8.5px] font-black px-1.5 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/50 uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            Pending
+          </span>
+        )}
+
+        {/* Role Pill */}
+        {role === 'salesman' ? (
+          <span className="inline-flex items-center gap-1 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[8.5px] font-black px-1.5 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-900/50 uppercase tracking-wider">
+            👔 Salesman
+          </span>
+        ) : role === 'admin' ? (
+          <span className="inline-flex items-center gap-1 bg-slate-900 dark:bg-zinc-800 text-white text-[8.5px] font-black px-1.5 py-0.5 rounded-md border border-slate-700 dark:border-zinc-700 uppercase tracking-wider">
+            🛡️ Admin
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 text-[8.5px] font-black px-1.5 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-900/50 uppercase tracking-wider">
+            👤 Client
+          </span>
+        )}
+      </div>
+    );
+  };
+
   // Print Invoice Function
   const handlePrint = () => {
     window.print();
@@ -422,7 +465,7 @@ export default function OrdersList({
                 <tbody className="divide-y divide-slate-150/60 dark:divide-zinc-800/85">
                   {paginatedOrders.map((order) => {
                     const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                    const userProfile = usersList.find(u => u.uid === order.userUid);
+                    const userProfile = usersList.find(u => u.uid === order.userUid || (u.email && u.email.toLowerCase() === order.userEmail.toLowerCase()));
                     
                     return (
                       <tr 
@@ -431,16 +474,20 @@ export default function OrdersList({
                       >
                          {/* Buyer Details */}
                         <td className="py-4 px-6">
-                          <div className="max-w-[200px] space-y-1">
+                          <div className="max-w-[210px] space-y-1">
                             <p className="font-black text-slate-900 dark:text-white text-xs truncate" title={order.userName}>
                               {order.userName}
                             </p>
                             <p className="font-bold text-slate-400 text-[10px] truncate" title={order.userEmail}>
                               {order.userEmail}
                             </p>
+
+                            {/* Account Approval Status & Role Badges */}
+                            {renderUserBadges(userProfile)}
+
                             {/* Profile Metadata snippet */}
                             {userProfile && userProfile.customDetails && Object.keys(userProfile.customDetails).length > 0 && (
-                              <div className="flex flex-col gap-0.5 pt-0.5">
+                              <div className="flex flex-col gap-0.5 pt-1">
                                 {Object.entries(userProfile.customDetails).slice(0, 2).map(([key, val]) => (
                                   <div 
                                     key={key} 
@@ -569,7 +616,7 @@ export default function OrdersList({
             <div className="block md:hidden p-4 space-y-4 bg-slate-50/30 dark:bg-zinc-955/10">
               {paginatedOrders.map((order) => {
                 const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const userProfile = usersList.find(u => u.uid === order.userUid);
+                const userProfile = usersList.find(u => u.uid === order.userUid || (u.email && u.email.toLowerCase() === order.userEmail.toLowerCase()));
                 return (
                   <div 
                     key={order.id} 
@@ -604,6 +651,10 @@ export default function OrdersList({
                     <div className="text-left">
                       <p className="font-black text-slate-900 dark:text-white text-xs truncate">{order.userName}</p>
                       <p className="font-bold text-slate-400 text-[10px] truncate">{order.userEmail}</p>
+
+                      {/* Account Approval Status & Role Badges */}
+                      {renderUserBadges(userProfile)}
+
                       {/* Firm / Details */}
                       {userProfile && userProfile.customDetails && Object.keys(userProfile.customDetails).length > 0 && (
                         <div className="flex flex-col gap-0.5 pt-1">

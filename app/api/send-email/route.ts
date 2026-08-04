@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { getAdminApp, getAdminDb } from '../../lib/firebaseAdmin';
+import { getMessaging } from 'firebase-admin/messaging';
 
 export async function POST(request: Request) {
   try {
@@ -15,11 +17,68 @@ export async function POST(request: Request) {
     // Calculate total value
     const totalValue = order.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
 
+    // ─── OPTION 2 & 4: Fetch all Salesmen emails & FCM tokens from Firestore ───
+    const recipientEmails: string[] = [adminEmail];
+    const salesmanTokens: string[] = [];
+
+    try {
+      const adminDb = getAdminDb();
+      const salesmenSnap = await adminDb.collection('users').where('role', '==', 'salesman').get();
+      salesmenSnap.forEach((doc) => {
+        const data = doc.data();
+        if (data.email && typeof data.email === 'string') {
+          recipientEmails.push(data.email);
+        }
+        if (Array.isArray(data.fcmTokens)) {
+          salesmanTokens.push(...data.fcmTokens);
+        }
+      });
+    } catch (dbErr) {
+      console.warn('⚠️ Warning: Failed to query salesmen profiles from Firestore:', dbErr);
+    }
+
+    // Deduplicate recipient emails & tokens
+    const uniqueEmails = Array.from(new Set(recipientEmails));
+    const uniqueTokens = Array.from(new Set(salesmanTokens));
+
+    // ─── OPTION 4: Dispatch FCM Push Notifications to Salesmen Devices ───
+    if (uniqueTokens.length > 0) {
+      try {
+        const adminApp = getAdminApp();
+        const messaging = getMessaging(adminApp);
+        const fcmResponse = await messaging.sendEachForMulticast({
+          tokens: uniqueTokens,
+          notification: {
+            title: '🚨 New Order Received!',
+            body: `Order #${order.id} for ₹${totalValue.toLocaleString()} from ${order.userName}`,
+          },
+          webpush: {
+            fcmOptions: {
+              link: `${origin || 'http://localhost:3000'}/salesman`
+            },
+            notification: {
+              icon: '/icon.png',
+              badge: '/icon.png',
+              requireInteraction: true
+            }
+          },
+          data: {
+            orderId: String(order.id || ''),
+            userName: String(order.userName || '')
+          }
+        });
+        console.log(`✅ FCM Push Notifications dispatched to ${uniqueTokens.length} devices. Success count: ${fcmResponse.successCount}`);
+      } catch (fcmErr) {
+        console.warn('⚠️ Warning: FCM Push Notification dispatch failed:', fcmErr);
+      }
+    }
+
+    // ─── OPTION 2: Email Notification ───
     if (!smtpUser || !smtpPass) {
       console.warn('⚠️ SMTP credentials missing (SMTP_USER/SMTP_PASS in .env.local). Email notification skipped.');
       return NextResponse.json({ 
         success: true, 
-        message: 'Order created, but email notification skipped due to missing SMTP configuration in .env.local.' 
+        message: 'Order created & push notifications sent (if any), but email notification skipped due to missing SMTP configuration in .env.local.' 
       });
     }
 
@@ -54,7 +113,7 @@ export async function POST(request: Request) {
       </tr>
     `).join('');
 
-    const dashboardUrl = `${origin || 'http://localhost:3000'}/admin`;
+    const dashboardUrl = `${origin || 'http://localhost:3000'}/salesman`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -73,7 +132,7 @@ export async function POST(request: Request) {
                 <tr>
                   <td style="background: linear-gradient(135deg, #0b0e14 0%, #1a2333 100%); padding: 32px 40px; text-align: left;">
                     <span style="background-color: rgba(255, 255, 255, 0.1); color: #818cf8; font-size: 10px; font-weight: 900; letter-spacing: 0.1em; padding: 6px 12px; border-radius: 9999px; text-transform: uppercase;">
-                      Logistics Notification
+                      Sales Alert Notification
                     </span>
                     <h1 style="color: #ffffff; margin: 12px 0 0 0; font-size: 20px; font-weight: 800; line-height: 1.2;">
                       New Order Request Alert
@@ -138,7 +197,7 @@ export async function POST(request: Request) {
                       <tr>
                         <td align="center" style="padding-top: 10px;">
                           <a href="${dashboardUrl}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-family: sans-serif; font-size: 13px; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.15); text-transform: uppercase; letter-spacing: 0.05em;">
-                            View Order in Admin Panel
+                            Claim & View Order in Salesman Portal
                           </a>
                         </td>
                       </tr>
@@ -151,7 +210,7 @@ export async function POST(request: Request) {
                   <td style="padding: 0 40px 40px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                     <p style="color: #94a3b8; font-size: 11px; font-weight: 500; margin: 20px 0 0 0; line-height: 1.5;">
                       This is an automated system alert sent by Balaji Textiles portal.<br>
-                      To change email notification preferences, update your configuration files.
+                      Sent to admin and sales team.
                     </p>
                   </td>
                 </tr>
@@ -165,17 +224,18 @@ export async function POST(request: Request) {
 
     await transporter.sendMail({
       from: `"Balaji Textiles Alerts" <${smtpUser}>`,
-      to: adminEmail,
+      to: uniqueEmails.join(', '),
       subject: `🚨 New Order Request: ₹${totalValue.toLocaleString()} from ${order.userName}`,
       html: htmlContent
     });
 
-    return NextResponse.json({ success: true, message: 'Email sent successfully!' });
+    return NextResponse.json({ success: true, message: 'Email & push notifications sent successfully!' });
   } catch (error: any) {
-    console.error('Email send error:', error);
+    console.error('Notification dispatch error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to send email notification: ' + error.message },
+      { success: false, error: 'Failed to dispatch notification: ' + error.message },
       { status: 500 }
     );
   }
 }
+

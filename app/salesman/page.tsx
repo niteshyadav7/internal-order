@@ -9,6 +9,8 @@ import {
   Product,
   addSalesmanNote
 } from '../lib/db';
+import { playOrderChime, initAudioContext, enableAudio } from '../lib/audio';
+import { requestNotificationPermissionAndGetToken } from '../lib/fcmClient';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store/store';
 import { 
@@ -43,7 +45,8 @@ import {
   AlertTriangle,
   MessageSquare,
   TrendingUp,
-  PackageX
+  PackageX,
+  Volume2
 } from 'lucide-react';
 import Button from '../components/atoms/Button';
 import ClientProductGrid from '../components/organisms/ClientProductGrid';
@@ -92,6 +95,58 @@ export default function SalesmanPortal() {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, [user, userProfile, dispatch]);
+
+  // Option 4: Register FCM Push Token for mobile & desktop notifications + Mobile Audio Unlock
+  useEffect(() => {
+    if (user && userProfile?.role === 'salesman') {
+      requestNotificationPermissionAndGetToken(user.uid);
+    }
+    const handleGesture = () => {
+      initAudioContext();
+    };
+    window.addEventListener('touchstart', handleGesture, { once: true });
+    window.addEventListener('click', handleGesture, { once: true });
+    return () => {
+      window.removeEventListener('touchstart', handleGesture);
+      window.removeEventListener('click', handleGesture);
+    };
+  }, [user, userProfile]);
+
+  // Option 1: Live Order Arrival Detector for Audio Chime & Animated Toast Alerts
+  const prevPendingOrderIdsRef = React.useRef<Set<string>>(new Set());
+  const isInitialOrderLoadRef = React.useRef(true);
+
+  useEffect(() => {
+    if (loadingOrders || !orders) return;
+
+    const currentPendingIds = new Set(
+      orders.filter(o => o.status === 'pending' && !o.assignedSalesmanUid).map(o => o.id!).filter(Boolean)
+    );
+
+    if (isInitialOrderLoadRef.current) {
+      prevPendingOrderIdsRef.current = currentPendingIds;
+      isInitialOrderLoadRef.current = false;
+      return;
+    }
+
+    // Check if any new pending order arrived that wasn't in previous snapshot
+    let newlyArrivedOrder: Order | null = null;
+    currentPendingIds.forEach(id => {
+      if (!prevPendingOrderIdsRef.current.has(id)) {
+        const found = orders.find(o => o.id === id);
+        if (found) newlyArrivedOrder = found;
+      }
+    });
+
+    if (newlyArrivedOrder) {
+      // Play pleasant bell chime sound
+      playOrderChime();
+      // Show animated visual toast banner
+      showToast(`🚨 NEW ORDER RECEIVED! Order from ${(newlyArrivedOrder as Order).userName}`, 'success');
+    }
+
+    prevPendingOrderIdsRef.current = currentPendingIds;
+  }, [orders, loadingOrders]);
 
   // Fetch products on demand when products tab is opened
   useEffect(() => {
@@ -348,6 +403,27 @@ export default function SalesmanPortal() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 transition-colors duration-300 font-sans pb-12">
+      {/* Live Animated Toast Notification Banner */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-5 duration-300 max-w-md w-full px-4">
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-center justify-between backdrop-blur-md ${
+            toast.type === 'success' 
+              ? 'bg-slate-900/90 text-white border-indigo-500/40 shadow-indigo-500/10'
+              : 'bg-rose-950/90 text-white border-rose-500/40 shadow-rose-500/10'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#5d51e8] rounded-xl text-white animate-pulse">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-black tracking-wide">{toast.message}</p>
+            </div>
+            <button onClick={() => setToast(null)} className="p-1 hover:bg-white/10 rounded-lg text-slate-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header bar */}
       <header className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 dark:border-zinc-800 shadow-sm py-4 px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -365,13 +441,28 @@ export default function SalesmanPortal() {
           </div>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-550 dark:text-zinc-450 hover:text-rose-600 dark:hover:text-rose-450 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Logout</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              enableAudio();
+              playOrderChime();
+              showToast('🔔 Sound Alert Active & Tested!', 'success');
+            }}
+            className="p-2 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-[#5d51e8] dark:text-indigo-300 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-extrabold border border-indigo-200/50 dark:border-indigo-800/40"
+            title="Enable and test audio chime alert"
+          >
+            <Volume2 className="w-4 h-4 text-[#5d51e8] dark:text-indigo-300" />
+            <span className="hidden sm:inline">Test Sound</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-550 dark:text-zinc-450 hover:text-rose-600 dark:hover:text-rose-450 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Grid View */}

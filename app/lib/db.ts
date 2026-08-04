@@ -45,6 +45,7 @@ export interface UserProfile {
   requestedFirmName?: string;
   role?: 'client' | 'salesman' | 'admin';
   plainPassword?: string;  // Only for staff accounts created directly by admin
+  fcmTokens?: string[];
 }
 
 // Create or retrieve user profile in Firestore
