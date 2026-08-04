@@ -883,6 +883,21 @@ export default function ClientProductGrid({
             }}
           >
             {finalFilteredProducts.map((product, idx) => {
+              // Mobile Viewport Virtualization: Only mount full card DOM for active slide & immediate neighbors
+              const isNearViewport = Math.abs(idx - activeReelIdx) <= 2;
+              if (!isNearViewport) {
+                return (
+                  <div
+                    key={product.id}
+                    className="w-full flex-shrink-0"
+                    style={{
+                      height: '100dvh',
+                      scrollSnapAlign: 'start',
+                      scrollSnapStop: 'always',
+                    }}
+                  />
+                );
+              }
 
               return (
                 <ReelProductCard
