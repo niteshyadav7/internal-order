@@ -186,7 +186,7 @@ export default function ClientOrdersList({
                             </p>
                             <p className="text-[10px] sm:text-xs text-slate-400 font-bold mt-0.5">
                               Qty: {item.quantity}
-                              {(item.code || item.design) && ` | Code: ${item.code || 'N/A'} | Design: ${item.design || 'N/A'}`}
+                              {item.design && ` | Design: ${item.design}`}
                             </p>
                           </div>
                         </div>

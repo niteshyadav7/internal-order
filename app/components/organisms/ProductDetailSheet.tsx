@@ -231,9 +231,9 @@ export default function ProductDetailSheet({
           {/* Details Content */}
           <div className="p-6 space-y-5">
             <div className="space-y-1.5 text-left">
-              {(product.code || product.design) && (
+              {product.design && (
                 <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-900/30">
-                  Code: {product.code || 'N/A'} | Design: {product.design || 'N/A'}
+                  Design: {product.design}
                 </div>
               )}
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
