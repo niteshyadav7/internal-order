@@ -231,11 +231,18 @@ export default function ProductDetailSheet({
           {/* Details Content */}
           <div className="p-6 space-y-5">
             <div className="space-y-1.5 text-left">
-              {product.design && (
-                <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-900/30">
-                  Design: {product.design}
-                </div>
-              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {product.brand && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase tracking-wider">
+                    Brand: {product.brand}
+                  </span>
+                )}
+                {product.design && (
+                  <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-900/30">
+                    Design: {product.design}
+                  </div>
+                )}
+              </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
                 {product.nameEn}
               </h2>

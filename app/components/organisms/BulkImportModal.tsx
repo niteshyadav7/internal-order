@@ -38,6 +38,7 @@ export interface StagedProductItem {
   category: string;
   code: string;       // Product Code / SKU
   design: string;     // Design Identifier
+  brand?: string;      // Brand Name
   priceRangePct?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -157,6 +158,7 @@ export default function BulkImportModal({
           const category = rec.category || (categoriesList[0] || 'Electronics');
           const code = rec.code || rec.sku || `SKU-${100 + idx}`;
           const design = rec.design || rec.designCode || `DES-${100 + idx}`;
+          const brand = rec.brand || rec.brandName || rec.brand_name || '';
           const descEn = rec.descEn || rec.description || '';
 
           // Parse initial CSV image URLs if provided
@@ -200,6 +202,7 @@ export default function BulkImportModal({
             category,
             code,
             design,
+            brand,
             priceRangePct: rec.priceRangePct ? parseFloat(rec.priceRangePct) : undefined,
             minPrice: rec.minPrice ? parseFloat(rec.minPrice) : undefined,
             maxPrice: rec.maxPrice ? parseFloat(rec.maxPrice) : undefined,
@@ -1057,14 +1060,14 @@ export default function BulkImportModal({
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400">Product Name</label>
                       <input
                         type="text"
                         value={currentProduct.nameEn}
                         onChange={(e) => updateStagedProduct(selectedProductIndex, { nameEn: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
                       />
                     </div>
                     <div>
@@ -1073,7 +1076,7 @@ export default function BulkImportModal({
                         type="text"
                         value={currentProduct.code}
                         onChange={(e) => updateStagedProduct(selectedProductIndex, { code: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
                       />
                     </div>
                     <div>
@@ -1082,7 +1085,17 @@ export default function BulkImportModal({
                         type="text"
                         value={currentProduct.design}
                         onChange={(e) => updateStagedProduct(selectedProductIndex, { design: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-slate-400">Brand Name</label>
+                      <input
+                        type="text"
+                        value={currentProduct.brand || ''}
+                        onChange={(e) => updateStagedProduct(selectedProductIndex, { brand: e.target.value })}
+                        placeholder="e.g. Balaji"
+                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
                       />
                     </div>
                     <div>
@@ -1091,7 +1104,7 @@ export default function BulkImportModal({
                         type="number"
                         value={currentProduct.price}
                         onChange={(e) => updateStagedProduct(selectedProductIndex, { price: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
                       />
                     </div>
                   </div>

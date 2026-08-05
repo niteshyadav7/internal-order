@@ -290,6 +290,7 @@ export interface Product {
   inStock?: boolean;
   code?: string;
   design?: string;
+  brand?: string;                // Brand Name
   images?: ProductImage[];      // Multiple product images
   variants?: ProductVariant[];  // Model/variant options
   priceRangePct?: number;       // Custom product price variance % override
@@ -307,6 +308,7 @@ export interface OrderItem {
   quantity: number;
   code?: string;
   design?: string;
+  brand?: string;                // Brand Name
   selectedVariant?: string;     // Variant name chosen by user
   selectedImageUrl?: string;    // Image URL of selected variant (for PDF)
   priceRangePct?: number;       // Snapshot of custom price variance % override

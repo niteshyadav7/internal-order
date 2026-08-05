@@ -170,6 +170,7 @@ export default function AdminDashboard() {
   const [isNewProdCompressing, setIsNewProdCompressing] = useState(false);
   const [newProdCode, setNewProdCode] = useState('');
   const [newProdDesign, setNewProdDesign] = useState('');
+  const [newProdBrand, setNewProdBrand] = useState('');
   const [newProdImages, setNewProdImages] = useState<ProductImage[]>([]);
   const [newProdVariants, setNewProdVariants] = useState<ProductVariant[]>([]);
 
@@ -1071,6 +1072,7 @@ export default function AdminDashboard() {
           inStock: newProdInStock,
           code: newProdCode,
           design: newProdDesign,
+          brand: newProdBrand,
           images: newProdImages.length > 0 ? newProdImages : existingProd.images,
           variants: newProdVariants.length > 0 ? newProdVariants : existingProd.variants,
           priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
@@ -1088,6 +1090,7 @@ export default function AdminDashboard() {
         setNewProdInStock(true);
         setNewProdCode('');
         setNewProdDesign('');
+        setNewProdBrand('');
         setNewProdImages([]);
         setNewProdVariants([]);
         setNewProdPriceRangePct('');
@@ -1109,6 +1112,7 @@ export default function AdminDashboard() {
           inStock: newProdInStock,
           code: newProdCode,
           design: newProdDesign,
+          brand: newProdBrand,
           images: newProdImages,
           variants: newProdVariants,
           priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
@@ -1127,6 +1131,7 @@ export default function AdminDashboard() {
           setNewProdInStock(true);
           setNewProdCode('');
           setNewProdDesign('');
+          setNewProdBrand('');
           setNewProdImages([]);
           setNewProdVariants([]);
           setNewProdPriceRangePct('');
@@ -1412,6 +1417,7 @@ export default function AdminDashboard() {
             category: item.category || 'Electronics',
             code: item.code || '',
             design: item.design || '',
+            brand: item.brand || '',
             images: item.images.length > 0 ? item.images : existingInDb.images,
             variants: item.variants.length > 0 ? item.variants : existingInDb.variants,
             priceRangePct: item.priceRangePct,
@@ -1432,6 +1438,7 @@ export default function AdminDashboard() {
             category: item.category || 'Electronics',
             code: item.code || '',
             design: item.design || '',
+            brand: item.brand || '',
             images: item.images,
             variants: item.variants,
             priceRangePct: item.priceRangePct,
@@ -2329,7 +2336,7 @@ export default function AdminDashboard() {
                             <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">3</span>
                             <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <Input
                               label="Product Code"
                               required
@@ -2343,6 +2350,12 @@ export default function AdminDashboard() {
                               value={newProdDesign}
                               onChange={(e) => setNewProdDesign(e.target.value)}
                               placeholder="e.g. Design-A"
+                            />
+                            <Input
+                              label="Brand Name"
+                              value={newProdBrand}
+                              onChange={(e) => setNewProdBrand(e.target.value)}
+                              placeholder="e.g. Balaji Textiles"
                             />
                           </div>
 
@@ -2370,6 +2383,7 @@ export default function AdminDashboard() {
                                   setNewProdUnit(existingCodeProduct.unit || 'Pcs');
                                   setNewProdCategory(existingCodeProduct.category || '');
                                   setNewProdDesign(existingCodeProduct.design || '');
+                                  setNewProdBrand(existingCodeProduct.brand || '');
                                   if (existingCodeProduct.images && existingCodeProduct.images.length > 0) {
                                     setNewProdImages(existingCodeProduct.images);
                                   }
