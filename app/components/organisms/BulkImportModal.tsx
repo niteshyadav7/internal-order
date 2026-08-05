@@ -509,6 +509,7 @@ export default function BulkImportModal({
       p.nameEn.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
       p.design.toLowerCase().includes(q) ||
+      (p.brand && p.brand.toLowerCase().includes(q)) ||
       p.category.toLowerCase().includes(q)
     );
   });

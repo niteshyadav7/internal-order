@@ -74,7 +74,7 @@ export default function ProductsTable({
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <SearchInput
-                placeholder="Search product name, category..."
+                placeholder="Search name, code, brand, category..."
                 value={searchQuery}
                 onChange={onSearchChange}
               />

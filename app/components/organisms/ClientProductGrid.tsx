@@ -497,10 +497,15 @@ export default function ClientProductGrid({
   const finalFilteredProducts = products.filter(product => {
     const name = lang === 'en' ? product.nameEn : product.nameHi;
     const desc = lang === 'en' ? product.descEn : product.descHi;
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
-      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      name.toLowerCase().includes(q) ||
+      desc.toLowerCase().includes(q) ||
+      product.category.toLowerCase().includes(q) ||
+      (product.code && product.code.toLowerCase().includes(q)) ||
+      (product.design && product.design.toLowerCase().includes(q)) ||
+      (product.brand && product.brand.toLowerCase().includes(q));
     const matchesCategory =
       selectedCategory === 'All' ||
       product.category.toLowerCase() === selectedCategory.toLowerCase();

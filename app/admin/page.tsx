@@ -1473,11 +1473,14 @@ export default function AdminDashboard() {
   const getFilteredAndSortedProducts = () => {
     let result = [...productsList];
     if (productSearchQuery.trim()) {
-      const q = productSearchQuery.toLowerCase();
+      const q = productSearchQuery.toLowerCase().trim();
       result = result.filter(p =>
         p.nameEn.toLowerCase().includes(q) ||
         p.descEn.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+        p.category.toLowerCase().includes(q) ||
+        (p.code && p.code.toLowerCase().includes(q)) ||
+        (p.design && p.design.toLowerCase().includes(q)) ||
+        (p.brand && p.brand.toLowerCase().includes(q))
       );
     }
     result.sort((a, b) => {
