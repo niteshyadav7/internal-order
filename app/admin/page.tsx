@@ -240,6 +240,7 @@ export default function AdminDashboard() {
   const [editProdInStock, setEditProdInStock] = useState(true);
   const [editProdCode, setEditProdCode] = useState('');
   const [editProdDesign, setEditProdDesign] = useState('');
+  const [editProdBrand, setEditProdBrand] = useState('');
   const [editProdImages, setEditProdImages] = useState<ProductImage[]>([]);
   const [editProdVariants, setEditProdVariants] = useState<ProductVariant[]>([]);
   const [savingEditedProduct, setSavingEditedProduct] = useState(false);
@@ -964,6 +965,7 @@ export default function AdminDashboard() {
     setEditProdInStock(product.inStock !== false);
     setEditProdCode(product.code || '');
     setEditProdDesign(product.design || '');
+    setEditProdBrand(product.brand || '');
     setEditProdImages(product.images || []);
     setEditProdVariants(product.variants || []);
     setEditProdPriceRangePct((product.priceRangePct !== undefined && product.priceRangePct !== null) ? product.priceRangePct.toString() : '');
@@ -992,6 +994,7 @@ export default function AdminDashboard() {
         inStock: editProdInStock,
         code: editProdCode,
         design: editProdDesign,
+        brand: editProdBrand,
         images: editProdImages,
         variants: editProdVariants,
         priceRangePct: editProdPriceRangePct.trim() ? parseFloat(editProdPriceRangePct) : (null as any),
@@ -2891,6 +2894,8 @@ export default function AdminDashboard() {
         onCodeChange={setEditProdCode}
         design={editProdDesign}
         onDesignChange={setEditProdDesign}
+        brand={editProdBrand}
+        onBrandChange={setEditProdBrand}
         onSave={handleSaveEditedProduct}
         saving={savingEditedProduct}
         priceRangePct={editProdPriceRangePct}
