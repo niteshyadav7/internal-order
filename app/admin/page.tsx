@@ -67,6 +67,7 @@ import UserEditModal from '../components/organisms/UserEditModal';
 import UserCreateModal from '../components/organisms/UserCreateModal';
 import ProductEditModal from '../components/organisms/ProductEditModal';
 import StaffManagement from '../components/organisms/StaffManagement';
+import BulkImportModal, { StagedProductItem } from '../components/organisms/BulkImportModal';
 
 // Atoms for Form Components
 import { Input, Checkbox, Select } from '../components/atoms/Input';
@@ -237,6 +238,7 @@ export default function AdminDashboard() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
   const [seedingCatalog, setSeedingCatalog] = useState(false);
+  const [isBulkWorkspaceOpen, setIsBulkWorkspaceOpen] = useState(false);
   const [productPage, setProductPage] = useState(1);
   const [productPageSize, setProductPageSize] = useState(10);
 
@@ -863,22 +865,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSelectAllUsers = (checked: boolean) => {
-    if (checked) {
-      const uids = filteredUsers.map(u => u.uid);
-      setSelectedUserUids(uids);
-    } else {
-      setSelectedUserUids([]);
-    }
-  };
 
-  const handleSelectUser = (uid: string, checked: boolean) => {
-    if (checked) {
-      setSelectedUserUids(prev => [...prev, uid]);
-    } else {
-      setSelectedUserUids(prev => prev.filter(id => id !== uid));
-    }
-  };
 
   const handleOrderStatusUpdate = async (orderId: string, nextStatus: 'pending' | 'processing' | 'completed' | 'cancelled') => {
     try {
@@ -1338,6 +1325,47 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBulkImportComplete = async (stagedItems: StagedProductItem[]) => {
+    try {
+      let successCount = 0;
+      for (const item of stagedItems) {
+        if (item.category && !settingsCategories.includes(item.category)) {
+          const updatedCategories = [...settingsCategories, item.category];
+          await updateGlobalSettings({ categories: updatedCategories });
+          settingsCategories.push(item.category);
+          setSettingsCategories([...settingsCategories]);
+        }
+
+        const mainImageUrl = item.images.length > 0 ? item.images[0].url : 'gradient-indigo';
+
+        await createProduct({
+          nameEn: item.nameEn,
+          nameHi: item.nameHi || item.nameEn,
+          descEn: item.descEn || '',
+          descHi: item.descHi || item.descEn || '',
+          price: item.price,
+          unit: item.unit || 'Piece',
+          imageUrl: mainImageUrl,
+          category: item.category || 'Electronics',
+          code: item.code || '',
+          design: item.design || '',
+          images: item.images,
+          variants: item.variants,
+          priceRangePct: item.priceRangePct,
+          minPrice: item.minPrice,
+          maxPrice: item.maxPrice
+        } as any);
+        successCount++;
+      }
+      setAdminToast({ message: `Successfully imported ${successCount} products to catalog!`, type: "success" });
+      dispatch(fetchProductsThunk());
+    } catch (err) {
+      console.error("Error committing staged products:", err);
+      setAdminToast({ message: "Failed to import staged products.", type: "error" });
+      throw err;
+    }
+  };
+
   const handleSelectProduct = (id: string, checked: boolean) => {
     if (checked) {
       setSelectedProductIds(prev => [...prev, id]);
@@ -1548,6 +1576,23 @@ export default function AdminDashboard() {
   }, [usersList, ordersList, stockAlertsList, readNotificationIds, clearedNotificationIds]);
 
   const filteredUsers = getFilteredAndSortedUsers();
+
+  const handleSelectAllUsers = (checked: boolean) => {
+    if (checked) {
+      const uids = filteredUsers.map(u => u.uid);
+      setSelectedUserUids(uids);
+    } else {
+      setSelectedUserUids([]);
+    }
+  };
+
+  const handleSelectUser = (uid: string, checked: boolean) => {
+    if (checked) {
+      setSelectedUserUids(prev => [...prev, uid]);
+    } else {
+      setSelectedUserUids(prev => prev.filter(id => id !== uid));
+    }
+  };
 
   if (checkingSession || !isAdmin || !isFirebaseLoaded || authLoading) {
     return <Loader fullscreen text="Verifying administrator credentials..." />;
@@ -2412,6 +2457,16 @@ export default function AdminDashboard() {
                   onDownloadCSVTemplate={handleDownloadCSVTemplate}
                   onCSVUpload={handleCSVUpload}
                   onToggleStock={handleToggleStock}
+                  onOpenBulkWorkspace={() => setIsBulkWorkspaceOpen(true)}
+                />
+
+                <BulkImportModal
+                  isOpen={isBulkWorkspaceOpen}
+                  onClose={() => setIsBulkWorkspaceOpen(false)}
+                  categoriesList={settingsCategories}
+                  onImportComplete={handleBulkImportComplete}
+                  onDownloadTemplate={handleDownloadCSVTemplate}
+                  parseCSV={parseCSV}
                 />
               </div>
             )}

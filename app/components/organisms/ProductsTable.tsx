@@ -31,6 +31,7 @@ interface ProductsTableProps {
   onDownloadCSVTemplate: () => void;
   onCSVUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onToggleStock?: (product: Product) => void;
+  onOpenBulkWorkspace?: () => void;
 }
 
 export default function ProductsTable({
@@ -57,7 +58,8 @@ export default function ProductsTable({
   seedingCatalog,
   onDownloadCSVTemplate,
   onCSVUpload,
-  onToggleStock
+  onToggleStock,
+  onOpenBulkWorkspace
 }: ProductsTableProps) {
   const allSelected = products.length > 0 && selectedProductIds.length === products.length;
 
@@ -398,16 +400,27 @@ export default function ProductsTable({
               <Database className="w-3.5 h-3.5" />
               <span>Download CSV Template</span>
             </button>
-            <label className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm text-center">
-              <Upload className="w-3.5 h-3.5 inline-block" />
-              <span>Upload Product CSV</span>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={onCSVUpload}
-                className="hidden"
-              />
-            </label>
+            {onOpenBulkWorkspace ? (
+              <button
+                type="button"
+                onClick={onOpenBulkWorkspace}
+                className="flex-1 py-2.5 bg-[#5d51e8] hover:bg-[#4b3fd3] text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md active:scale-95"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Open Bulk Import & Image Linker Workspace</span>
+              </button>
+            ) : (
+              <label className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm text-center">
+                <Upload className="w-3.5 h-3.5 inline-block" />
+                <span>Upload Product CSV</span>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={onCSVUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
         </div>
       </div>
