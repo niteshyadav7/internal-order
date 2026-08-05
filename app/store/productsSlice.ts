@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { 
+  getProducts,
   getProductsPaginated, 
   getGlobalSettings, 
   updateProduct, 
@@ -23,7 +24,7 @@ const initialState: ProductsState = {
   globalSettings: null,
   loading: false,
   loadingMore: false,
-  hasMore: true,
+  hasMore: false,
   lastVisible: null,
 };
 
@@ -31,11 +32,11 @@ export const fetchProductsThunk = createAsyncThunk(
   'products/fetchProducts',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await getProductsPaginated(null, 15);
+      const allProducts = await getProducts();
       return {
-        products: res.products,
-        lastVisible: res.lastVisible,
-        hasMore: res.hasMore
+        products: allProducts,
+        lastVisible: null,
+        hasMore: false
       };
     } catch (err: any) {
       return rejectWithValue(err.message || "Failed to fetch products");
