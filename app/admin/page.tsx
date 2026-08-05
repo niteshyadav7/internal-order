@@ -1244,6 +1244,7 @@ export default function AdminDashboard() {
     setCsvProductsToImport([]);
     try {
       let successCount = 0;
+      let activeCategories = [...settingsCategories];
       for (const item of items) {
         const nameEn = item.nameEn || item.name;
         const nameHi = item.nameHi || nameEn;
@@ -1256,11 +1257,10 @@ export default function AdminDashboard() {
         const design = item.design || '';
 
         // Auto-register category if not exists
-        if (category && !settingsCategories.includes(category)) {
-          const updatedCategories = [...settingsCategories, category];
-          await updateGlobalSettings({ categories: updatedCategories });
-          settingsCategories.push(category);
-          setSettingsCategories([...settingsCategories]);
+        if (category && !activeCategories.includes(category)) {
+          activeCategories = [...activeCategories, category];
+          await updateGlobalSettings({ categories: activeCategories });
+          setSettingsCategories(activeCategories);
         }
 
         let images: ProductImage[] = [];
@@ -1328,12 +1328,12 @@ export default function AdminDashboard() {
   const handleBulkImportComplete = async (stagedItems: StagedProductItem[]) => {
     try {
       let successCount = 0;
+      let activeCategories = [...settingsCategories];
       for (const item of stagedItems) {
-        if (item.category && !settingsCategories.includes(item.category)) {
-          const updatedCategories = [...settingsCategories, item.category];
-          await updateGlobalSettings({ categories: updatedCategories });
-          settingsCategories.push(item.category);
-          setSettingsCategories([...settingsCategories]);
+        if (item.category && !activeCategories.includes(item.category)) {
+          activeCategories = [...activeCategories, item.category];
+          await updateGlobalSettings({ categories: activeCategories });
+          setSettingsCategories(activeCategories);
         }
 
         const mainImageUrl = item.images.length > 0 ? item.images[0].url : 'gradient-indigo';
