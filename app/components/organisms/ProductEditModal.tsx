@@ -83,18 +83,22 @@ export default function ProductEditModal({
   const [customInput, setCustomInput] = useState('');
   const [activeFullImage, setActiveFullImage] = useState<string | null>(null);
 
-  // Handle ESC key to close image lightbox
+  // Handle ESC key to close image lightbox or modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && activeFullImage) {
-        setActiveFullImage(null);
+      if (e.key === 'Escape') {
+        if (activeFullImage) {
+          setActiveFullImage(null);
+        } else {
+          onClose();
+        }
       }
     };
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeFullImage]);
+  }, [isOpen, activeFullImage, onClose]);
 
   // Automatically sync variants with uploaded images
   React.useEffect(() => {
@@ -138,8 +142,14 @@ export default function ProductEditModal({
   if (!isOpen || !product) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-lg w-full rounded-3xl sm:rounded-[2.2rem] p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto scrollbar-none">
+    <div
+      className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-lg w-full rounded-3xl sm:rounded-[2.2rem] p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto scrollbar-none cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="text-center space-y-1.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">
