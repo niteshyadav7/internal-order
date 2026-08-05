@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye } from 'lucide-react';
 import { Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
 import SearchInput from '../molecules/SearchInput';
@@ -32,6 +32,7 @@ interface ProductsTableProps {
   onCSVUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onToggleStock?: (product: Product) => void;
   onOpenBulkWorkspace?: () => void;
+  onPreviewProductGallery?: (product: Product) => void;
 }
 
 export default function ProductsTable({
@@ -59,7 +60,8 @@ export default function ProductsTable({
   onDownloadCSVTemplate,
   onCSVUpload,
   onToggleStock,
-  onOpenBulkWorkspace
+  onOpenBulkWorkspace,
+  onPreviewProductGallery
 }: ProductsTableProps) {
   const allSelected = products.length > 0 && selectedProductIds.length === products.length;
 
@@ -94,7 +96,7 @@ export default function ProductsTable({
                 <button
                   type="button"
                   onClick={onBatchDeleteProducts}
-                  className="px-3.5 py-1.5 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-650 dark:text-red-400 rounded-lg text-xs font-black active:scale-95 cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-955/20 text-red-650 dark:text-red-400 rounded-lg text-xs font-black active:scale-95 cursor-pointer transition-colors"
                 >
                   Delete Selected
                 </button>
@@ -196,11 +198,20 @@ export default function ProductsTable({
                                 />
                               </td>
                               <td className="py-4 px-4 text-center">
-                                <ProductPreview
-                                  imageUrl={product.imageUrl}
-                                  name={product.nameEn}
-                                  category={product.category}
-                                />
+                                <div
+                                  onClick={() => onPreviewProductGallery?.(product)}
+                                  className="inline-block cursor-pointer transition-transform hover:scale-110 active:scale-95 group relative"
+                                  title="Click to view photo gallery"
+                                >
+                                  <ProductPreview
+                                    imageUrl={product.imageUrl}
+                                    name={product.nameEn}
+                                    category={product.category}
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                                  </div>
+                                </div>
                               </td>
                               <td className="py-4 px-6">
                                 <div>
@@ -228,6 +239,14 @@ export default function ProductsTable({
                               </td>
                               <td className="py-4 px-6 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => onPreviewProductGallery?.(product)}
+                                    className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-955/20 rounded-full transition-all cursor-pointer"
+                                    title="View Product Image Gallery"
+                                  >
+                                    <Eye className="w-4.5 h-4.5" />
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => onToggleStock?.(product)}

@@ -62,6 +62,7 @@ import Header from '../components/organisms/Header';
 import UsersTable from '../components/organisms/UsersTable';
 import OrdersList from '../components/organisms/OrdersList';
 import ProductsTable from '../components/organisms/ProductsTable';
+import ProductGalleryModal from '../components/organisms/ProductGalleryModal';
 import DynamicFieldsList from '../components/organisms/DynamicFieldsList';
 import UserEditModal from '../components/organisms/UserEditModal';
 import UserCreateModal from '../components/organisms/UserCreateModal';
@@ -248,6 +249,7 @@ export default function AdminDashboard() {
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
   const [seedingCatalog, setSeedingCatalog] = useState(false);
   const [isBulkWorkspaceOpen, setIsBulkWorkspaceOpen] = useState(false);
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
   const [productPage, setProductPage] = useState(1);
   const [productPageSize, setProductPageSize] = useState(10);
 
@@ -2592,6 +2594,7 @@ export default function AdminDashboard() {
                   onCSVUpload={handleCSVUpload}
                   onToggleStock={handleToggleStock}
                   onOpenBulkWorkspace={() => setIsBulkWorkspaceOpen(true)}
+                  onPreviewProductGallery={(product) => setGalleryProduct(product)}
                 />
 
                 <BulkImportModal
@@ -2906,6 +2909,12 @@ export default function AdminDashboard() {
         onMinPriceChange={setEditProdMinPrice}
         maxPrice={editProdMaxPrice}
         onMaxPriceChange={setEditProdMaxPrice}
+      />
+
+      <ProductGalleryModal
+        isOpen={!!galleryProduct}
+        onClose={() => setGalleryProduct(null)}
+        product={galleryProduct}
       />
 
       {adminToast && (
