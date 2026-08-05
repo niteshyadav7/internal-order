@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye } from 'lucide-react';
+import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download } from 'lucide-react';
 import { Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
 import SearchInput from '../molecules/SearchInput';
@@ -30,6 +30,7 @@ interface ProductsTableProps {
   seedingCatalog: boolean;
   onDownloadCSVTemplate: () => void;
   onCSVUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onExportCSV?: (selectedOnly?: boolean) => void;
   onToggleStock?: (product: Product) => void;
   onOpenBulkWorkspace?: () => void;
   onPreviewProductGallery?: (product: Product) => void;
@@ -59,6 +60,7 @@ export default function ProductsTable({
   seedingCatalog,
   onDownloadCSVTemplate,
   onCSVUpload,
+  onExportCSV,
   onToggleStock,
   onOpenBulkWorkspace,
   onPreviewProductGallery
@@ -80,6 +82,17 @@ export default function ProductsTable({
                 value={searchQuery}
                 onChange={onSearchChange}
               />
+              {onExportCSV && (
+                <button
+                  type="button"
+                  onClick={() => onExportCSV(false)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                  title="Export catalog products to CSV"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export CSV</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -93,6 +106,16 @@ export default function ProductsTable({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {onExportCSV && (
+                  <button
+                    type="button"
+                    onClick={() => onExportCSV(true)}
+                    className="px-3.5 py-1.5 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-black active:scale-95 cursor-pointer transition-colors flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export Selected ({selectedProductIds.length})</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onBatchDeleteProducts}
@@ -419,6 +442,16 @@ export default function ProductsTable({
               <Database className="w-3.5 h-3.5" />
               <span>Download CSV Template</span>
             </button>
+            {onExportCSV && (
+              <button
+                type="button"
+                onClick={() => onExportCSV(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer border border-slate-200 dark:border-zinc-700 flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Products CSV</span>
+              </button>
+            )}
             {onOpenBulkWorkspace ? (
               <button
                 type="button"

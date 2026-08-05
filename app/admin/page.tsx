@@ -1219,6 +1219,60 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
+  const handleExportCSV = (selectedOnly: boolean = false) => {
+    let listToExport: Product[] = [];
+
+    if (selectedOnly) {
+      listToExport = productsList.filter(p => p.id && selectedProductIds.includes(p.id));
+    } else if (productSearchQuery.trim()) {
+      listToExport = filteredProducts;
+    } else {
+      listToExport = productsList;
+    }
+
+    if (listToExport.length === 0) {
+      alert("No products available to export.");
+      return;
+    }
+
+    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'unit', 'category', 'inStock', 'imageUrl', 'id'];
+
+    const escapeCSV = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = listToExport.map(p => [
+      escapeCSV(p.nameEn || ''),
+      escapeCSV(p.code || ''),
+      escapeCSV(p.design || ''),
+      escapeCSV(p.brand || ''),
+      escapeCSV(p.descEn || ''),
+      p.price ?? 0,
+      escapeCSV(p.unit || 'Pcs'),
+      escapeCSV(p.category || ''),
+      p.inStock !== false ? 'Yes' : 'No',
+      escapeCSV(p.imageUrl || ''),
+      escapeCSV(p.id || '')
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = selectedOnly
+      ? `selected_products_${dateStr}.csv`
+      : `products_export_${dateStr}.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const parseCSV = (text: string) => {
     const lines = text.split('\n');
     if (lines.length <= 1) return [];
@@ -2592,6 +2646,7 @@ export default function AdminDashboard() {
                   seedingCatalog={seedingCatalog}
                   onDownloadCSVTemplate={handleDownloadCSVTemplate}
                   onCSVUpload={handleCSVUpload}
+                  onExportCSV={handleExportCSV}
                   onToggleStock={handleToggleStock}
                   onOpenBulkWorkspace={() => setIsBulkWorkspaceOpen(true)}
                   onPreviewProductGallery={(product) => setGalleryProduct(product)}
