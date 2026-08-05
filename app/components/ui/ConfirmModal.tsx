@@ -25,8 +25,14 @@ export default function ConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-sm w-full rounded-[2.2rem] p-6 text-center space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+    <div 
+      className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-sm w-full rounded-[2.2rem] p-6 text-center space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Warning Icon Banner */}
         <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-450 border border-rose-100 dark:border-rose-900/50 rounded-full flex items-center justify-center shadow-inner">

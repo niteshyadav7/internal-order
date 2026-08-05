@@ -115,6 +115,21 @@ export default function BulkImportModal({
     }
   }, [isOpen]);
 
+  // Handle ESC key to close image lightbox or modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (activeFullImage) {
+          setActiveFullImage(null);
+        }
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, activeFullImage]);
+
   if (!isOpen) return null;
 
   // Handle CSV file selection
@@ -1284,14 +1299,19 @@ export default function BulkImportModal({
       {/* LARGE FULL IMAGE MODAL PREVIEW OVERLAY */}
       {activeFullImage && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in zoom-in-95 duration-200"
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in zoom-in-95 duration-200 cursor-pointer"
           onClick={() => setActiveFullImage(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl">
+          <div
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <img src={activeFullImage} alt="" className="max-w-full max-h-[85vh] object-contain" />
             <button
+              type="button"
               onClick={() => setActiveFullImage(null)}
               className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer"
+              title="Close Preview (or press ESC / click outside)"
             >
               <X className="w-5 h-5" />
             </button>
