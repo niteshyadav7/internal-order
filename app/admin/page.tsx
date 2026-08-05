@@ -182,6 +182,13 @@ export default function AdminDashboard() {
     }));
     setNewProdVariants(autoVariants);
   }, [newProdImages]);
+
+  const existingCodeProduct = useMemo(() => {
+    if (!newProdCode.trim()) return null;
+    const code = newProdCode.trim().toLowerCase();
+    return productsList.find(p => p.code?.trim() && p.code.trim().toLowerCase() === code) || null;
+  }, [newProdCode, productsList]);
+
   const [newProdImageUrlInput, setNewProdImageUrlInput] = useState('');
 
   // Tab 4: Dynamic Fields
@@ -1044,26 +1051,33 @@ export default function AdminDashboard() {
     }
     setAddingProduct(true);
     try {
-      const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : newProdImageUrl;
-      const addedProduct = await createProduct({
-        nameEn: newProdNameEn,
-        nameHi: newProdNameEn,
-        descEn: newProdDescEn,
-        descHi: newProdDescEn,
-        price: parseFloat(newProdPrice),
-        unit: newProdUnit,
-        category: newProdCategory,
-        imageUrl: mainImageUrl,
-        inStock: newProdInStock,
-        code: newProdCode,
-        design: newProdDesign,
-        images: newProdImages,
-        variants: newProdVariants,
-        priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
-        minPrice: newProdMinPrice.trim() ? parseFloat(newProdMinPrice) : undefined,
-        maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
-      } as any);
-      if (addedProduct) {
+      // Check if product with same Product Code exists in catalog
+      const existingProd = newProdCode.trim() 
+        ? productsList.find(p => p.code?.trim().toLowerCase() === newProdCode.trim().toLowerCase())
+        : null;
+
+      if (existingProd && existingProd.id) {
+        // UPDATE EXISTING PRODUCT
+        const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : (existingProd.imageUrl || newProdImageUrl);
+        await updateProduct(existingProd.id, {
+          nameEn: newProdNameEn,
+          nameHi: newProdNameEn,
+          descEn: newProdDescEn,
+          descHi: newProdDescEn,
+          price: parseFloat(newProdPrice),
+          unit: newProdUnit,
+          category: newProdCategory,
+          imageUrl: mainImageUrl,
+          inStock: newProdInStock,
+          code: newProdCode,
+          design: newProdDesign,
+          images: newProdImages.length > 0 ? newProdImages : existingProd.images,
+          variants: newProdVariants.length > 0 ? newProdVariants : existingProd.variants,
+          priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
+          minPrice: newProdMinPrice.trim() ? parseFloat(newProdMinPrice) : undefined,
+          maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
+        } as any);
+
         dispatch(fetchProductsThunk());
         setNewProdNameEn('');
         setNewProdDescEn('');
@@ -1079,9 +1093,49 @@ export default function AdminDashboard() {
         setNewProdPriceRangePct('');
         setNewProdMinPrice('');
         setNewProdMaxPrice('');
-        setAdminToast({ message: "Product added successfully!", type: "success" });
+        setAdminToast({ message: `Updated existing product with code "${newProdCode}" successfully!`, type: "success" });
       } else {
-        setAdminToast({ message: "Failed to add product. Please check connection and permissions.", type: "error" });
+        // CREATE NEW PRODUCT
+        const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : newProdImageUrl;
+        const addedProduct = await createProduct({
+          nameEn: newProdNameEn,
+          nameHi: newProdNameEn,
+          descEn: newProdDescEn,
+          descHi: newProdDescEn,
+          price: parseFloat(newProdPrice),
+          unit: newProdUnit,
+          category: newProdCategory,
+          imageUrl: mainImageUrl,
+          inStock: newProdInStock,
+          code: newProdCode,
+          design: newProdDesign,
+          images: newProdImages,
+          variants: newProdVariants,
+          priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
+          minPrice: newProdMinPrice.trim() ? parseFloat(newProdMinPrice) : undefined,
+          maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
+        } as any);
+
+        if (addedProduct) {
+          dispatch(fetchProductsThunk());
+          setNewProdNameEn('');
+          setNewProdDescEn('');
+          setNewProdPrice('');
+          setNewProdUnit('Pcs');
+          setNewProdImageUrl('gradient-indigo');
+          setNewProdCategory(settingsCategories[0] || 'Electronics');
+          setNewProdInStock(true);
+          setNewProdCode('');
+          setNewProdDesign('');
+          setNewProdImages([]);
+          setNewProdVariants([]);
+          setNewProdPriceRangePct('');
+          setNewProdMinPrice('');
+          setNewProdMaxPrice('');
+          setAdminToast({ message: "Product added successfully!", type: "success" });
+        } else {
+          setAdminToast({ message: "Failed to add product. Please check connection and permissions.", type: "error" });
+        }
       }
     } catch (err: any) {
       console.error("Failed to add product:", err);
@@ -1327,8 +1381,10 @@ export default function AdminDashboard() {
 
   const handleBulkImportComplete = async (stagedItems: StagedProductItem[]) => {
     try {
-      let successCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
       let activeCategories = [...settingsCategories];
+
       for (const item of stagedItems) {
         if (item.category && !activeCategories.includes(item.category)) {
           activeCategories = [...activeCategories, item.category];
@@ -1338,26 +1394,59 @@ export default function AdminDashboard() {
 
         const mainImageUrl = item.images.length > 0 ? item.images[0].url : 'gradient-indigo';
 
-        await createProduct({
-          nameEn: item.nameEn,
-          nameHi: item.nameHi || item.nameEn,
-          descEn: item.descEn || '',
-          descHi: item.descHi || item.descEn || '',
-          price: item.price,
-          unit: item.unit || 'Piece',
-          imageUrl: mainImageUrl,
-          category: item.category || 'Electronics',
-          code: item.code || '',
-          design: item.design || '',
-          images: item.images,
-          variants: item.variants,
-          priceRangePct: item.priceRangePct,
-          minPrice: item.minPrice,
-          maxPrice: item.maxPrice
-        } as any);
-        successCount++;
+        // Check if product with code exists in database catalog
+        const existingInDb = item.code?.trim()
+          ? productsList.find(p => p.code?.trim().toLowerCase() === item.code.trim().toLowerCase())
+          : null;
+
+        if (existingInDb && existingInDb.id) {
+          // UPDATE existing product doc
+          await updateProduct(existingInDb.id, {
+            nameEn: item.nameEn,
+            nameHi: item.nameHi || item.nameEn,
+            descEn: item.descEn || '',
+            descHi: item.descHi || item.descEn || '',
+            price: item.price,
+            unit: item.unit || 'Pcs',
+            imageUrl: mainImageUrl,
+            category: item.category || 'Electronics',
+            code: item.code || '',
+            design: item.design || '',
+            images: item.images.length > 0 ? item.images : existingInDb.images,
+            variants: item.variants.length > 0 ? item.variants : existingInDb.variants,
+            priceRangePct: item.priceRangePct,
+            minPrice: item.minPrice,
+            maxPrice: item.maxPrice
+          } as any);
+          updatedCount++;
+        } else {
+          // CREATE new product doc
+          await createProduct({
+            nameEn: item.nameEn,
+            nameHi: item.nameHi || item.nameEn,
+            descEn: item.descEn || '',
+            descHi: item.descHi || item.descEn || '',
+            price: item.price,
+            unit: item.unit || 'Pcs',
+            imageUrl: mainImageUrl,
+            category: item.category || 'Electronics',
+            code: item.code || '',
+            design: item.design || '',
+            images: item.images,
+            variants: item.variants,
+            priceRangePct: item.priceRangePct,
+            minPrice: item.minPrice,
+            maxPrice: item.maxPrice
+          } as any);
+          createdCount++;
+        }
       }
-      setAdminToast({ message: `Successfully imported ${successCount} products to catalog!`, type: "success" });
+
+      const msg = updatedCount > 0
+        ? `Imported: ${createdCount} new products, updated ${updatedCount} existing products!`
+        : `Successfully imported ${createdCount} products to catalog!`;
+
+      setAdminToast({ message: msg, type: "success" });
       dispatch(fetchProductsThunk());
     } catch (err) {
       console.error("Error committing staged products:", err);
@@ -2256,6 +2345,44 @@ export default function AdminDashboard() {
                               placeholder="e.g. Design-A"
                             />
                           </div>
+
+                          {/* Live Duplicate Code Warning Alert */}
+                          {existingCodeProduct && (
+                            <div className="p-3.5 bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/50 rounded-xl space-y-2 animate-in fade-in duration-300">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-extrabold text-xs">
+                                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                  <span>Product Code "{newProdCode}" Already Exists</span>
+                                </div>
+                                <span className="text-[8px] uppercase font-black px-2 py-0.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded border border-amber-500/30">
+                                  Will Update Existing Item
+                                </span>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 leading-relaxed">
+                                Code <strong className="text-slate-800 dark:text-white">{newProdCode}</strong> currently belongs to <strong>"{existingCodeProduct.nameEn}"</strong> (₹{existingCodeProduct.price.toLocaleString()} / {existingCodeProduct.unit}). Submitting will <strong>update</strong> this existing item instead of creating a duplicate doc.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewProdNameEn(existingCodeProduct.nameEn || '');
+                                  setNewProdDescEn(existingCodeProduct.descEn || '');
+                                  setNewProdPrice(existingCodeProduct.price ? String(existingCodeProduct.price) : '');
+                                  setNewProdUnit(existingCodeProduct.unit || 'Pcs');
+                                  setNewProdCategory(existingCodeProduct.category || '');
+                                  setNewProdDesign(existingCodeProduct.design || '');
+                                  if (existingCodeProduct.images && existingCodeProduct.images.length > 0) {
+                                    setNewProdImages(existingCodeProduct.images);
+                                  }
+                                  if (existingCodeProduct.variants && existingCodeProduct.variants.length > 0) {
+                                    setNewProdVariants(existingCodeProduct.variants);
+                                  }
+                                }}
+                                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+                              >
+                                <span>Pre-fill details from "{existingCodeProduct.nameEn}"</span>
+                              </button>
+                            </div>
+                          )}
                           <div className="pt-1">
                             <Checkbox
                               label="Available In Stock"
@@ -2467,6 +2594,7 @@ export default function AdminDashboard() {
                   onImportComplete={handleBulkImportComplete}
                   onDownloadTemplate={handleDownloadCSVTemplate}
                   parseCSV={parseCSV}
+                  existingProductsList={productsList}
                 />
               </div>
             )}

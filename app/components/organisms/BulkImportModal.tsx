@@ -60,6 +60,7 @@ interface BulkImportModalProps {
   onImportComplete: (stagedItems: StagedProductItem[]) => Promise<void>;
   onDownloadTemplate: () => void;
   parseCSV: (text: string) => any[];
+  existingProductsList?: any[];
 }
 
 export default function BulkImportModal({
@@ -68,7 +69,8 @@ export default function BulkImportModal({
   categoriesList,
   onImportComplete,
   onDownloadTemplate,
-  parseCSV
+  parseCSV,
+  existingProductsList = []
 }: BulkImportModalProps) {
   // Step state: 1 = Upload Spreadsheet, 2 = Bulk Upload Images, 3 = Full Desktop Linker, 4 = Review & Import
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
@@ -822,8 +824,13 @@ export default function BulkImportModal({
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-black text-slate-900 dark:text-white truncate">{prod.nameEn}</span>
+                        {existingProductsList.some(p => p.code?.trim() && p.code.trim().toLowerCase() === prod.code.trim().toLowerCase()) && (
+                          <span className="px-1.5 py-0.5 text-[8px] font-black rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            Updates Existing
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-bold text-[#5d51e8] dark:text-indigo-400 mt-0.5">
                         <span>Code: {prod.code || 'N/A'}</span>
