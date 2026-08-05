@@ -445,9 +445,9 @@ export default function ProductEditModal({
                 <label className="text-[10px] uppercase font-black text-slate-400">Design Identifier</label>
                 <input
                   type="text"
-                  required
                   value={design}
                   onChange={(e) => onDesignChange(e.target.value)}
+                  placeholder="e.g. Design-A"
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
                 />
               </div>

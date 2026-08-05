@@ -2337,7 +2337,6 @@ export default function AdminDashboard() {
                             />
                             <Input
                               label="Design Identifier"
-                              required
                               value={newProdDesign}
                               onChange={(e) => setNewProdDesign(e.target.value)}
                               placeholder="e.g. Design-A"
