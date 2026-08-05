@@ -1,4 +1,4 @@
-nameEn,descEn,price,unit,category,code,design,priceRangePct,minPrice,maxPrice
-"Cotton Silk Saree","Premium Handloom Cotton Silk Saree with Zari Border",2499,"Pcs","Textiles","SKU-101","DESIGN-A1",10,2200,2800
-"Designer Embroidered Suit","Pure Chanderi Silk Heavy Embroidered Salwar Suit",3850,"Set","Textiles","SKU-102","DESIGN-A2",5,3600,4100
-"Floral Printed Fabric","100% Breathable Soft Cotton Floral Print Shirting",180,"Mtr","Textiles","SKU-103","DESIGN-A3",0,180,180
+nameEn,code,design,brand,descEn,price,unit,category,priceRangePct,minPrice,maxPrice
+"Cotton Silk Saree","SKU-101","DESIGN-A1","Balaji Textiles","Premium Handloom Cotton Silk Saree with Zari Border",2499,"Pcs","Textiles",10,2200,2800
+"Designer Embroidered Suit","SKU-102","DESIGN-A2","Balaji Textiles","Pure Chanderi Silk Heavy Embroidered Salwar Suit",3850,"Set","Textiles",5,3600,4100
+"Floral Printed Fabric","SKU-103","DESIGN-A3","Balaji Textiles","100% Breathable Soft Cotton Floral Print Shirting",180,"Mtr","Textiles",0,180,180
