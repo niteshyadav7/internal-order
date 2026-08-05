@@ -1192,19 +1192,7 @@ export default function AdminDashboard() {
   };
 
   const handleDownloadCSVTemplate = () => {
-    const hints = [
-      '# HINT: code = Product Code / SKU (e.g. 37068 or SKU-101). If code exists in catalog, import will update existing item.',
-      '# HINT: design = Design Identifier / Pattern Code (e.g. DESIGN-A1).',
-      '# HINT: brand = Brand Name (e.g. Balaji Textiles).',
-      '# HINT: imageUrl = Primary main thumbnail image shown on storefront grid (essential for backward compatibility).',
-      '# HINT: images = Semicolon-separated list of gallery image URLs (e.g. url1;url2;url3) showing inside the product detail gallery.',
-      '# HINT: variants = Semicolon-separated list of variant/model names mapped to image index (e.g. Red:0;Blue:1;Green:2).',
-      '# HINT: category = One of your active dynamic categories. If a new category is imported, it will automatically register in the system.',
-      '# HINT: priceRangePct = Custom price range variance percentage override for this product (optional).',
-      '# HINT: minPrice = Custom absolute minimum price range override (optional).',
-      '# HINT: maxPrice = Custom absolute maximum price range override (optional).'
-    ];
-    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'unit', 'category', 'imageUrl', 'images', 'variants', 'priceRangePct', 'minPrice', 'maxPrice'];
+    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'unit', 'category'];
     const sampleRow = [
       '"Cotton Silk Saree"',
       '"SKU-101"',
@@ -1213,15 +1201,9 @@ export default function AdminDashboard() {
       '"Premium handloom cotton silk saree with zari border"',
       '2499',
       '"Pcs"',
-      '"Textiles"',
-      '"https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80"',
-      '"https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80"',
-      '"Model 1:0"',
-      '""',
-      '""',
-      '""'
+      '"Textiles"'
     ];
-    const csvContent = [...hints, headers.join(','), sampleRow.join(',')].join('\n');
+    const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
