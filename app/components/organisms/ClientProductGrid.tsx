@@ -248,10 +248,10 @@ function ReelProductCard({
             </span>
           </div>
 
-          {/* Product design identifier — subtle accent (Code hidden for client users) */}
-          {product.design && (
+          {/* Product Brand & Design — subtle accent */}
+          {(product.brand || product.design) && (
             <div className="inline-flex items-center gap-1.5 bg-white/8 backdrop-blur-md text-amber-300/70 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ml-2">
-              Design: {product.design}
+              {product.brand && `Brand: ${product.brand}`} {product.brand && product.design && '| '} {product.design && `Design: ${product.design}`}
             </div>
           )}
 
@@ -1227,9 +1227,9 @@ export default function ClientProductGrid({
 
                   <div className="p-6 space-y-4">
                     <div className="space-y-1 text-left">
-                      {product.design && (
+                      {(product.brand || product.design) && (
                         <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider mb-1 border border-indigo-100/50 dark:border-indigo-900/30">
-                          Design: {product.design}
+                          {product.brand && `Brand: ${product.brand}`} {product.brand && product.design && '| '} {product.design && `Design: ${product.design}`}
                         </div>
                       )}
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white leading-snug group-hover:text-[#5d51e8] transition-colors line-clamp-1">

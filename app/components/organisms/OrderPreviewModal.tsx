@@ -103,9 +103,9 @@ export default function OrderPreviewModal({
 
                   {/* Item Details */}
                   <div className="flex-grow min-w-0 space-y-1 text-left">
-                    {product.design && (
+                    {(product.brand || product.design) && (
                       <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] font-black uppercase tracking-wider">
-                        Design: {product.design}
+                        {product.brand && `Brand: ${product.brand}`} {product.brand && product.design && '| '} {product.design && `Design: ${product.design}`}
                       </div>
                     )}
                     <h4 className="font-extrabold text-xs sm:text-sm text-white truncate leading-tight">
