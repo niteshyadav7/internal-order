@@ -248,16 +248,16 @@ function ReelProductCard({
             </span>
           </div>
 
-          {/* Product Brand & Design — crisp high-contrast badges */}
+          {/* Product Brand & Design — prominent high-contrast badges */}
           {(product.brand || product.design) && (
             <div className="inline-flex items-center gap-1.5 flex-wrap ml-2">
               {product.brand && (
-                <span className="bg-black/80 backdrop-blur-md text-amber-300 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-md border border-amber-400/50">
+                <span className="bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide shadow-lg border border-amber-300">
                   Brand: {product.brand}
                 </span>
               )}
               {product.design && (
-                <span className="bg-black/80 backdrop-blur-md text-indigo-200 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-md border border-indigo-400/50">
+                <span className="bg-black/85 backdrop-blur-md text-indigo-200 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide shadow-md border border-indigo-400/50">
                   Design: {product.design}
                 </span>
               )}
@@ -1239,12 +1239,12 @@ export default function ClientProductGrid({
                       {(product.brand || product.design) && (
                         <div className="flex items-center gap-1.5 flex-wrap mb-1">
                           {product.brand && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-500/15 dark:bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 border-2 border-amber-500/40 text-xs font-black uppercase tracking-wide shadow-sm">
                               Brand: {product.brand}
                             </span>
                           )}
                           {product.design && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-500/15 dark:bg-indigo-400/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 text-xs font-black uppercase tracking-wide">
                               Design: {product.design}
                             </span>
                           )}
