@@ -163,7 +163,7 @@ export default function AdminDashboard() {
   const [newProdNameEn, setNewProdNameEn] = useState('');
   const [newProdDescEn, setNewProdDescEn] = useState('');
   const [newProdPrice, setNewProdPrice] = useState('');
-  const [newProdUnit, setNewProdUnit] = useState('Trip');
+  const [newProdUnit, setNewProdUnit] = useState('Pcs');
   const [newProdImageUrl, setNewProdImageUrl] = useState('gradient-indigo');
   const [newProdCategory, setNewProdCategory] = useState('Electronics');
   const [newProdInStock, setNewProdInStock] = useState(true);
@@ -1068,7 +1068,7 @@ export default function AdminDashboard() {
         setNewProdNameEn('');
         setNewProdDescEn('');
         setNewProdPrice('');
-        setNewProdUnit('Trip');
+        setNewProdUnit('Pcs');
         setNewProdImageUrl('gradient-indigo');
         setNewProdCategory(settingsCategories[0] || 'Electronics');
         setNewProdInStock(true);

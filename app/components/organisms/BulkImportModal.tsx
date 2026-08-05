@@ -136,7 +136,7 @@ export default function BulkImportModal({
           const nameEn = rec.nameEn || rec.name || `Product ${idx + 1}`;
           const priceVal = parseFloat(rec.price);
           const price = isNaN(priceVal) ? 0 : priceVal;
-          const unit = rec.unit || 'Piece';
+          const unit = rec.unit || 'Pcs';
           const category = rec.category || (categoriesList[0] || 'Electronics');
           const code = rec.code || rec.sku || `SKU-${100 + idx}`;
           const design = rec.design || rec.designCode || `DES-${100 + idx}`;
