@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Loader2, Upload, Trash2, Plus, Images } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Upload, Trash2, Plus, Images, Eye, X } from 'lucide-react';
 import { Product, ProductImage, ProductVariant, updateGlobalSettings, getPriceRange } from '../../lib/db';
 import { compressImage } from '../../lib/image';
 import { uploadImageToStorage } from '../../lib/storage';
@@ -81,6 +81,20 @@ export default function ProductEditModal({
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [customInput, setCustomInput] = useState('');
+  const [activeFullImage, setActiveFullImage] = useState<string | null>(null);
+
+  // Handle ESC key to close image lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeFullImage) {
+        setActiveFullImage(null);
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, activeFullImage]);
 
   // Automatically sync variants with uploaded images
   React.useEffect(() => {
@@ -494,20 +508,43 @@ export default function ProductEditModal({
                 <div className="grid grid-cols-4 gap-2 p-2 bg-slate-50/50 dark:bg-zinc-955/10 border border-slate-200 dark:border-zinc-800 rounded-xl">
                   {images.map((img, idx) => (
                     <div key={idx} className="relative group flex flex-col items-center gap-1 p-1 border border-slate-100 dark:border-zinc-850 bg-white dark:bg-zinc-900 rounded-lg animate-in zoom-in-95 duration-200">
-                      <div className="relative w-full aspect-square rounded overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm">
+                      <div 
+                        className="relative w-full aspect-square rounded overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm cursor-pointer group/img"
+                        onClick={() => setActiveFullImage(img.url)}
+                        title="Click to view full preview"
+                      >
                         <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
                         
+                        {/* Hover Overlay preview button */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                        </div>
+
                         {/* Action: remove image */}
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             const updated = images.filter((_, i) => i !== idx);
                             onImagesChange(updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` })));
                           }}
-                          className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 hover:bg-red-650 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+                          className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 hover:bg-red-650 text-white rounded opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer border border-white/10"
                           title="Delete Image"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Action: Preview full image icon */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveFullImage(img.url);
+                          }}
+                          className="absolute top-0.5 left-0.5 p-0.5 bg-black/60 hover:bg-[#5d51e8] text-white rounded opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer border border-white/10"
+                          title="Preview Full Image"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
 
                         {/* Cover photo indicator/swap action */}
@@ -518,14 +555,15 @@ export default function ProductEditModal({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               const updated = [...images];
                               const selected = updated[idx];
                               updated.splice(idx, 1);
                               updated.unshift(selected);
                               onImagesChange(updated.map((im, i) => ({ ...im, label: `Image ${i + 1}` })));
                             }}
-                            className="absolute bottom-0.5 left-0.5 bg-black/65 hover:bg-[#5d51e8] text-white text-[7px] font-black uppercase px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all cursor-pointer border border-white/10"
+                            className="absolute bottom-0.5 left-0.5 bg-black/65 hover:bg-[#5d51e8] text-white text-[7px] font-black uppercase px-1 py-0.5 rounded opacity-0 group-hover/img:opacity-100 transition-all cursor-pointer border border-white/10"
                           >
                             Set Cover
                           </button>
@@ -657,6 +695,29 @@ export default function ProductEditModal({
           </div>
         </form>
       </div>
+
+      {/* LARGE FULL IMAGE MODAL PREVIEW OVERLAY */}
+      {activeFullImage && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in zoom-in-95 duration-200 cursor-pointer"
+          onClick={() => setActiveFullImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={activeFullImage} alt="" className="max-w-full max-h-[85vh] object-contain" />
+            <button
+              type="button"
+              onClick={() => setActiveFullImage(null)}
+              className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer"
+              title="Close Preview (or press ESC / click outside)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
