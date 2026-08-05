@@ -233,7 +233,7 @@ export default function ProductDetailSheet({
             <div className="space-y-1.5 text-left">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {product.brand && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase tracking-wider">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-amber-500/15 dark:bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider">
                     Brand: {product.brand}
                   </span>
                 )}

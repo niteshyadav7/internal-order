@@ -248,10 +248,19 @@ function ReelProductCard({
             </span>
           </div>
 
-          {/* Product Brand & Design — subtle accent */}
+          {/* Product Brand & Design — crisp high-contrast badges */}
           {(product.brand || product.design) && (
-            <div className="inline-flex items-center gap-1.5 bg-white/8 backdrop-blur-md text-amber-300/70 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ml-2">
-              {product.brand && `Brand: ${product.brand}`} {product.brand && product.design && '| '} {product.design && `Design: ${product.design}`}
+            <div className="inline-flex items-center gap-1.5 flex-wrap ml-2">
+              {product.brand && (
+                <span className="bg-black/80 backdrop-blur-md text-amber-300 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-md border border-amber-400/50">
+                  Brand: {product.brand}
+                </span>
+              )}
+              {product.design && (
+                <span className="bg-black/80 backdrop-blur-md text-indigo-200 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-md border border-indigo-400/50">
+                  Design: {product.design}
+                </span>
+              )}
             </div>
           )}
 
@@ -1228,8 +1237,17 @@ export default function ClientProductGrid({
                   <div className="p-6 space-y-4">
                     <div className="space-y-1 text-left">
                       {(product.brand || product.design) && (
-                        <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider mb-1 border border-indigo-100/50 dark:border-indigo-900/30">
-                          {product.brand && `Brand: ${product.brand}`} {product.brand && product.design && '| '} {product.design && `Design: ${product.design}`}
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          {product.brand && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-500/15 dark:bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase tracking-wider">
+                              Brand: {product.brand}
+                            </span>
+                          )}
+                          {product.design && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-500/15 dark:bg-indigo-400/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[9px] font-black uppercase tracking-wider">
+                              Design: {product.design}
+                            </span>
+                          )}
                         </div>
                       )}
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white leading-snug group-hover:text-[#5d51e8] transition-colors line-clamp-1">
