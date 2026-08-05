@@ -53,7 +53,7 @@ import {
 } from '../store/productsSlice';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX, WifiOff } from 'lucide-react';
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX, WifiOff, AlertTriangle } from 'lucide-react';
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
 import StatsCard from '../components/molecules/StatsCard';
