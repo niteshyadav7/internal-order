@@ -738,11 +738,28 @@ export default function BulkImportModal({
                             : 'border-amber-300 dark:border-amber-900/60'
                         }`}
                       >
-                        <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800">
+                        <div
+                          onClick={() => setActiveFullImage(photo.url)}
+                          className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800 cursor-pointer"
+                        >
                           <img src={photo.url} alt="" className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => deletePhotoFromPool(photo.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveFullImage(photo.url);
+                            }}
+                            className="absolute bottom-1.5 right-1.5 p-1 bg-black/60 hover:bg-[#5d51e8] text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                            title="Preview Large Image"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePhotoFromPool(photo.id);
+                            }}
                             className="absolute top-1.5 right-1.5 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                             title="Remove Photo"
                           >
@@ -931,12 +948,26 @@ export default function BulkImportModal({
                             : 'border-amber-300 dark:border-amber-900/60'
                         }`}
                       >
-                        <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800 group">
-                          <img src={photo.url} alt="" className="w-full h-full object-cover pointer-events-none" />
-                          <div className="absolute top-1 left-1 p-1 bg-black/50 text-white rounded-md text-[8px] font-black flex items-center gap-1">
+                        <div
+                          onClick={() => setActiveFullImage(photo.url)}
+                          className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800 group cursor-pointer"
+                        >
+                          <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                          <div className="absolute top-1 left-1 p-1 bg-black/60 text-white rounded-md text-[8px] font-black flex items-center gap-1">
                             <GripVertical className="w-2.5 h-2.5" />
                             Drag
                           </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveFullImage(photo.url);
+                            }}
+                            className="absolute bottom-1 right-1 p-1.5 bg-black/70 hover:bg-[#5d51e8] text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-md"
+                            title="Preview Large Image"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                          </button>
                         </div>
 
                         <div className="space-y-1 text-left">
