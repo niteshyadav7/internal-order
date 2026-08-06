@@ -882,3 +882,128 @@ export async function addSalesmanNote(
     throw error;
   }
 }
+
+// ─── ACTIVITY / AUDIT LOGS ──────────────────────────────────────────
+
+export interface ActivityLog {
+  id?: string;
+  action: 'CREATE_PRODUCT' | 'UPDATE_PRODUCT' | 'DELETE_PRODUCT' | 'BATCH_DELETE_PRODUCTS' | 'TOGGLE_STOCK' | 'BULK_IMPORT';
+  performerUid: string;
+  performerName: string;
+  performerEmail: string;
+  performerRole?: string;
+  details: string;
+  targetProductId?: string;
+  targetProductName?: string;
+  timestamp: string;
+}
+
+// Log a new activity/audit entry into Firestore (with local cache fallback)
+export async function logActivity(
+  entry: Omit<ActivityLog, 'id' | 'timestamp'>
+): Promise<ActivityLog | null> {
+  const newLog: ActivityLog = {
+    id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    ...sanitizeForFirestore(entry),
+    timestamp: new Date().toISOString()
+  };
+
+  // Always save to local fallback cache immediately for responsive UI
+  try {
+    const existingRaw = typeof window !== 'undefined' ? localStorage.getItem('admin_activity_logs') : null;
+    const existingLogs: ActivityLog[] = existingRaw ? JSON.parse(existingRaw) : [];
+    const updatedLogs = [newLog, ...existingLogs].slice(0, 200);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin_activity_logs', JSON.stringify(updatedLogs));
+    }
+  } catch (e) {
+    console.warn("Could not save activity log to localStorage:", e);
+  }
+
+  if (!db) return newLog;
+
+  try {
+    const logsRef = collection(db, 'activity_logs');
+    const docRef = await addDoc(logsRef, sanitizeForFirestore({
+      ...entry,
+      timestamp: newLog.timestamp
+    }));
+    return { ...newLog, id: docRef.id };
+  } catch (error) {
+    console.warn('Firestore activity log write notice (saved to local logs):', error);
+    return newLog;
+  }
+}
+
+// Fetch all activity logs
+export async function getActivityLogs(): Promise<ActivityLog[]> {
+  if (!db) return [];
+  try {
+    const logsRef = collection(db, 'activity_logs');
+    const q = query(logsRef, orderBy('timestamp', 'desc'), limit(200));
+    const querySnapshot = await getDocs(q);
+    const logs: ActivityLog[] = [];
+    querySnapshot.forEach((doc) => {
+      logs.push({ id: doc.id, ...doc.data() } as ActivityLog);
+    });
+    return logs;
+  } catch (error) {
+    console.warn('Error fetching activity logs from Firestore:', error);
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('admin_activity_logs') : null;
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+}
+
+// Subscribe to activity logs in real time (merging Firestore & Local Cache)
+export function subscribeToActivityLogs(
+  callback: (logs: ActivityLog[]) => void
+): () => void {
+  const getLocalLogs = (): ActivityLog[] => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('admin_activity_logs') : null;
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  if (!db) {
+    callback(getLocalLogs());
+    return () => {};
+  }
+
+  try {
+    const logsRef = collection(db, 'activity_logs');
+    const q = query(logsRef, orderBy('timestamp', 'desc'), limit(200));
+    return onSnapshot(q, (snapshot) => {
+      const firestoreLogs: ActivityLog[] = [];
+      snapshot.forEach((doc) => {
+        firestoreLogs.push({ id: doc.id, ...doc.data() } as ActivityLog);
+      });
+      const localLogs = getLocalLogs();
+
+      // Deduplicate local and firestore logs by timestamp/id
+      const combined = [...firestoreLogs];
+      localLogs.forEach(localItem => {
+        if (!combined.some(c => c.timestamp === localItem.timestamp || (c.id && c.id === localItem.id))) {
+          combined.push(localItem);
+        }
+      });
+
+      combined.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      callback(combined);
+    }, (error) => {
+      console.warn('Firestore activity log listener notice (using local logs):', error);
+      callback(getLocalLogs());
+    });
+  } catch (error) {
+    console.warn('Failed to setup activity logs subscription (using local logs):', error);
+    callback(getLocalLogs());
+    return () => {};
+  }
+}
+

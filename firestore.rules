@@ -63,6 +63,13 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow delete: if isAdmin();
     }
+
+    // Activity logs collection - authenticated users can read and create logs
+    match /activity_logs/{logId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if isAdmin();
+    }
   }
 }
 

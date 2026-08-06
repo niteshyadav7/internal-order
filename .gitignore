@@ -40,6 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Firebase Private Keys
+# Firebase Private Keys & logs
 firebase-service-account.json
+firebase-debug.log
+*.log
 

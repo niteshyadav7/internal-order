@@ -9,12 +9,13 @@ import {
   ChevronLeft, 
   ChevronRight,
   Bell,
-  X
+  X,
+  History
 } from 'lucide-react';
 
 interface SidebarProps {
-  activeTab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications';
-  onTabChange: (tab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications') => void;
+  activeTab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs';
+  onTabChange: (tab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs') => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   isMobileOpen: boolean;
@@ -122,6 +123,20 @@ export default function Sidebar({
             >
               <Database className="w-4 h-4 flex-shrink-0" />
               {!isCollapsed && <span className="animate-in fade-in duration-300">Manage Catalog</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { onTabChange('logs'); onCloseMobile(); }}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'logs'
+                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
+              title="Activity Logs"
+            >
+              <History className="w-4 h-4 flex-shrink-0" />
+              {!isCollapsed && <span className="animate-in fade-in duration-300">Activity Logs</span>}
             </button>
 
             <button

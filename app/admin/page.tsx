@@ -24,7 +24,10 @@ import {
   preRegisterUserProfile,
   deleteOrder,
   updateOrder,
-  getPriceRange
+  getPriceRange,
+  ActivityLog,
+  logActivity,
+  subscribeToActivityLogs
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
@@ -53,7 +56,7 @@ import {
 } from '../store/productsSlice';
 
 // Icons for metrics cards
-import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX, WifiOff, AlertTriangle } from 'lucide-react';
+import { Users, CheckCircle, Clock, XCircle, PlusCircle, Loader2, Bell, ShoppingBag, X, Check, Upload, Trash2, Plus, Images, SlidersHorizontal, PackageX, WifiOff, AlertTriangle, History } from 'lucide-react';
 // New Atomic / Molecular / Organism components
 import Loader from '../components/atoms/Loader';
 import StatsCard from '../components/molecules/StatsCard';
@@ -62,6 +65,7 @@ import Header from '../components/organisms/Header';
 import UsersTable from '../components/organisms/UsersTable';
 import OrdersList from '../components/organisms/OrdersList';
 import ProductsTable from '../components/organisms/ProductsTable';
+import AuditLogsTable from '../components/organisms/AuditLogsTable';
 import ProductGalleryModal from '../components/organisms/ProductGalleryModal';
 import DynamicFieldsList from '../components/organisms/DynamicFieldsList';
 import UserEditModal from '../components/organisms/UserEditModal';
@@ -78,7 +82,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { userProfile, loading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs'>('users');
 
   // Dynamic window/tab title
   useEffect(() => {
@@ -87,6 +91,7 @@ export default function AdminDashboard() {
       staff: 'Admin - Staff Management',
       orders: 'Admin - Order Requests',
       products: 'Admin - Manage Catalog',
+      logs: 'Admin - Activity Logs',
       fields: 'Admin - Profile Settings',
       notifications: 'Admin - Notifications'
     };
@@ -98,6 +103,10 @@ export default function AdminDashboard() {
   const { orders: ordersList, loadingOrders } = useSelector((state: RootState) => state.orders);
   const { products: productsList, loading: loadingProducts } = useSelector((state: RootState) => state.products);
   const { globalSettings } = useSelector((state: RootState) => state.products);
+
+  // Tab: Activity Audit Logs
+  const [activityLogsList, setActivityLogsList] = useState<ActivityLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Tab 1: Users
   const [searchQuery, setSearchQuery] = useState('');
@@ -452,12 +461,27 @@ export default function AdminDashboard() {
     const unsubscribeStockAlerts = subscribeToStockAlerts((alerts) => {
       setStockAlertsList(alerts);
     });
+    setLoadingLogs(true);
+    const unsubscribeLogs = subscribeToActivityLogs((logs) => {
+      setActivityLogsList(logs);
+      setLoadingLogs(false);
+    });
 
     return () => {
       if (typeof unsubscribeOrders === 'function') unsubscribeOrders();
       unsubscribeStockAlerts();
+      unsubscribeLogs();
     };
   }, [isAdmin, isFirebaseLoaded, dispatch]);
+
+  const getPerformerDetails = () => {
+    const currentUser = auth?.currentUser;
+    const performerName = userProfile?.name || currentUser?.displayName || 'Admin User';
+    const performerEmail = currentUser?.email || adminEmail || 'admin@balajitextiles.com';
+    const performerUid = currentUser?.uid || 'admin-uid';
+    const performerRole = userProfile?.role || 'admin';
+    return { performerUid, performerName, performerEmail, performerRole };
+  };
 
   useEffect(() => {
     if (prevOrdersRef.current.length > 0 && ordersList.length > prevOrdersRef.current.length) {
@@ -921,6 +945,13 @@ export default function AdminDashboard() {
         inStock: nextInStock
       });
       dispatch(fetchProductsThunk());
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'TOGGLE_STOCK',
+        details: `Toggled stock status for "${product.nameEn}" to ${nextInStock ? 'In Stock' : 'Out of Stock'}`,
+        targetProductId: product.id,
+        targetProductName: product.nameEn
+      });
     } catch (err) {
       console.error("Failed to toggle product stock status:", err);
       alert("Error updating product stock status.");
@@ -929,9 +960,17 @@ export default function AdminDashboard() {
 
   const handleMarkOutOfStock = async (productId: string) => {
     try {
+      const prod = productsList.find(p => p.id === productId);
       await updateProduct(productId, { inStock: false });
       dispatch(fetchProductsThunk());
       setAdminToast({ message: "Product marked as Out of Stock successfully!", type: "success" });
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'TOGGLE_STOCK',
+        details: `Marked product "${prod?.nameEn || productId}" as Out of Stock`,
+        targetProductId: productId,
+        targetProductName: prod?.nameEn
+      });
     } catch (err) {
       console.error("Failed to mark product out of stock:", err);
       alert("Error marking product as out of stock.");
@@ -945,11 +984,19 @@ export default function AdminDashboard() {
   const handleConfirmDeleteProduct = async () => {
     if (!deletingProductId) return;
     const id = deletingProductId;
+    const deletedProd = productsList.find(p => p.id === id);
     setDeletingProductId(null);
     try {
       await deleteProduct(id);
       dispatch(fetchProductsThunk());
       setSelectedProductIds(prev => prev.filter(item => item !== id));
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'DELETE_PRODUCT',
+        details: `Deleted product "${deletedProd?.nameEn || id}" from catalog`,
+        targetProductId: id,
+        targetProductName: deletedProd?.nameEn
+      });
     } catch (err) {
       console.error("Failed to delete product:", err);
       alert("Error deleting product.");
@@ -1006,6 +1053,13 @@ export default function AdminDashboard() {
       dispatch(fetchProductsThunk());
       setEditingProduct(null);
       setAdminToast({ message: "Product updated successfully!", type: "success" });
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'UPDATE_PRODUCT',
+        details: `Edited product details for "${editProdNameEn}" (Price: ₹${editProdPrice}/${editProdUnit}, Category: ${editProdCategory})`,
+        targetProductId: editingProduct.id,
+        targetProductName: editProdNameEn
+      });
     } catch (err: any) {
       console.error("Failed to update product:", err);
       const errMsg = err.message || err.code || String(err);
@@ -1102,6 +1156,13 @@ export default function AdminDashboard() {
         setNewProdMinPrice('');
         setNewProdMaxPrice('');
         setAdminToast({ message: `Updated existing product with code "${newProdCode}" successfully!`, type: "success" });
+        logActivity({
+          ...getPerformerDetails(),
+          action: 'UPDATE_PRODUCT',
+          details: `Updated existing product with code "${newProdCode}" ("${newProdNameEn}")`,
+          targetProductId: existingProd.id,
+          targetProductName: newProdNameEn
+        });
       } else {
         // CREATE NEW PRODUCT
         const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : newProdImageUrl;
@@ -1143,6 +1204,13 @@ export default function AdminDashboard() {
           setNewProdMinPrice('');
           setNewProdMaxPrice('');
           setAdminToast({ message: "Product added successfully!", type: "success" });
+          logActivity({
+            ...getPerformerDetails(),
+            action: 'CREATE_PRODUCT',
+            details: `Added new product "${newProdNameEn}" at ₹${newProdPrice}/${newProdUnit} in category "${newProdCategory}"`,
+            targetProductId: addedProduct.id,
+            targetProductName: newProdNameEn
+          });
         } else {
           setAdminToast({ message: "Failed to add product. Please check connection and permissions.", type: "error" });
         }
@@ -1158,10 +1226,16 @@ export default function AdminDashboard() {
 
   const handleConfirmBatchDeleteProducts = async () => {
     setShowBatchDeleteProductsModal(false);
+    const count = selectedProductIds.length;
     try {
       await Promise.all(selectedProductIds.map(id => deleteProduct(id)));
       dispatch(fetchProductsThunk());
       setSelectedProductIds([]);
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'BATCH_DELETE_PRODUCTS',
+        details: `Batch deleted ${count} products from catalog`
+      });
     } catch (err) {
       console.error("Failed to batch delete products:", err);
       alert("Error performing batch delete.");
@@ -1425,6 +1499,11 @@ export default function AdminDashboard() {
       }
       alert(`Successfully imported ${successCount} products!`);
       dispatch(fetchProductsThunk());
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'BULK_IMPORT',
+        details: `Imported ${successCount} products via CSV file`
+      });
     } catch (err) {
       console.error("Error importing CSV:", err);
       alert("Failed to import products. Please try again.");
@@ -1502,6 +1581,11 @@ export default function AdminDashboard() {
 
       setAdminToast({ message: msg, type: "success" });
       dispatch(fetchProductsThunk());
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'BULK_IMPORT',
+        details: `Imported products via Bulk Workspace (${createdCount} created, ${updatedCount} updated)`
+      });
     } catch (err) {
       console.error("Error committing staged products:", err);
       setAdminToast({ message: "Failed to import staged products.", type: "error" });
@@ -2660,6 +2744,16 @@ export default function AdminDashboard() {
                   onDownloadTemplate={handleDownloadCSVTemplate}
                   parseCSV={parseCSV}
                   existingProductsList={productsList}
+                />
+              </div>
+            )}
+
+            {/* Tab: Activity Logs View */}
+            {activeTab === 'logs' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <AuditLogsTable
+                  logs={activityLogsList}
+                  loading={loadingLogs}
                 />
               </div>
             )}
