@@ -88,10 +88,10 @@ export async function POST(request: Request) {
           }
 
           if (userData) {
-            if (userData.role === 'admin') {
+            if (userData.role !== 'client') {
               if (userData.status !== 'approved') {
                 return NextResponse.json(
-                  { success: false, error: 'Your admin account is pending approval or disabled' },
+                  { success: false, error: 'Your account is pending approval or disabled' },
                   { status: 403 }
                 );
               }
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
               authenticatedEmail = (verifiedEmail || userData.email).toLowerCase();
             } else {
               return NextResponse.json(
-                { success: false, error: `Access denied: Your account role (${userData.role || 'client'}) is not Administrator.` },
+                { success: false, error: 'Access denied: Client accounts cannot login to the Admin Portal.' },
                 { status: 403 }
               );
             }
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
         isAuthenticated = true;
         authenticatedEmail = expectedEmail.trim().toLowerCase();
       } else {
-        // Query Firestore users collection for custom Admin roles
+        // Query Firestore users collection for staff/admin roles
         try {
           const adminDb = getAdminDb();
           const usersRef = adminDb.collection('users');
@@ -138,10 +138,10 @@ export async function POST(request: Request) {
             const userDoc = snapshot.docs[0];
             const userData = userDoc.data();
             
-            if (userData.role === 'admin') {
+            if (userData.role !== 'client') {
               if (userData.status !== 'approved') {
                 return NextResponse.json(
-                  { success: false, error: 'Your admin account is pending approval or disabled' },
+                  { success: false, error: 'Your account is pending approval or disabled' },
                   { status: 403 }
                 );
               }
@@ -150,18 +150,13 @@ export async function POST(request: Request) {
                 authenticatedEmail = email.trim().toLowerCase();
               } else {
                 return NextResponse.json(
-                  { success: false, error: 'Invalid administrator password' },
+                  { success: false, error: 'Invalid password' },
                   { status: 401 }
                 );
               }
-            } else if (userData.role === 'salesman') {
-              return NextResponse.json(
-                { success: false, error: 'Access denied: Salesman accounts cannot login to the Admin Panel. Please use the Customer/Salesman Login page.' },
-                { status: 403 }
-              );
             } else {
               return NextResponse.json(
-                { success: false, error: 'Access denied: Client accounts cannot login to the Admin Panel.' },
+                { success: false, error: 'Access denied: Client accounts cannot login to the Admin Portal.' },
                 { status: 403 }
               );
             }
