@@ -39,11 +39,11 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
-    // Orders collection - authenticated users can read, create and update; admin can delete
+    // Orders collection - authenticated users can read, create and update; staff can delete
     match /orders/{orderId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null;
-      allow delete: if isAdmin();
+      allow delete: if isStaff();
     }
 
     // Profile fields collection - anyone authenticated can read, only admin can edit/write
@@ -63,18 +63,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Stock alerts collection - authenticated users can read/create, only admins can delete
+    // Stock alerts collection - authenticated users can read/create, staff can delete/resolve
     match /stock_alerts/{alertId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
-      allow delete: if isAdmin();
+      allow delete: if isStaff();
     }
 
-    // Activity logs collection - authenticated users can read and create logs
+    // Activity logs collection - authenticated users can read and create logs, staff can delete
     match /activity_logs/{logId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
-      allow delete: if isAdmin();
+      allow delete: if isStaff();
     }
   }
 }
