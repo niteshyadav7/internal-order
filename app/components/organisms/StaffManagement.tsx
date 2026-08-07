@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { UserProfile } from '../../lib/db';
 import {
   Plus,
   Edit2,
@@ -19,11 +18,14 @@ import {
   Globe
 } from 'lucide-react';
 
+import { UserProfile, RolePermission, DEFAULT_SYSTEM_ROLES } from '../../lib/db';
+
 interface StaffManagementProps {
   staffList: UserProfile[];
   usersList: UserProfile[];
   loading: boolean;
   onRefresh: () => void;
+  rolesList?: RolePermission[];
 }
 
 // Generate a random secure password
@@ -36,13 +38,13 @@ function generatePassword(length = 10): string {
   return password;
 }
 
-export default function StaffManagement({ staffList, usersList, loading, onRefresh }: StaffManagementProps) {
+export default function StaffManagement({ staffList, usersList, loading, onRefresh, rolesList = DEFAULT_SYSTEM_ROLES }: StaffManagementProps) {
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
   const [createPassword, setCreatePassword] = useState('');
-  const [createRole, setCreateRole] = useState<'salesman' | 'admin'>('salesman');
+  const [createRole, setCreateRole] = useState<string>('salesman');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
@@ -51,7 +53,7 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
-  const [editRole, setEditRole] = useState<'salesman' | 'admin' | 'client'>('salesman');
+  const [editRole, setEditRole] = useState<string>('salesman');
   const isEditGoogleUser = editUser ? !editUser.plainPassword : false;
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState('');
@@ -62,7 +64,7 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'salesman' | 'admin'>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
 
@@ -70,7 +72,7 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
   const [showPromote, setShowPromote] = useState(false);
   const [promoteSearch, setPromoteSearch] = useState('');
   const [promoteSelectedUid, setPromoteSelectedUid] = useState<string | null>(null);
-  const [promoteRole, setPromoteRole] = useState<'salesman' | 'admin'>('salesman');
+  const [promoteRole, setPromoteRole] = useState<string>('salesman');
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState('');
 

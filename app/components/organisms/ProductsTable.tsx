@@ -1,10 +1,28 @@
 import React from 'react';
-import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download } from 'lucide-react';
+import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter } from 'lucide-react';
 import { Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
 import SearchInput from '../molecules/SearchInput';
 import ProductPreview from '../molecules/ProductPreview';
 import Pagination from '../molecules/Pagination';
+
+function formatDateTime(isoString?: string) {
+  if (!isoString) return 'N/A';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return 'N/A';
+  }
+}
 
 interface ProductsTableProps {
   products: Product[];
@@ -15,14 +33,15 @@ interface ProductsTableProps {
   selectedProductIds: string[];
   onSelectAllProducts: (checked: boolean) => void;
   onSelectProduct: (id: string, checked: boolean) => void;
-  onSort: (field: 'nameEn' | 'price' | 'category') => void;
-  sortField: 'nameEn' | 'price' | 'category';
+  onSort: (field: 'nameEn' | 'price' | 'category' | 'createdAt') => void;
+  sortField: 'nameEn' | 'price' | 'category' | 'createdAt';
   sortDirection: 'asc' | 'desc';
   currentPage: number;
   pageSize: number;
   totalPages: number;
   totalItems: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   onBatchDeleteProducts: () => void;
@@ -34,6 +53,12 @@ interface ProductsTableProps {
   onToggleStock?: (product: Product) => void;
   onOpenBulkWorkspace?: () => void;
   onPreviewProductGallery?: (product: Product) => void;
+  dateFilter?: 'all' | 'today' | '7days' | '30days' | 'custom';
+  onDateFilterChange?: (filter: 'all' | 'today' | '7days' | '30days' | 'custom') => void;
+  startDate?: string;
+  onStartDateChange?: (date: string) => void;
+  endDate?: string;
+  onEndDateChange?: (date: string) => void;
 }
 
 export default function ProductsTable({
@@ -53,6 +78,7 @@ export default function ProductsTable({
   totalPages,
   totalItems,
   onPageChange,
+  onPageSizeChange,
   onEditProduct,
   onDeleteProduct,
   onBatchDeleteProducts,
@@ -63,7 +89,13 @@ export default function ProductsTable({
   onExportCSV,
   onToggleStock,
   onOpenBulkWorkspace,
-  onPreviewProductGallery
+  onPreviewProductGallery,
+  dateFilter = 'all',
+  onDateFilterChange,
+  startDate = '',
+  onStartDateChange,
+  endDate = '',
+  onEndDateChange
 }: ProductsTableProps) {
   const allSelected = products.length > 0 && selectedProductIds.length === products.length;
 
@@ -71,29 +103,140 @@ export default function ProductsTable({
     <div className="space-y-6">
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden flex flex-col justify-between min-h-[500px]">
         <div>
-          <div className="p-6 border-b border-slate-200 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">Active Catalog Items</h2>
+          {/* Header Controls */}
+          <div className="p-6 border-b border-slate-200 dark:border-zinc-800 flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">Active Catalog Items</h2>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <SearchInput
+                  placeholder="Search name, code, brand, category..."
+                  value={searchQuery}
+                  onChange={onSearchChange}
+                />
+
+                {onPageSizeChange && (
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700/80 px-3 py-2 rounded-xl shadow-sm">
+                    <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider whitespace-nowrap">Per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        const newSize = Number(e.target.value);
+                        onPageSizeChange(newSize);
+                        onPageChange(1);
+                      }}
+                      className="bg-transparent font-black text-xs text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+                    >
+                      {[10, 20, 50, 100].map((option) => (
+                        <option key={option} value={option} className="bg-white dark:bg-zinc-900 text-slate-800 dark:text-slate-100 font-bold">
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {onExportCSV && (
+                  <button
+                    type="button"
+                    onClick={() => onExportCSV(false)}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="Export catalog products to CSV"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Export CSV</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <SearchInput
-                placeholder="Search name, code, brand, category..."
-                value={searchQuery}
-                onChange={onSearchChange}
-              />
-              {onExportCSV && (
-                <button
-                  type="button"
-                  onClick={() => onExportCSV(false)}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-                  title="Export catalog products to CSV"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Export CSV</span>
-                </button>
-              )}
-            </div>
+            {/* Date Filtering Bar */}
+            {onDateFilterChange && (
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-slate-400 uppercase text-[10px] tracking-wider">
+                  <Calendar className="w-3.5 h-3.5 text-[#5d51e8]" />
+                  <span>Filter Date:</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onDateFilterChange('all')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                      dateFilter === 'all'
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    All Time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDateFilterChange('today')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                      dateFilter === 'today'
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDateFilterChange('7days')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                      dateFilter === '7days'
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDateFilterChange('30days')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                      dateFilter === '30days'
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    Last 30 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDateFilterChange('custom')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                      dateFilter === 'custom'
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    Custom Range
+                  </button>
+                </div>
+
+                {dateFilter === 'custom' && (
+                  <div className="flex items-center gap-2 mt-2 sm:mt-0 animate-in fade-in duration-200">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => onStartDateChange?.(e.target.value)}
+                      className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100"
+                    />
+                    <span className="text-slate-400 font-bold">to</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => onEndDateChange?.(e.target.value)}
+                      className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bulk Actions overlay for products */}
@@ -188,18 +331,29 @@ export default function ProductsTable({
                             )}
                           </div>
                         </th>
+                        <th 
+                          onClick={() => products.length > 0 && onSort('createdAt')}
+                          className={`py-4 px-6 ${products.length > 0 ? 'cursor-pointer hover:text-slate-700 dark:hover:text-slate-200' : ''} group`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Date & Time</span>
+                            {products.length > 0 && sortField === 'createdAt' && (
+                              sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-[#5d51e8]" /> : <ArrowDown className="w-3.5 h-3.5 text-[#5d51e8]" />
+                            )}
+                          </div>
+                        </th>
                         <th className="py-4 px-6 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                       {products.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-20 text-center text-slate-400">
+                          <td colSpan={7} className="py-20 text-center text-slate-400">
                             <div className="flex flex-col items-center justify-center gap-4">
                               <p className="font-bold text-sm text-slate-500">
                                 {allProductsList.length === 0 
                                   ? "Catalog is currently empty. Use the 'Add New Product' form above to add your first real product!" 
-                                  : "No products match search criteria."}
+                                  : "No products match search or date criteria."}
                               </p>
                             </div>
                           </td>
@@ -259,6 +413,9 @@ export default function ProductsTable({
                               </td>
                               <td className="py-4 px-6 font-extrabold text-xs text-slate-800 dark:text-slate-200">
                                 ₹{product.price.toLocaleString()} <span className="text-[10px] text-slate-400 dark:text-zinc-550 font-semibold">/ {product.unit}</span>
+                              </td>
+                              <td className="py-4 px-6 text-xs font-bold text-slate-600 dark:text-slate-350 whitespace-nowrap">
+                                {formatDateTime(product.createdAt)}
                               </td>
                               <td className="py-4 px-6 text-center">
                                 <div className="flex items-center justify-center gap-1">
@@ -363,6 +520,9 @@ export default function ProductsTable({
                               <p className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5">
                                 Code: {product.code || 'N/A'} | Design: {product.design || 'N/A'}
                               </p>
+                              <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                Added: {formatDateTime(product.createdAt)}
+                              </p>
                               <p className="text-xs font-semibold text-slate-400 dark:text-zinc-550 truncate mt-0.5">{product.descEn}</p>
                             </div>
                           </div>
@@ -420,6 +580,7 @@ export default function ProductsTable({
             totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
           />
         )}
       </div>

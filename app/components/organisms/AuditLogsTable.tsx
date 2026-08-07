@@ -29,7 +29,7 @@ export default function AuditLogsTable({ logs, loading }: AuditLogsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 15;
+  const [pageSize, setPageSize] = useState(15);
 
   const filteredLogs = useMemo(() => {
     let result = [...logs];
@@ -316,6 +316,7 @@ export default function AuditLogsTable({ logs, loading }: AuditLogsTableProps) {
             totalItems={filteredLogs.length}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>

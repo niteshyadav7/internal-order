@@ -10,18 +10,23 @@ import {
   ChevronRight,
   Bell,
   X,
-  History
+  History,
+  ShieldCheck
 } from 'lucide-react';
+import { AdminTabKey } from '../../lib/db';
+
+export type AdminTab = AdminTabKey;
 
 interface SidebarProps {
-  activeTab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs';
-  onTabChange: (tab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs') => void;
+  activeTab: AdminTab;
+  onTabChange: (tab: AdminTab) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   onLogout: () => void;
   unreadCount?: number;
+  allowedTabs?: AdminTab[];
 }
 
 export default function Sidebar({
@@ -32,8 +37,14 @@ export default function Sidebar({
   isMobileOpen,
   onCloseMobile,
   onLogout,
-  unreadCount = 0
+  unreadCount = 0,
+  allowedTabs
 }: SidebarProps) {
+  const canAccess = (tabKey: AdminTab) => {
+    if (!allowedTabs || allowedTabs.length === 0) return true;
+    return allowedTabs.includes(tabKey);
+  };
+
   return (
     <>
       <aside className={`
@@ -69,89 +80,117 @@ export default function Sidebar({
 
           {/* Navigation Links */}
           <nav className="p-4 space-y-1">
-            <button
-              type="button"
-              onClick={() => { onTabChange('users'); onCloseMobile(); }}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'users'
-                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-              title="User Approvals"
-            >
-              <Users className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span className="animate-in fade-in duration-300">User Approvals</span>}
-            </button>
+            {canAccess('users') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('users'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'users'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="User Approvals"
+              >
+                <Users className="w-4 h-4 flex-shrink-0" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">User Approvals</span>}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => { onTabChange('staff'); onCloseMobile(); }}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'staff'
-                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-              title="Staff Management"
-            >
-              <UserCog className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span className="animate-in fade-in duration-300">Staff Management</span>}
-            </button>
+            {canAccess('staff') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('staff'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'staff'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="Staff Management"
+              >
+                <UserCog className="w-4 h-4 flex-shrink-0" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">Staff Management</span>}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => { onTabChange('orders'); onCloseMobile(); }}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'orders'
-                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-              title="Order Requests"
-            >
-              <ShoppingBag className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span className="animate-in fade-in duration-300">Order Requests</span>}
-            </button>
+            {canAccess('orders') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('orders'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'orders'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="Order Requests"
+              >
+                <ShoppingBag className="w-4 h-4 flex-shrink-0" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">Order Requests</span>}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => { onTabChange('products'); onCloseMobile(); }}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'products'
-                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-              title="Manage Catalog"
-            >
-              <Database className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span className="animate-in fade-in duration-300">Manage Catalog</span>}
-            </button>
+            {canAccess('products') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('products'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'products'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="Manage Catalog"
+              >
+                <Database className="w-4 h-4 flex-shrink-0" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">Manage Catalog</span>}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => { onTabChange('logs'); onCloseMobile(); }}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'logs'
-                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-              title="Activity Logs"
-            >
-              <History className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span className="animate-in fade-in duration-300">Activity Logs</span>}
-            </button>
+            {canAccess('logs') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('logs'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'logs'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="Activity Logs"
+              >
+                <History className="w-4 h-4 flex-shrink-0" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">Activity Logs</span>}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => { onTabChange('fields'); onCloseMobile(); }}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'fields'
-                  ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-              title="Profile Settings"
-            >
-              <Settings className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span className="animate-in fade-in duration-300">Profile Settings</span>}
-            </button>
+            {canAccess('fields') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('fields'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'fields'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="Profile Settings"
+              >
+                <Settings className="w-4 h-4 flex-shrink-0" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">Profile Settings</span>}
+              </button>
+            )}
+
+            {canAccess('roles') && (
+              <button
+                type="button"
+                onClick={() => { onTabChange('roles'); onCloseMobile(); }}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'roles'
+                    ? 'bg-[#151a26] text-white border border-white/5 shadow-sm'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+                title="Role Management"
+              >
+                <ShieldCheck className="w-4 h-4 flex-shrink-0 text-[#5d51e8]" />
+                {!isCollapsed && <span className="animate-in fade-in duration-300">Role Management</span>}
+              </button>
+            )}
           </nav>
         </div>
 

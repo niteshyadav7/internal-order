@@ -27,7 +27,11 @@ import {
   getPriceRange,
   ActivityLog,
   logActivity,
-  subscribeToActivityLogs
+  subscribeToActivityLogs,
+  RolePermission,
+  AdminTabKey,
+  subscribeToRoles,
+  DEFAULT_SYSTEM_ROLES
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
@@ -73,6 +77,7 @@ import UserCreateModal from '../components/organisms/UserCreateModal';
 import ProductEditModal from '../components/organisms/ProductEditModal';
 import StaffManagement from '../components/organisms/StaffManagement';
 import BulkImportModal, { StagedProductItem } from '../components/organisms/BulkImportModal';
+import RoleManagement from '../components/organisms/RoleManagement';
 
 // Atoms for Form Components
 import { Input, Checkbox, Select } from '../components/atoms/Input';
@@ -82,7 +87,42 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { userProfile, loading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs'>('users');
+  const [activeTab, setActiveTab] = useState<AdminTabKey>('users');
+  const [rolesList, setRolesList] = useState<RolePermission[]>(DEFAULT_SYSTEM_ROLES);
+
+  // Real-time listener for dynamic roles
+  useEffect(() => {
+    const unsubscribeRoles = subscribeToRoles((roles) => {
+      setRolesList(roles);
+    });
+    return () => unsubscribeRoles();
+  }, []);
+
+  // Compute allowed tabs for current logged in user based on their role profile
+  const currentUserAllowedTabs = useMemo<AdminTabKey[]>(() => {
+    const roleId = userProfile?.role || 'admin';
+    if (roleId === 'admin') {
+      return ['users', 'staff', 'orders', 'products', 'fields', 'notifications', 'logs', 'roles'];
+    }
+    const roleObj = rolesList.find(r => r.id === roleId);
+    if (roleObj && roleObj.allowedTabs && roleObj.allowedTabs.length > 0) {
+      return roleObj.allowedTabs;
+    }
+    if (roleId === 'sub-admin') {
+      return ['users', 'orders', 'products', 'notifications'];
+    }
+    if (roleId === 'salesman') {
+      return ['orders', 'products'];
+    }
+    return ['users', 'staff', 'orders', 'products', 'fields', 'notifications', 'logs', 'roles'];
+  }, [userProfile?.role, rolesList]);
+
+  // Tab protection: if user is on a tab they are not allowed to access, redirect to first allowed tab
+  useEffect(() => {
+    if (currentUserAllowedTabs.length > 0 && !currentUserAllowedTabs.includes(activeTab)) {
+      setActiveTab(currentUserAllowedTabs[0]);
+    }
+  }, [currentUserAllowedTabs, activeTab]);
 
   // Dynamic window/tab title
   useEffect(() => {
@@ -93,7 +133,8 @@ export default function AdminDashboard() {
       products: 'Admin - Manage Catalog',
       logs: 'Admin - Activity Logs',
       fields: 'Admin - Profile Settings',
-      notifications: 'Admin - Notifications'
+      notifications: 'Admin - Notifications',
+      roles: 'Admin - Role Management'
     };
     document.title = tabTitles[activeTab] || 'Admin Portal';
   }, [activeTab]);
@@ -230,15 +271,18 @@ export default function AdminDashboard() {
   const [editUserName, setEditUserName] = useState('');
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserCustomDetails, setEditUserCustomDetails] = useState<Record<string, string>>({});
-  const [editUserRole, setEditUserRole] = useState<'client' | 'salesman' | 'admin'>('client');
+  const [editUserRole, setEditUserRole] = useState<string>('client');
   const [savingEditedUser, setSavingEditedUser] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
 
   // Catalog/Products states
   const [productSearchQuery, setProductSearchQuery] = useState('');
-  const [productSortField, setProductSortField] = useState<'nameEn' | 'price' | 'category'>('nameEn');
-  const [productSortDirection, setProductSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [productSortField, setProductSortField] = useState<'nameEn' | 'price' | 'category' | 'createdAt'>('createdAt');
+  const [productSortDirection, setProductSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [productDateFilter, setProductDateFilter] = useState<'all' | 'today' | '7days' | '30days' | 'custom'>('all');
+  const [productStartDate, setProductStartDate] = useState('');
+  const [productEndDate, setProductEndDate] = useState('');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editProdNameEn, setEditProdNameEn] = useState('');
@@ -536,7 +580,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setProductPage(1);
-  }, [productSearchQuery]);
+  }, [productSearchQuery, productDateFilter, productStartDate, productEndDate]);
 
   // Tab 1 (Users) sorting logic
   const handleSort = (field: 'name' | 'createdAt' | 'status') => {
@@ -549,12 +593,12 @@ export default function AdminDashboard() {
   };
 
   // Tab 3 (Products) sorting logic
-  const handleProductSort = (field: 'nameEn' | 'price' | 'category') => {
+  const handleProductSort = (field: 'nameEn' | 'price' | 'category' | 'createdAt') => {
     if (productSortField === field) {
       setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setProductSortField(field);
-      setProductSortDirection('asc');
+      setProductSortDirection(field === 'createdAt' ? 'desc' : 'asc');
     }
   };
 
@@ -1623,6 +1667,28 @@ export default function AdminDashboard() {
         (p.brand && p.brand.toLowerCase().includes(q))
       );
     }
+    if (productDateFilter !== 'all') {
+      const now = new Date();
+      if (productDateFilter === 'today') {
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        result = result.filter(p => p.createdAt && new Date(p.createdAt).getTime() >= startOfDay);
+      } else if (productDateFilter === '7days') {
+        const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+        result = result.filter(p => p.createdAt && new Date(p.createdAt).getTime() >= sevenDaysAgo);
+      } else if (productDateFilter === '30days') {
+        const thirtyDaysAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+        result = result.filter(p => p.createdAt && new Date(p.createdAt).getTime() >= thirtyDaysAgo);
+      } else if (productDateFilter === 'custom') {
+        if (productStartDate) {
+          const start = new Date(productStartDate).getTime();
+          result = result.filter(p => p.createdAt && new Date(p.createdAt).getTime() >= start);
+        }
+        if (productEndDate) {
+          const end = new Date(productEndDate).setHours(23, 59, 59, 999);
+          result = result.filter(p => p.createdAt && new Date(p.createdAt).getTime() <= end);
+        }
+      }
+    }
     result.sort((a, b) => {
       let valA: string | number = '';
       let valB: string | number = '';
@@ -1635,6 +1701,9 @@ export default function AdminDashboard() {
       } else if (productSortField === 'category') {
         valA = a.category.toLowerCase();
         valB = b.category.toLowerCase();
+      } else if (productSortField === 'createdAt') {
+        valA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        valB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       }
       if (valA < valB) return productSortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return productSortDirection === 'asc' ? 1 : -1;
@@ -1828,8 +1897,8 @@ export default function AdminDashboard() {
     return <Loader fullscreen text="Verifying administrator credentials..." />;
   }
 
-  // Deny access if user is not an admin
-  if (userProfile && userProfile.role !== 'admin') {
+  // Deny access if user is a client (customers have storefront access)
+  if (userProfile && userProfile.role === 'client') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 p-6 font-sans">
         <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl text-center space-y-6 animate-in zoom-in-95 duration-200">
@@ -1872,6 +1941,7 @@ export default function AdminDashboard() {
         onCloseMobile={() => setIsMobileOpen(false)}
         onLogout={handleLogout}
         unreadCount={unreadCount}
+        allowedTabs={currentUserAllowedTabs}
       />
 
       {/* Main Content Pane */}
@@ -2145,13 +2215,14 @@ export default function AdminDashboard() {
             {/* Tab: Staff Management */}
             {activeTab === 'staff' && (
               <StaffManagement
-                staffList={usersList.filter(u => u.role === 'salesman' || u.role === 'admin')}
+                staffList={usersList.filter(u => u.role !== 'client')}
                 usersList={usersList}
                 loading={loadingData}
                 onRefresh={() => {
                   // Staff data comes from the same usersList subscription,
                   // so it auto-refreshes. This is a manual trigger if needed.
                 }}
+                rolesList={rolesList}
               />
             )}
 
@@ -2723,6 +2794,7 @@ export default function AdminDashboard() {
                   totalPages={totalProductPages}
                   totalItems={filteredProducts.length}
                   onPageChange={setProductPage}
+                  onPageSizeChange={setProductPageSize}
                   onEditProduct={startEditingProduct}
                   onDeleteProduct={handleDeleteProduct}
                   onBatchDeleteProducts={() => setShowBatchDeleteProductsModal(true)}
@@ -2734,6 +2806,12 @@ export default function AdminDashboard() {
                   onToggleStock={handleToggleStock}
                   onOpenBulkWorkspace={() => setIsBulkWorkspaceOpen(true)}
                   onPreviewProductGallery={(product) => setGalleryProduct(product)}
+                  dateFilter={productDateFilter}
+                  onDateFilterChange={setProductDateFilter}
+                  startDate={productStartDate}
+                  onStartDateChange={setProductStartDate}
+                  endDate={productEndDate}
+                  onEndDateChange={setProductEndDate}
                 />
 
                 <BulkImportModal
@@ -2880,6 +2958,15 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Tab 5: Dynamic Role & Permission Management */}
+            {activeTab === 'roles' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <RoleManagement
+                  rolesList={rolesList}
+                />
+              </div>
+            )}
+
           </div>
         </div>
       </div>
@@ -3011,6 +3098,7 @@ export default function AdminDashboard() {
         onRoleChange={setEditUserRole}
         onSave={handleSaveEditedUser}
         saving={savingEditedUser}
+        rolesList={rolesList}
       />
 
       {/* Create User Modal */}

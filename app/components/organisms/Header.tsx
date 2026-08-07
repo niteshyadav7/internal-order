@@ -1,8 +1,9 @@
 import React from 'react';
 import { Menu, LogOut, Bell } from 'lucide-react';
+import { AdminTabKey } from '../../lib/db';
 
 interface HeaderProps {
-  activeTab: 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs';
+  activeTab: AdminTabKey;
   onMenuClick: () => void;
   onLogout: () => void;
   onNotificationClick?: () => void;
@@ -24,6 +25,7 @@ export default function Header({
       case 'orders': return 'Order Requests';
       case 'products': return 'Manage Catalog';
       case 'logs': return 'Activity & Audit Logs';
+      case 'roles': return 'Role Management';
       case 'notifications': return 'Notifications';
       default: return 'Admin Portal';
     }

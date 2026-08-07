@@ -12,19 +12,25 @@ service cloud.firestore {
       );
     }
 
-    // Helper function to check if the user is a staff member (admin or salesman)
+    // Helper function to check if the user is a staff member (admin, sub-admin, salesman, or custom dynamic staff role)
     function isStaff() {
       return request.auth != null && (
         isAdmin() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'salesman')
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role != 'client')
       );
     }
 
     // Users collection - users can read/write their own profile, admin can read/write all
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && (request.auth.uid == userId || isStaff());
+    }
+
+    // Roles collection - any authenticated user can read available roles, only super admin can edit/write
+    match /roles/{roleId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // Products collection - any authenticated user can read, staff (admin/salesman) can write/edit stock

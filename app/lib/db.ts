@@ -43,7 +43,7 @@ export interface UserProfile {
   customDetails?: Record<string, string>;
   registrationCompleted?: boolean;
   requestedFirmName?: string;
-  role?: 'client' | 'salesman' | 'admin';
+  role?: 'client' | 'salesman' | 'admin' | 'sub-admin' | string;
   plainPassword?: string;  // Only for staff accounts created directly by admin
   fcmTokens?: string[];
 }
@@ -1006,4 +1006,123 @@ export function subscribeToActivityLogs(
     return () => {};
   }
 }
+
+// Admin Navigation Tabs
+export type AdminTabKey = 'users' | 'staff' | 'orders' | 'products' | 'fields' | 'notifications' | 'logs' | 'roles';
+
+// Dynamic Role Permission Schema
+export interface RolePermission {
+  id: string;
+  name: string;
+  description?: string;
+  allowedTabs: AdminTabKey[];
+  createdAt?: string;
+  isSystem?: boolean;
+}
+
+// Built-in Default System Roles
+export const DEFAULT_SYSTEM_ROLES: RolePermission[] = [
+  {
+    id: 'admin',
+    name: 'Super Admin',
+    description: 'Full administrative power across all features and settings.',
+    allowedTabs: ['users', 'staff', 'orders', 'products', 'fields', 'notifications', 'logs', 'roles'],
+    isSystem: true
+  },
+  {
+    id: 'sub-admin',
+    name: 'Sub Admin',
+    description: 'Management access for User Approvals, Order Requests, and Catalog.',
+    allowedTabs: ['users', 'orders', 'products', 'notifications'],
+    isSystem: true
+  },
+  {
+    id: 'salesman',
+    name: 'Salesman',
+    description: 'Staff member managing order requests and product catalog.',
+    allowedTabs: ['orders', 'products'],
+    isSystem: true
+  },
+  {
+    id: 'client',
+    name: 'Client',
+    description: 'B2B Wholesale Customer with storefront browsing access.',
+    allowedTabs: [],
+    isSystem: true
+  }
+];
+
+// Subscribe to dynamic roles in real time
+export function subscribeToRoles(
+  callback: (roles: RolePermission[]) => void
+): () => void {
+  if (!db) {
+    callback(DEFAULT_SYSTEM_ROLES);
+    return () => {};
+  }
+
+  try {
+    const rolesRef = collection(db, 'roles');
+    return onSnapshot(rolesRef, (snapshot) => {
+      const dbRoles: RolePermission[] = [];
+      snapshot.forEach((docSnap) => {
+        dbRoles.push({ id: docSnap.id, ...docSnap.data() } as RolePermission);
+      });
+
+      // Merge defaults with custom roles from DB
+      const combined = [...DEFAULT_SYSTEM_ROLES];
+      dbRoles.forEach(dbRole => {
+        const index = combined.findIndex(r => r.id === dbRole.id);
+        if (index >= 0) {
+          combined[index] = { ...combined[index], ...dbRole };
+        } else {
+          combined.push(dbRole);
+        }
+      });
+
+      callback(combined);
+    }, (err) => {
+      console.warn("Roles listener notice (using default system roles):", err);
+      callback(DEFAULT_SYSTEM_ROLES);
+    });
+  } catch (err) {
+    console.error("Failed to setup roles listener:", err);
+    callback(DEFAULT_SYSTEM_ROLES);
+    return () => {};
+  }
+}
+
+// Create or update dynamic role in Firestore
+export async function saveRole(role: RolePermission): Promise<boolean> {
+  if (!db || !role.id) return false;
+  try {
+    const roleRef = doc(db, 'roles', role.id);
+    const dataToSave = sanitizeForFirestore({
+      name: role.name,
+      description: role.description || '',
+      allowedTabs: role.allowedTabs || [],
+      createdAt: role.createdAt || new Date().toISOString(),
+      isSystem: role.isSystem ?? false
+    });
+    await setDoc(roleRef, dataToSave, { merge: true });
+    return true;
+  } catch (err) {
+    console.error("Failed to save role:", err);
+    return false;
+  }
+}
+
+// Delete custom role from Firestore
+export async function deleteRole(roleId: string): Promise<boolean> {
+  if (!db || !roleId) return false;
+  try {
+    const roleRef = doc(db, 'roles', roleId);
+    await deleteDoc(roleRef);
+    return true;
+  } catch (err) {
+    console.error("Failed to delete role:", err);
+    return false;
+  }
+}
+
 

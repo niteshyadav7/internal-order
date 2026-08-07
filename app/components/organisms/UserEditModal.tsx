@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { UserProfile, ProfileField } from '../../lib/db';
+import { UserProfile, ProfileField, RolePermission, DEFAULT_SYSTEM_ROLES } from '../../lib/db';
 
 interface UserEditModalProps {
   isOpen: boolean;
@@ -13,10 +13,11 @@ interface UserEditModalProps {
   customDetails: Record<string, string>;
   onCustomDetailChange: (key: string, value: string) => void;
   fieldsList: ProfileField[];
-  role: 'client' | 'salesman' | 'admin';
-  onRoleChange: (val: 'client' | 'salesman' | 'admin') => void;
+  role: string;
+  onRoleChange: (val: string) => void;
   onSave: (e: React.FormEvent) => void;
   saving: boolean;
+  rolesList?: RolePermission[];
 }
 
 export default function UserEditModal({
@@ -33,27 +34,28 @@ export default function UserEditModal({
   role,
   onRoleChange,
   onSave,
-  saving
+  saving,
+  rolesList = DEFAULT_SYSTEM_ROLES
 }: UserEditModalProps) {
   if (!isOpen || !user) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-md w-full rounded-3xl sm:rounded-[2.2rem] p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="text-center space-y-1.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">
-          <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none">
-            Edit User Profile
-          </h3>
-          <p className="text-xs font-semibold text-slate-400 dark:text-zinc-550">
-            Modify registration details for {user.name}
-          </p>
+    <div 
+      className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-left cursor-default max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-slate-100 dark:border-zinc-800/80 pb-3">
+          <h3 className="text-base font-black text-slate-900 dark:text-white">Edit User Profile</h3>
+          <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500">Update registration details & role permission.</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={onSave} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-black text-slate-400">Full Name</label>
+            <label className="text-[10px] uppercase font-black text-slate-405">Full Name</label>
             <input
               type="text"
               required
@@ -64,7 +66,7 @@ export default function UserEditModal({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-black text-slate-400">Email Address</label>
+            <label className="text-[10px] uppercase font-black text-slate-405">Email Address</label>
             <input
               type="email"
               required
@@ -75,15 +77,15 @@ export default function UserEditModal({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-black text-slate-400">User Role</label>
+            <label className="text-[10px] uppercase font-black text-slate-405">User Role</label>
             <select
               value={role}
-              onChange={(e) => onRoleChange(e.target.value as 'client' | 'salesman' | 'admin')}
-              className="w-full px-3.5 py-2.5 bg-slate-55 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+              onChange={(e) => onRoleChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-55 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100 capitalize"
             >
-              <option value="client">Client</option>
-              <option value="salesman">Salesman</option>
-              <option value="admin">Admin</option>
+              {rolesList.map(r => (
+                <option key={r.id} value={r.id}>{r.name} ({r.id})</option>
+              ))}
             </select>
           </div>
 
