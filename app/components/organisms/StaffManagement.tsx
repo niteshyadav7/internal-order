@@ -76,6 +76,13 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState('');
 
+  // Helper to format role name from dynamic rolesList
+  const getRoleName = (roleId?: string) => {
+    if (!roleId) return 'Staff';
+    const roleObj = rolesList.find(r => r.id === roleId);
+    return roleObj ? roleObj.name : roleId.replace(/-/g, ' ').toUpperCase();
+  };
+
   // Client list for promotion (excludes existing staff)
   const clientsForPromotion = useMemo(() => {
     const staffUids = new Set(staffList.map(s => s.uid));
@@ -417,10 +424,12 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
                         user.role === 'admin'
                           ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+                          : user.role === 'sub-admin'
+                          ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400'
                           : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
                       }`}>
                         {user.role === 'admin' ? <Shield className="w-3 h-3" /> : <UserCog className="w-3 h-3" />}
-                        {user.role}
+                        {getRoleName(user.role)}
                       </span>
                     </td>
                     <td className="px-5 py-4">
@@ -547,30 +556,22 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
               </div>
 
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Role</label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCreateRole('salesman')}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                      createRole === 'salesman'
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-amber-300'
-                    }`}
-                  >
-                    Salesman
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCreateRole('admin')}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                      createRole === 'admin'
-                        ? 'border-red-500 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-red-300'
-                    }`}
-                  >
-                    Admin
-                  </button>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Assign Role</label>
+                <div className="flex flex-wrap gap-2">
+                  {rolesList.filter(r => r.id !== 'client').map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setCreateRole(r.id)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
+                        createRole === r.id
+                          ? 'border-[#5d51e8] bg-indigo-50 dark:bg-indigo-950/30 text-[#5d51e8] dark:text-indigo-400 shadow-sm'
+                          : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-indigo-300'
+                      }`}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -669,43 +670,22 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
               )}
 
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Role</label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setEditRole('salesman')}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                      editRole === 'salesman'
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-amber-300'
-                    }`}
-                  >
-                    Salesman
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditRole('admin')}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                      editRole === 'admin'
-                        ? 'border-red-500 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-red-300'
-                    }`}
-                  >
-                    Admin
-                  </button>
-                  {isEditGoogleUser && (
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Assign Role</label>
+                <div className="flex flex-wrap gap-2">
+                  {rolesList.map((r) => (
                     <button
+                      key={r.id}
                       type="button"
-                      onClick={() => setEditRole('client')}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                        editRole === 'client'
-                          ? 'border-slate-500 bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
-                          : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-slate-400'
+                      onClick={() => setEditRole(r.id)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
+                        editRole === r.id
+                          ? 'border-[#5d51e8] bg-indigo-50 dark:bg-indigo-950/30 text-[#5d51e8] dark:text-indigo-400 shadow-sm'
+                          : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-indigo-300'
                       }`}
                     >
-                      Client
+                      {r.name}
                     </button>
-                  )}
+                  ))}
                 </div>
               </div>
 
@@ -828,29 +808,21 @@ export default function StaffManagement({ staffList, usersList, loading, onRefre
               {/* Role selection */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Assign Role</label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPromoteRole('salesman')}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                      promoteRole === 'salesman'
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-amber-300'
-                    }`}
-                  >
-                    Salesman
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPromoteRole('admin')}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                      promoteRole === 'admin'
-                        ? 'border-red-500 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-red-300'
-                    }`}
-                  >
-                    Admin
-                  </button>
+                <div className="flex flex-wrap gap-2">
+                  {rolesList.filter(r => r.id !== 'client').map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setPromoteRole(r.id)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
+                        promoteRole === r.id
+                          ? 'border-[#5d51e8] bg-indigo-50 dark:bg-indigo-950/30 text-[#5d51e8] dark:text-indigo-400 shadow-sm'
+                          : 'border-slate-200 dark:border-zinc-700 text-slate-500 hover:border-indigo-300'
+                      }`}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
                 </div>
               </div>
 

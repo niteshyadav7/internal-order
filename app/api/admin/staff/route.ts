@@ -24,10 +24,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name, email, password, and role are required' }, { status: 400 });
     }
 
-    if (!['salesman', 'admin'].includes(role)) {
-      return NextResponse.json({ error: 'Role must be salesman or admin' }, { status: 400 });
-    }
-
     // Create Firebase Auth user
     const userRecord = await adminAuth.createUser({
       email,
@@ -98,7 +94,7 @@ export async function PUT(request: NextRequest) {
     if (name) profileUpdate.name = name;
     if (email) profileUpdate.email = email;
     if (password) profileUpdate.plainPassword = password;
-    if (role && ['salesman', 'admin', 'client'].includes(role)) profileUpdate.role = role;
+    if (role) profileUpdate.role = role;
 
     if (Object.keys(profileUpdate).length > 0) {
       await adminDb.collection('users').doc(uid).update(profileUpdate);
