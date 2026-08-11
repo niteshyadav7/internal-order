@@ -110,20 +110,7 @@ export default function LoginForm({
         </button>
       </div>
 
-      {/* Divider / Toggle Email Login */}
-      <div className="relative flex items-center justify-center my-3">
-        <div className="border-t border-slate-200 dark:border-zinc-800 w-full"></div>
-        <button
-          type="button"
-          onClick={() => setShowEmailForm(!showEmailForm)}
-          className="absolute bg-white dark:bg-zinc-950 px-4 text-xs font-extrabold text-slate-500 hover:text-[#5d51e8] dark:hover:text-indigo-400 cursor-pointer select-none transition-colors duration-200 flex items-center gap-1.5"
-        >
-          {showEmailForm ? 'Hide Email Options' : t('signInWithEmail')}
-          <span className="text-[10px] transform transition-transform duration-200">
-            {showEmailForm ? '▲' : '▼'}
-          </span>
-        </button>
-      </div>
+
 
       {/* Credentials Form (Collapsible) */}
       {showEmailForm && (
