@@ -232,8 +232,14 @@ export default function ClientOrdersList({
 
       {/* Edit Order Modal */}
       {editingOrder && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-250">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-md w-full rounded-[2.2rem] p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-250 max-h-[85vh] overflow-y-auto">
+        <div 
+          onClick={() => setEditingOrder(null)}
+          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-250 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 max-w-md w-full rounded-[2.2rem] p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-250 max-h-[85vh] overflow-y-auto cursor-default"
+          >
             <div className="text-center space-y-1.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">
               <h3 className="text-lg font-black text-slate-900 dark:text-white leading-none">
                 Modify Order Items

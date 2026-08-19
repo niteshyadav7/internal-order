@@ -34,7 +34,12 @@ export default function OrderPreviewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[80] flex items-end sm:items-end justify-center sm:items-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       <div 
         className="w-full max-w-2xl bg-zinc-950 dark:bg-zinc-950 border border-white/10 rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom duration-300"
         onClick={(e) => e.stopPropagation()}

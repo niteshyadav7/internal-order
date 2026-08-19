@@ -292,8 +292,14 @@ export default function RoleManagement({ rolesList, loading = false, onRefresh }
 
       {/* CREATE ROLE MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+        <div 
+          onClick={() => setShowCreateModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 cursor-default"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800/80 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-[#5d51e8]/10 text-[#5d51e8] rounded-xl">
@@ -392,8 +398,14 @@ export default function RoleManagement({ rolesList, loading = false, onRefresh }
 
       {/* EDIT ROLE MODAL */}
       {editingRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+        <div 
+          onClick={() => setEditingRole(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 cursor-default"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800/80 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-[#5d51e8]/10 text-[#5d51e8] rounded-xl">
