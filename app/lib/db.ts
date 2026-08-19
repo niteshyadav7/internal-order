@@ -271,8 +271,11 @@ export interface ProductImage {
 // Product Variant/Model Option
 export interface ProductVariant {
   id: string;        // auto-generated unique ID
-  name: string;      // e.g. "Red", "128GB", "Model-A"
+  name: string;      // e.g. "Red", "128GB", "Model-A", "C503-2"
   imageIndex: number; // which image from images[] to show for this variant
+  location?: string; // Location No (Rack/Shelf/Bin/Folder)
+  designNo?: string; // Design No / Code
+  inStock?: boolean; // Stock availability for this specific design (default true)
 }
 
 // Product Interface
@@ -290,6 +293,7 @@ export interface Product {
   inStock?: boolean;
   code?: string;
   design?: string;
+  location?: string;             // Product Location No (Rack/Shelf/Bin)
   brand?: string;                // Brand Name
   images?: ProductImage[];      // Multiple product images
   variants?: ProductVariant[];  // Model/variant options
@@ -308,6 +312,8 @@ export interface OrderItem {
   quantity: number;
   code?: string;
   design?: string;
+  location?: string;             // Location No
+  designNo?: string;             // Variant Design No
   brand?: string;                // Brand Name
   selectedVariant?: string;     // Variant name chosen by user
   selectedImageUrl?: string;    // Image URL of selected variant (for PDF)
@@ -887,7 +893,7 @@ export async function addSalesmanNote(
 
 export interface ActivityLog {
   id?: string;
-  action: 'CREATE_PRODUCT' | 'UPDATE_PRODUCT' | 'DELETE_PRODUCT' | 'BATCH_DELETE_PRODUCTS' | 'TOGGLE_STOCK' | 'BULK_IMPORT';
+  action: 'CREATE_PRODUCT' | 'UPDATE_PRODUCT' | 'DELETE_PRODUCT' | 'BATCH_DELETE_PRODUCTS' | 'TOGGLE_STOCK' | 'BULK_IMPORT' | 'ELIMINATE_STOCK';
   performerUid: string;
   performerName: string;
   performerEmail: string;

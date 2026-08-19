@@ -38,6 +38,7 @@ export interface StagedProductItem {
   category: string;
   code: string;       // Product Code / SKU
   design: string;     // Design Identifier
+  location?: string;  // Location No / Rack
   brand?: string;      // Brand Name
   priceRangePct?: number;
   minPrice?: number;
@@ -170,6 +171,7 @@ export default function BulkImportModal({
           const category = rec.category || existingProd?.category || (categoriesList[0] || 'Electronics');
           const code = rec.code || rec.sku || existingProd?.code || `SKU-${100 + idx}`;
           const design = rec.design || rec.designCode || existingProd?.design || `DES-${100 + idx}`;
+          const location = rec.location || rec.locationNo || rec.locationCode || rec.rack || existingProd?.location || '';
           const brand = rec.brand || rec.brandName || rec.brand_name || existingProd?.brand || '';
           const descEn = rec.descEn || rec.description || existingProd?.descEn || '';
           const descHi = rec.descHi || rec.description_hi || existingProd?.descHi || descEn;
@@ -205,33 +207,55 @@ export default function BulkImportModal({
             const vList = String(rec.variants).split(';').map(v => v.trim()).filter(Boolean);
             variants = vList.map((v, vIdx) => {
               const parts = v.split(':');
+              const varName = parts[0]?.trim() || `Model ${vIdx + 1}`;
+              const varImgIdx = parts[1] ? parseInt(parts[1].trim()) || 0 : (vIdx < images.length ? vIdx : 0);
+              const varLoc = parts[2] ? parts[2].trim() : (location || '');
               return {
                 id: `v_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                name: parts[0].trim(),
-                imageIndex: parts[1] ? parseInt(parts[1].trim()) || 0 : (vIdx < images.length ? vIdx : 0)
+                name: varName,
+                location: varLoc,
+                designNo: varName,
+                inStock: true,
+                imageIndex: varImgIdx
               };
             });
           } else if (existingProd?.variants && Array.isArray(existingProd.variants) && existingProd.variants.length > 0) {
-            variants = existingProd.variants.map((v: any, vIdx: number) => ({
-              id: v.id || `v_existing_${vIdx}_${Date.now()}`,
-              name: v.name || (design ? `${design}-${vIdx + 1}` : `Model ${vIdx + 1}`),
-              imageIndex: typeof v.imageIndex === 'number' ? v.imageIndex : vIdx
-            }));
+            variants = existingProd.variants.map((v: any, vIdx: number) => {
+              const dName = v.designNo || v.name || (design ? `${design}-${vIdx + 1}` : `Model ${vIdx + 1}`);
+              return {
+                id: v.id || `v_existing_${vIdx}_${Date.now()}`,
+                name: dName,
+                location: v.location || location || '',
+                designNo: dName,
+                inStock: v.inStock !== false,
+                imageIndex: typeof v.imageIndex === 'number' ? v.imageIndex : vIdx
+              };
+            });
             // If images were appended from CSV and exceed existing variants, create variants for the new ones
             for (let i = variants.length; i < images.length; i++) {
+              const dName = design ? `${design}-${i + 1}` : `Model ${i + 1}`;
               variants.push({
                 id: `v_auto_${i}_${Date.now()}`,
-                name: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
+                name: dName,
+                location: location || '',
+                designNo: dName,
+                inStock: true,
                 imageIndex: i
               });
             }
           } else {
             // Auto build variants from images
-            variants = images.map((_, i) => ({
-              id: `v_auto_${i}_${Date.now()}`,
-              name: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
-              imageIndex: i
-            }));
+            variants = images.map((_, i) => {
+              const dName = design ? `${design}-${i + 1}` : `Model ${i + 1}`;
+              return {
+                id: `v_auto_${i}_${Date.now()}`,
+                name: dName,
+                location: location || '',
+                designNo: dName,
+                inStock: true,
+                imageIndex: i
+              };
+            });
           }
 
           return {
@@ -245,6 +269,7 @@ export default function BulkImportModal({
             category,
             code,
             design,
+            location,
             brand,
             priceRangePct: (() => {
               const rawVariance = rec.priceRangePct ?? rec.variance ?? rec.price_range_pct ?? rec['variance %'] ?? rec['Variance'];
@@ -332,13 +357,17 @@ export default function BulkImportModal({
             // Append if URL not already present
             if (!matchedProd.images.some(img => img.url === photo.url)) {
               const nextIdx = matchedProd.images.length;
+              const dName = matchedProd.design ? `${matchedProd.design}-${nextIdx + 1}` : `Model ${nextIdx + 1}`;
               matchedProd.images.push({
                 url: photo.url,
                 label: `Image ${nextIdx + 1}`
               });
               matchedProd.variants.push({
                 id: `v_auto_${nextIdx}_${Date.now()}`,
-                name: matchedProd.design ? `${matchedProd.design}-${nextIdx + 1}` : `Model ${nextIdx + 1}`,
+                name: dName,
+                location: matchedProd.location || '',
+                designNo: dName,
+                inStock: true,
                 imageIndex: nextIdx
               });
             }
@@ -378,6 +407,7 @@ export default function BulkImportModal({
 
       const item = { ...updated[targetIdx] };
       const imgIdx = item.images.length;
+      const dName = item.design ? `${item.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`;
 
       // Add image if not already present
       if (!item.images.some(img => img.url === photo.url)) {
@@ -386,7 +416,10 @@ export default function BulkImportModal({
           ...item.variants,
           {
             id: `v_auto_${imgIdx}_${Date.now()}`,
-            name: item.design ? `${item.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`,
+            name: dName,
+            location: item.location || '',
+            designNo: dName,
+            inStock: true,
             imageIndex: imgIdx
           }
         ];
@@ -532,13 +565,17 @@ export default function BulkImportModal({
           const updated = [...prev];
           const item = { ...updated[productIndex] };
           const imgIdx = item.images.length;
+          const dName = item.design ? `${item.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`;
           
           item.images = [...item.images, { url: storageUrl, label: `Image ${imgIdx + 1}` }];
           item.variants = [
             ...item.variants,
             {
               id: `v_auto_${imgIdx}_${Date.now()}`,
-              name: item.design ? `${item.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`,
+              name: dName,
+              location: item.location || '',
+              designNo: dName,
+              inStock: true,
               imageIndex: imgIdx
             }
           ];
@@ -566,12 +603,26 @@ export default function BulkImportModal({
         reordered.splice(imageIndex, 1);
         reordered.unshift(selected);
 
+        const reorderedVariants = [...item.variants];
+        const selectedVar = reorderedVariants[imageIndex];
+        if (selectedVar) {
+          reorderedVariants.splice(imageIndex, 1);
+          reorderedVariants.unshift(selectedVar);
+        }
+
         item.images = reordered.map((img, i) => ({ ...img, label: `Image ${i + 1}` }));
-        item.variants = reordered.map((_, i) => ({
-          id: `v_auto_${i}_${Date.now()}`,
-          name: item.design ? `${item.design}-${i + 1}` : `Model ${i + 1}`,
-          imageIndex: i
-        }));
+        item.variants = reordered.map((_, i) => {
+          const prevV = reorderedVariants[i];
+          const dName = prevV?.designNo || prevV?.name || (item.design ? `${item.design}-${i + 1}` : `Model ${i + 1}`);
+          return {
+            id: prevV?.id || `v_auto_${i}_${Date.now()}`,
+            name: dName,
+            location: prevV?.location || item.location || '',
+            designNo: dName,
+            inStock: prevV?.inStock !== false,
+            imageIndex: i
+          };
+        });
       }
 
       updated[productIndex] = item;
@@ -1158,7 +1209,7 @@ export default function BulkImportModal({
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400">Product Name</label>
                       <input
@@ -1183,6 +1234,16 @@ export default function BulkImportModal({
                         type="text"
                         value={currentProduct.design}
                         onChange={(e) => updateStagedProduct(selectedProductIndex, { design: e.target.value })}
+                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-slate-400">Location No</label>
+                      <input
+                        type="text"
+                        value={currentProduct.location || ''}
+                        onChange={(e) => updateStagedProduct(selectedProductIndex, { location: e.target.value })}
+                        placeholder="e.g. Rack-1"
                         className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
                       />
                     </div>
@@ -1295,7 +1356,7 @@ export default function BulkImportModal({
                   <div className="flex items-center justify-between">
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                       <Images className="w-4 h-4 text-[#5d51e8]" />
-                      Linked Photos & Model Codes ({currentProduct.images.length})
+                      Linked Photos & Design Codes ({currentProduct.images.length})
                     </h4>
                     <span className="text-[10px] text-slate-400 font-bold">
                       Drag photos from top tray into this box to link!
@@ -1372,30 +1433,67 @@ export default function BulkImportModal({
                               )}
                             </div>
 
-                            <div className="space-y-1.5 text-left">
-                              <label className="text-[9px] font-black uppercase text-slate-400">Model / Variant Name</label>
-                              <input
-                                type="text"
-                                value={variant?.name || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setStagedProducts(prev => {
-                                    const updated = [...prev];
-                                    const item = { ...updated[selectedProductIndex] };
-                                    const vList = [...item.variants];
-                                    vList[imgIdx] = {
-                                      id: vList[imgIdx]?.id || `v_${Date.now()}_${imgIdx}`,
-                                      name: val,
-                                      imageIndex: imgIdx
-                                    };
-                                    item.variants = vList;
-                                    updated[selectedProductIndex] = item;
-                                    return updated;
-                                  });
-                                }}
-                                placeholder={currentProduct.design ? `${currentProduct.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`}
-                                className="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
-                              />
+                            {/* Split into Location No & Design No fields */}
+                            <div className="grid grid-cols-2 gap-2 text-left">
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase text-slate-400">Location No</label>
+                                <input
+                                  type="text"
+                                  value={variant?.location || ''}
+                                  onChange={(e) => {
+                                    const locVal = e.target.value;
+                                    setStagedProducts(prev => {
+                                      const updated = [...prev];
+                                      const item = { ...updated[selectedProductIndex] };
+                                      const vList = [...item.variants];
+                                      const prevVar = vList[imgIdx];
+                                      const curDesignNo = prevVar?.designNo || prevVar?.name || (item.design ? `${item.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`);
+                                      vList[imgIdx] = {
+                                        id: prevVar?.id || `v_${Date.now()}_${imgIdx}`,
+                                        name: curDesignNo,
+                                        location: locVal,
+                                        designNo: curDesignNo,
+                                        inStock: prevVar?.inStock !== false,
+                                        imageIndex: imgIdx
+                                      };
+                                      item.variants = vList;
+                                      updated[selectedProductIndex] = item;
+                                      return updated;
+                                    });
+                                  }}
+                                  placeholder="e.g. Rack-1"
+                                  className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase text-slate-400">Design No</label>
+                                <input
+                                  type="text"
+                                  value={variant?.designNo || variant?.name || ''}
+                                  onChange={(e) => {
+                                    const desVal = e.target.value;
+                                    setStagedProducts(prev => {
+                                      const updated = [...prev];
+                                      const item = { ...updated[selectedProductIndex] };
+                                      const vList = [...item.variants];
+                                      const prevVar = vList[imgIdx];
+                                      vList[imgIdx] = {
+                                        id: prevVar?.id || `v_${Date.now()}_${imgIdx}`,
+                                        name: desVal,
+                                        location: prevVar?.location || item.location || '',
+                                        designNo: desVal,
+                                        inStock: prevVar?.inStock !== false,
+                                        imageIndex: imgIdx
+                                      };
+                                      item.variants = vList;
+                                      updated[selectedProductIndex] = item;
+                                      return updated;
+                                    });
+                                  }}
+                                  placeholder={currentProduct.design ? `${currentProduct.design}-${imgIdx + 1}` : `Model ${imgIdx + 1}`}
+                                  className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                                />
+                              </div>
                             </div>
                           </div>
                         );

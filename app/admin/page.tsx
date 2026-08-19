@@ -77,6 +77,7 @@ import UserCreateModal from '../components/organisms/UserCreateModal';
 import ProductEditModal from '../components/organisms/ProductEditModal';
 import StaffManagement from '../components/organisms/StaffManagement';
 import BulkImportModal, { StagedProductItem } from '../components/organisms/BulkImportModal';
+import BulkOutOfStockModal, { OutOfStockRowItem } from '../components/organisms/BulkOutOfStockModal';
 import RoleManagement from '../components/organisms/RoleManagement';
 
 // Atoms for Form Components
@@ -221,6 +222,7 @@ export default function AdminDashboard() {
   const [isNewProdCompressing, setIsNewProdCompressing] = useState(false);
   const [newProdCode, setNewProdCode] = useState('');
   const [newProdDesign, setNewProdDesign] = useState('');
+  const [newProdLocation, setNewProdLocation] = useState('');
   const [newProdBrand, setNewProdBrand] = useState('');
   const [newProdImages, setNewProdImages] = useState<ProductImage[]>([]);
   const [newProdVariants, setNewProdVariants] = useState<ProductVariant[]>([]);
@@ -229,11 +231,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     const autoVariants = newProdImages.map((_, idx) => ({
       id: `v_auto_${idx}_${Date.now()}`,
-      name: `Model ${idx + 1}`,
+      name: newProdDesign ? `${newProdDesign}-${idx + 1}` : `Model ${idx + 1}`,
+      location: newProdLocation || '',
+      designNo: newProdDesign ? `${newProdDesign}-${idx + 1}` : `Model ${idx + 1}`,
+      inStock: true,
       imageIndex: idx
     }));
     setNewProdVariants(autoVariants);
-  }, [newProdImages]);
+  }, [newProdImages, newProdDesign, newProdLocation]);
 
   const existingCodeProduct = useMemo(() => {
     if (!newProdCode.trim()) return null;
@@ -294,12 +299,14 @@ export default function AdminDashboard() {
   const [editProdInStock, setEditProdInStock] = useState(true);
   const [editProdCode, setEditProdCode] = useState('');
   const [editProdDesign, setEditProdDesign] = useState('');
+  const [editProdLocation, setEditProdLocation] = useState('');
   const [editProdBrand, setEditProdBrand] = useState('');
   const [editProdImages, setEditProdImages] = useState<ProductImage[]>([]);
   const [editProdVariants, setEditProdVariants] = useState<ProductVariant[]>([]);
   const [savingEditedProduct, setSavingEditedProduct] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
   const [seedingCatalog, setSeedingCatalog] = useState(false);
   const [isBulkWorkspaceOpen, setIsBulkWorkspaceOpen] = useState(false);
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
@@ -1058,6 +1065,7 @@ export default function AdminDashboard() {
     setEditProdInStock(product.inStock !== false);
     setEditProdCode(product.code || '');
     setEditProdDesign(product.design || '');
+    setEditProdLocation(product.location || '');
     setEditProdBrand(product.brand || '');
     setEditProdImages(product.images || []);
     setEditProdVariants(product.variants || []);
@@ -1087,6 +1095,7 @@ export default function AdminDashboard() {
         inStock: editProdInStock,
         code: editProdCode,
         design: editProdDesign,
+        location: editProdLocation,
         brand: editProdBrand,
         images: editProdImages,
         variants: editProdVariants,
@@ -1155,31 +1164,30 @@ export default function AdminDashboard() {
     }
     setAddingProduct(true);
     try {
-      // Check if product with same Product Code exists in catalog
+      // Check if product code already exists in catalog
       const existingProd = newProdCode.trim() 
-        ? productsList.find(p => p.code?.trim().toLowerCase() === newProdCode.trim().toLowerCase())
+        ? productsList.find(p => p.code?.trim() && p.code.trim().toLowerCase() === newProdCode.trim().toLowerCase()) 
         : null;
 
       if (existingProd && existingProd.id) {
-        // UPDATE EXISTING PRODUCT - Append new images without overwriting previous
-        let finalImages = existingProd.images && Array.isArray(existingProd.images) ? [...existingProd.images] : [];
-        if (finalImages.length === 0 && existingProd.imageUrl && existingProd.imageUrl !== 'gradient-indigo' && !existingProd.imageUrl.startsWith('gradient-')) {
-          finalImages.push({ url: existingProd.imageUrl, label: 'Image 1' });
+        // UPDATE EXISTING PRODUCT
+        let finalImages: ProductImage[] = [...newProdImages];
+        if (existingProd.images && Array.isArray(existingProd.images)) {
+          existingProd.images.forEach(exImg => {
+            if (!finalImages.some(img => img.url === exImg.url)) {
+              finalImages.push({ url: exImg.url, label: `Image ${finalImages.length + 1}` });
+            }
+          });
         }
-        newProdImages.forEach(newImg => {
-          if (!finalImages.some(img => img.url === newImg.url)) {
-            finalImages.push({ url: newImg.url, label: `Image ${finalImages.length + 1}` });
-          }
-        });
 
-        // Merge variants
-        let finalVariants = existingProd.variants && Array.isArray(existingProd.variants) ? [...existingProd.variants] : [];
-        newProdVariants.forEach(newVar => {
-          if (!finalVariants.some(v => v.name === newVar.name)) {
+        let finalVariants: ProductVariant[] = [...newProdVariants];
+        const existingVars = existingProd.variants || [];
+        existingVars.forEach(exVar => {
+          if (!finalVariants.some(v => v.name === exVar.name)) {
             finalVariants.push({
-              ...newVar,
-              id: newVar.id || `v_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              imageIndex: typeof newVar.imageIndex === 'number' ? newVar.imageIndex : finalImages.length - 1
+              ...exVar,
+              id: exVar.id || `v_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              imageIndex: typeof exVar.imageIndex === 'number' ? exVar.imageIndex : finalImages.length - 1
             });
           }
         });
@@ -1187,6 +1195,9 @@ export default function AdminDashboard() {
           finalVariants = finalImages.map((_, i) => ({
             id: `v_auto_${i}_${Date.now()}`,
             name: newProdDesign ? `${newProdDesign}-${i + 1}` : `Model ${i + 1}`,
+            location: newProdLocation || '',
+            designNo: newProdDesign ? `${newProdDesign}-${i + 1}` : `Model ${i + 1}`,
+            inStock: true,
             imageIndex: i
           }));
         }
@@ -1204,6 +1215,7 @@ export default function AdminDashboard() {
           inStock: newProdInStock,
           code: newProdCode,
           design: newProdDesign,
+          location: newProdLocation,
           brand: newProdBrand,
           images: finalImages,
           variants: finalVariants,
@@ -1222,6 +1234,7 @@ export default function AdminDashboard() {
         setNewProdInStock(true);
         setNewProdCode('');
         setNewProdDesign('');
+        setNewProdLocation('');
         setNewProdBrand('');
         setNewProdImages([]);
         setNewProdVariants([]);
@@ -1251,6 +1264,7 @@ export default function AdminDashboard() {
           inStock: newProdInStock,
           code: newProdCode,
           design: newProdDesign,
+          location: newProdLocation,
           brand: newProdBrand,
           images: newProdImages,
           variants: newProdVariants,
@@ -1270,17 +1284,18 @@ export default function AdminDashboard() {
           setNewProdInStock(true);
           setNewProdCode('');
           setNewProdDesign('');
+          setNewProdLocation('');
           setNewProdBrand('');
           setNewProdImages([]);
           setNewProdVariants([]);
           setNewProdPriceRangePct('');
           setNewProdMinPrice('');
           setNewProdMaxPrice('');
-          setAdminToast({ message: "Product added successfully!", type: "success" });
+          setAdminToast({ message: "Product created successfully!", type: "success" });
           logActivity({
             ...getPerformerDetails(),
             action: 'CREATE_PRODUCT',
-            details: `Added new product "${newProdNameEn}" at ₹${newProdPrice}/${newProdUnit} in category "${newProdCategory}"`,
+            details: `Created new product "${newProdNameEn}" (Price: ₹${newProdPrice}/${newProdUnit}, Category: ${newProdCategory})`,
             targetProductId: addedProduct.id,
             targetProductName: newProdNameEn
           });
@@ -1289,7 +1304,7 @@ export default function AdminDashboard() {
         }
       }
     } catch (err: any) {
-      console.error("Failed to add product:", err);
+      console.error("Failed to add/update product:", err);
       const errMsg = err.message || err.code || String(err);
       setAdminToast({ message: `Error adding product: ${errMsg}`, type: "error" });
     } finally {
@@ -1344,12 +1359,13 @@ export default function AdminDashboard() {
   };
 
   const handleDownloadCSVTemplate = () => {
-    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'min', 'max', 'unit', 'category'];
+    const headers = ['nameEn', 'code', 'design', 'location', 'brand', 'descEn', 'price', 'min', 'max', 'unit', 'category'];
     const sampleRows = [
       [
         '"Cotton Silk Saree"',
         '"SKU-101"',
         '"DESIGN-A1"',
+        '"Rack-1"',
         '"Balaji Textiles"',
         '"Premium handloom cotton silk saree with zari border (Custom Min/Max Range)"',
         '2499',
@@ -1362,6 +1378,7 @@ export default function AdminDashboard() {
         '"Linen Formal Shirt"',
         '"SKU-102"',
         '"DESIGN-B2"',
+        '"Rack-2"',
         '"Balaji Textiles"',
         '"Pure linen formal shirt (Leave Min/Max empty for 0% variance / exact price)"',
         '1499',
@@ -1382,6 +1399,99 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
+  const handleDownloadOutOfStockTemplate = () => {
+    const headers = ['code', 'designNo', 'location'];
+    const sampleRows = [
+      ['"SKU-101"', '"DES-101"', '"Rack-1"'],
+      ['"SKU-102"', '"C503-2"', '"Rack-2"'],
+      ['"SKU-103"', '""', '""'] // Leaving designNo empty marks whole product out of stock
+    ];
+    const csvContent = [headers.join(','), ...sampleRows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "out_of_stock_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleConfirmBulkOutOfStock = async (rows: OutOfStockRowItem[]) => {
+    let updatedProductsCount = 0;
+    let eliminatedVariantsCount = 0;
+
+    // Group rows by matched product ID
+    const productUpdatesMap = new Map<string, { product: Product; targetDesigns: Set<string>; allProductOutOfStock: boolean }>();
+
+    for (const row of rows) {
+      if (row.status === 'not_found' || !row.matchedProductId) continue;
+      const prod = productsList.find(p => p.id === row.matchedProductId);
+      if (!prod || !prod.id) continue;
+
+      if (!productUpdatesMap.has(prod.id)) {
+        productUpdatesMap.set(prod.id, {
+          product: prod,
+          targetDesigns: new Set<string>(),
+          allProductOutOfStock: false
+        });
+      }
+
+      const entry = productUpdatesMap.get(prod.id)!;
+      if (row.designNo && row.designNo.trim()) {
+        entry.targetDesigns.add(row.designNo.trim().toLowerCase());
+      } else {
+        entry.allProductOutOfStock = true;
+      }
+    }
+
+    for (const [prodId, data] of productUpdatesMap.entries()) {
+      const prod = data.product;
+      let newVariants = prod.variants ? [...prod.variants] : [];
+      let productChanged = false;
+
+      if (data.allProductOutOfStock || newVariants.length === 0) {
+        newVariants = newVariants.map(v => ({ ...v, inStock: false }));
+        await updateProduct(prodId, {
+          inStock: false,
+          variants: newVariants
+        });
+        updatedProductsCount++;
+        eliminatedVariantsCount += Math.max(1, newVariants.length);
+      } else {
+        newVariants = newVariants.map(v => {
+          const vDesign = (v.designNo || v.name || '').trim().toLowerCase();
+          if (data.targetDesigns.has(vDesign) && v.inStock !== false) {
+            productChanged = true;
+            eliminatedVariantsCount++;
+            return { ...v, inStock: false };
+          }
+          return v;
+        });
+
+        const allVariantsOut = newVariants.every(v => v.inStock === false);
+        if (productChanged || allVariantsOut) {
+          await updateProduct(prodId, {
+            variants: newVariants,
+            inStock: allVariantsOut ? false : prod.inStock
+          });
+          updatedProductsCount++;
+        }
+      }
+    }
+
+    dispatch(fetchProductsThunk());
+    setAdminToast({
+      message: `Stock Elimination Complete: Marked ${eliminatedVariantsCount} design(s) across ${updatedProductsCount} product(s) Out of Stock.`,
+      type: "success"
+    });
+    logActivity({
+      ...getPerformerDetails(),
+      action: 'ELIMINATE_STOCK',
+      details: `Bulk Out of Stock upload processed: ${eliminatedVariantsCount} designs in ${updatedProductsCount} products eliminated from stock.`
+    });
+  };
+
   const handleExportCSV = (selectedOnly: boolean = false) => {
     let listToExport: Product[] = [];
 
@@ -1398,7 +1508,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'min', 'max', 'variance', 'unit', 'category', 'inStock', 'imageUrl', 'id'];
+    const headers = ['nameEn', 'code', 'design', 'location', 'brand', 'descEn', 'price', 'min', 'max', 'variance', 'unit', 'category', 'inStock', 'imageUrl', 'id'];
 
     const escapeCSV = (val: any) => {
       if (val === null || val === undefined) return '""';
@@ -1410,6 +1520,7 @@ export default function AdminDashboard() {
       escapeCSV(p.nameEn || ''),
       escapeCSV(p.code || ''),
       escapeCSV(p.design || ''),
+      escapeCSV(p.location || ''),
       escapeCSV(p.brand || ''),
       escapeCSV(p.descEn || ''),
       p.price ?? 0,
@@ -1720,9 +1831,13 @@ export default function AdminDashboard() {
             finalVariants = [...existingInDb.variants];
           } else if (finalVariants.length < finalImages.length) {
             for (let i = finalVariants.length; i < finalImages.length; i++) {
+              const dName = item.design ? `${item.design}-${i + 1}` : `Model ${i + 1}`;
               finalVariants.push({
                 id: `v_auto_${i}_${Date.now()}`,
-                name: item.design ? `${item.design}-${i + 1}` : `Model ${i + 1}`,
+                name: dName,
+                location: item.location || '',
+                designNo: dName,
+                inStock: true,
                 imageIndex: i
               });
             }
@@ -1744,6 +1859,7 @@ export default function AdminDashboard() {
             category: item.category || 'Electronics',
             code: item.code || '',
             design: item.design || '',
+            location: item.location || '',
             brand: item.brand || '',
             images: finalImages,
             variants: finalVariants,
@@ -1766,6 +1882,7 @@ export default function AdminDashboard() {
             category: item.category || 'Electronics',
             code: item.code || '',
             design: item.design || '',
+            location: item.location || '',
             brand: item.brand || '',
             images: item.images,
             variants: item.variants,
@@ -2699,7 +2816,7 @@ export default function AdminDashboard() {
                             <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">3</span>
                             <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <Input
                               label="Product Code"
                               required
@@ -2712,6 +2829,12 @@ export default function AdminDashboard() {
                               value={newProdDesign}
                               onChange={(e) => setNewProdDesign(e.target.value)}
                               placeholder="e.g. Design-A"
+                            />
+                            <Input
+                              label="Location No"
+                              value={newProdLocation}
+                              onChange={(e) => setNewProdLocation(e.target.value)}
+                              placeholder="e.g. Rack-1"
                             />
                             <Input
                               label="Brand Name"
@@ -2745,6 +2868,7 @@ export default function AdminDashboard() {
                                   setNewProdUnit(existingCodeProduct.unit || 'Pcs');
                                   setNewProdCategory(existingCodeProduct.category || '');
                                   setNewProdDesign(existingCodeProduct.design || '');
+                                  setNewProdLocation(existingCodeProduct.location || '');
                                   setNewProdBrand(existingCodeProduct.brand || '');
                                   if (existingCodeProduct.images && existingCodeProduct.images.length > 0) {
                                     setNewProdImages(existingCodeProduct.images);
@@ -2961,6 +3085,7 @@ export default function AdminDashboard() {
                   onDownloadCSVTemplate={handleDownloadCSVTemplate}
                   onCSVUpload={handleCSVUpload}
                   onExportCSV={handleExportCSV}
+                  onOpenOutOfStockModal={() => setShowOutOfStockModal(true)}
                   onToggleStock={handleToggleStock}
                   onOpenBulkWorkspace={() => setIsBulkWorkspaceOpen(true)}
                   onPreviewProductGallery={(product) => setGalleryProduct(product)}
@@ -2980,6 +3105,14 @@ export default function AdminDashboard() {
                   onDownloadTemplate={handleDownloadCSVTemplate}
                   parseCSV={parseCSV}
                   existingProductsList={productsList}
+                />
+
+                <BulkOutOfStockModal
+                  isOpen={showOutOfStockModal}
+                  onClose={() => setShowOutOfStockModal(false)}
+                  productsList={productsList}
+                  onConfirmOutOfStock={handleConfirmBulkOutOfStock}
+                  onDownloadTemplate={handleDownloadOutOfStockTemplate}
                 />
               </div>
             )}
@@ -3294,6 +3427,8 @@ export default function AdminDashboard() {
         onCodeChange={setEditProdCode}
         design={editProdDesign}
         onDesignChange={setEditProdDesign}
+        location={editProdLocation}
+        onLocationChange={setEditProdLocation}
         brand={editProdBrand}
         onBrandChange={setEditProdBrand}
         onSave={handleSaveEditedProduct}

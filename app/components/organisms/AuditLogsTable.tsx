@@ -97,9 +97,16 @@ export default function AuditLogsTable({ logs, loading }: AuditLogsTableProps) {
         );
       case 'BULK_IMPORT':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200/60 dark:border-purple-900/50">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 border border-purple-200/60 dark:border-purple-900/50">
             <Upload className="w-3 h-3" />
             Bulk Import
+          </span>
+        );
+      case 'ELIMINATE_STOCK':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 dark:bg-rose-955/40 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/50">
+            <PackageX className="w-3 h-3" />
+            Stock Eliminated
           </span>
         );
       default:
@@ -155,6 +162,7 @@ export default function AuditLogsTable({ logs, loading }: AuditLogsTableProps) {
                   <option value="BATCH_DELETE_PRODUCTS">Batch Deleted</option>
                   <option value="TOGGLE_STOCK">Stock Toggled</option>
                   <option value="BULK_IMPORT">Bulk Import</option>
+                  <option value="ELIMINATE_STOCK">Stock Eliminated</option>
                 </select>
               </div>
 

@@ -29,6 +29,8 @@ interface ProductEditModalProps {
   onCodeChange: (val: string) => void;
   design: string;
   onDesignChange: (val: string) => void;
+  location: string;
+  onLocationChange: (val: string) => void;
   brand: string;
   onBrandChange: (val: string) => void;
   onSave: (e: React.FormEvent) => void;
@@ -66,6 +68,8 @@ export default function ProductEditModal({
   onCodeChange,
   design,
   onDesignChange,
+  location,
+  onLocationChange,
   brand,
   onBrandChange,
   onSave,
@@ -100,21 +104,27 @@ export default function ProductEditModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, activeFullImage, onClose]);
 
-  // Automatically sync variants with uploaded images
+  // Reconcile variants when images count changes, preserving all existing variant data
   React.useEffect(() => {
     if (!isOpen) return;
-    const autoVariants = images.map((_, idx) => ({
-      id: `v_auto_${idx}_${Date.now()}`,
-      name: `Model ${idx + 1}`,
-      imageIndex: idx
-    }));
-    // Check if current variants differ from auto-generated list
-    const needsUpdate = variants.length !== autoVariants.length ||
-      variants.some((v, idx) => v.imageIndex !== idx || v.name !== `Model ${idx + 1}`);
-    if (needsUpdate) {
-      onVariantsChange(autoVariants);
+    if (images.length === 0) return;
+
+    if (variants.length !== images.length) {
+      const updatedVariants: ProductVariant[] = images.map((_, idx) => {
+        const existing = variants[idx];
+        const defaultName = design ? `${design}-${idx + 1}` : `Model ${idx + 1}`;
+        return {
+          id: existing?.id || `v_auto_${idx}_${Date.now()}`,
+          name: existing?.designNo || existing?.name || defaultName,
+          location: existing?.location || location || '',
+          designNo: existing?.designNo || existing?.name || defaultName,
+          inStock: existing?.inStock !== false,
+          imageIndex: idx
+        };
+      });
+      onVariantsChange(updatedVariants);
     }
-  }, [images, variants, onVariantsChange, isOpen]);
+  }, [images.length, isOpen]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -454,7 +464,7 @@ export default function ProductEditModal({
               <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[#5d51e8] text-white text-[9px] font-black">3</span>
               <h4 className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-black text-slate-400">Product Code</label>
                 <input
@@ -476,13 +486,23 @@ export default function ProductEditModal({
                 />
               </div>
               <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black text-slate-400">Location No</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => onLocationChange(e.target.value)}
+                  placeholder="e.g. Rack-1"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                />
+              </div>
+              <div className="space-y-1">
                 <label className="text-[10px] uppercase font-black text-slate-400">Brand Name</label>
                 <input
                   type="text"
                   value={brand}
                   onChange={(e) => onBrandChange(e.target.value)}
                   placeholder="e.g. Balaji"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
                 />
               </div>
             </div>
@@ -646,33 +666,84 @@ export default function ProductEditModal({
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-1">
-                  Variants / Models ({variants.length})
+                  Variants / Designs ({variants.length})
                 </label>
+                <span className="text-[9px] font-bold text-slate-400">
+                  Edit Location No, Design No, & Stock Status for each design
+                </span>
               </div>
 
               {variants.length > 0 && (
-                <div className="bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2.5">
-                  <p className="text-[10px] font-bold text-slate-450">
-                    Variants (Models) are automatically generated for each uploaded image. Clients will select the model by swiping/viewing the corresponding photo.
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {variants.map((variant, idx) => {
-                      const img = images[variant.imageIndex];
-                      return (
-                        <div key={variant.id} className="flex items-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-lg">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {variants.map((variant, idx) => {
+                    const img = images[variant.imageIndex] || images[idx];
+                    return (
+                      <div key={variant.id || idx} className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-2.5 shadow-sm">
+                        <div className="flex items-center gap-2.5">
                           {img && (
-                            <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-slate-200 dark:border-zinc-800">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-zinc-800 bg-slate-100">
                               <img src={img.url} className="w-full h-full object-cover" alt="" />
                             </div>
                           )}
-                          <div>
-                            <p className="text-[10px] font-black text-slate-800 dark:text-white">{variant.name}</p>
-                            <p className="text-[8px] font-bold text-slate-405">Photo {idx + 1}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[8px] font-black uppercase text-slate-400">Photo {idx + 1}</span>
+                              <label className="flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={variant.inStock !== false}
+                                  onChange={(e) => {
+                                    const updated = [...variants];
+                                    updated[idx] = { ...updated[idx], inStock: e.target.checked };
+                                    onVariantsChange(updated);
+                                  }}
+                                  className="w-3.5 h-3.5 text-[#5d51e8] rounded cursor-pointer"
+                                />
+                                <span className={`text-[8px] font-black uppercase ${variant.inStock !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                                  {variant.inStock !== false ? 'In Stock' : 'Out of Stock'}
+                                </span>
+                              </label>
+                            </div>
+                            <p className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200 truncate">
+                              {variant.designNo || variant.name}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block mb-0.5">Location No</label>
+                            <input
+                              type="text"
+                              value={variant.location || ''}
+                              onChange={(e) => {
+                                const updated = [...variants];
+                                updated[idx] = { ...updated[idx], location: e.target.value };
+                                onVariantsChange(updated);
+                              }}
+                              placeholder="e.g. Rack-1"
+                              className="w-full px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block mb-0.5">Design No</label>
+                            <input
+                              type="text"
+                              value={variant.designNo || variant.name || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const updated = [...variants];
+                                updated[idx] = { ...updated[idx], designNo: val, name: val };
+                                onVariantsChange(updated);
+                              }}
+                              placeholder={design ? `${design}-${idx + 1}` : `Model ${idx + 1}`}
+                              className="w-full px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

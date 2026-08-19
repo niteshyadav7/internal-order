@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter } from 'lucide-react';
+import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter, PackageX } from 'lucide-react';
 import { Product } from '../../lib/db';
 import Loader from '../atoms/Loader';
 import SearchInput from '../molecules/SearchInput';
@@ -50,6 +50,7 @@ interface ProductsTableProps {
   onDownloadCSVTemplate: () => void;
   onCSVUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onExportCSV?: (selectedOnly?: boolean) => void;
+  onOpenOutOfStockModal?: () => void;
   onToggleStock?: (product: Product) => void;
   onOpenBulkWorkspace?: () => void;
   onPreviewProductGallery?: (product: Product) => void;
@@ -87,6 +88,7 @@ export default function ProductsTable({
   onDownloadCSVTemplate,
   onCSVUpload,
   onExportCSV,
+  onOpenOutOfStockModal,
   onToggleStock,
   onOpenBulkWorkspace,
   onPreviewProductGallery,
@@ -136,6 +138,18 @@ export default function ProductsTable({
                       ))}
                     </select>
                   </div>
+                )}
+
+                {onOpenOutOfStockModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenOutOfStockModal}
+                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="Upload CSV/Excel to mark specific product codes & design numbers Out of Stock"
+                  >
+                    <PackageX className="w-4 h-4" />
+                    <span>Eliminate Stock (CSV)</span>
+                  </button>
                 )}
 
                 {onExportCSV && (
@@ -400,8 +414,16 @@ export default function ProductsTable({
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5">
-                                    Code: {product.code || 'N/A'} | Design: {product.design || 'N/A'}
+                                  <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                    <span>Code: {product.code || 'N/A'}</span>
+                                    <span>•</span>
+                                    <span>Design: {product.design || 'N/A'}</span>
+                                    {product.location && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-amber-600 dark:text-amber-400">Loc: {product.location}</span>
+                                      </>
+                                    )}
                                   </div>
                                   <div className="text-xs font-semibold text-slate-400 dark:text-zinc-550 max-w-xs line-clamp-1 mt-0.5">{product.descEn}</div>
                                 </div>
@@ -517,9 +539,17 @@ export default function ProductsTable({
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200 truncate">{product.nameEn}</p>
-                              <p className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5">
-                                Code: {product.code || 'N/A'} | Design: {product.design || 'N/A'}
-                              </p>
+                              <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>Code: {product.code || 'N/A'}</span>
+                                <span>•</span>
+                                <span>Design: {product.design || 'N/A'}</span>
+                                {product.location && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-amber-600 dark:text-amber-400">Loc: {product.location}</span>
+                                  </>
+                                )}
+                              </div>
                               <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                                 Added: {formatDateTime(product.createdAt)}
                               </p>

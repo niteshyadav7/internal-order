@@ -73,9 +73,11 @@ function ReelProductCard({
 
   const hasMultipleImages = imagesList.length > 1;
 
+  const visibleVariants = (product.variants || []).filter(v => v.inStock !== false);
+
   // Find which variant matches the current image index
   const activeVariant: ProductVariant | undefined =
-    product.variants?.find(v => v.imageIndex === activeImgIdx) || undefined;
+    visibleVariants.find(v => v.imageIndex === activeImgIdx) || visibleVariants[0] || undefined;
 
   const isSelected = selectedIds.has((product.id || '') + '|' + (activeVariant?.name || ''));
 
@@ -287,9 +289,9 @@ function ReelProductCard({
           </div>
 
           {/* Variant chips — horizontal scroll flex-nowrap to easily handle 20+ variants */}
-          {product.variants && product.variants.length > 0 && (
+          {visibleVariants && visibleVariants.length > 0 && (
             <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-none pb-1 flex-row flex-nowrap">
-              {product.variants.map((v) => {
+              {visibleVariants.map((v) => {
                 const isActiveVar = activeVariant?.id === v.id;
                 const varImg = imagesList[v.imageIndex];
                 const varImgUrl = varImg ? transformImageUrl(varImg.url) : '';

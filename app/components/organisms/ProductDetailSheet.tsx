@@ -64,10 +64,11 @@ export default function ProductDetailSheet({
       });
       
       // Auto-select first variant if variants exist
-      if (product.variants && product.variants.length > 0) {
+      const inStockVariants = (product.variants || []).filter(v => v.inStock !== false);
+      if (inStockVariants.length > 0) {
         // If already selected, select that, otherwise select first
-        const matched = product.variants.find(v => v.name === selectedVariantName);
-        const targetVariant = matched || product.variants[0];
+        const matched = inStockVariants.find(v => v.name === selectedVariantName);
+        const targetVariant = matched || inStockVariants[0];
         setActiveVariant(targetVariant);
         if (targetVariant.imageIndex < (product.images?.length || 0)) {
           setActiveImageIdx(targetVariant.imageIndex);
@@ -91,6 +92,8 @@ export default function ProductDetailSheet({
   const isSelected = product ? selectedIds.has((product.id || '') + '|' + (activeVariant?.name || '')) : false;
 
   if (!isOpen || !product) return null;
+
+  const visibleVariants = (product.variants || []).filter(v => v.inStock !== false);
 
   const imagesList = product.images && product.images.length > 0
     ? product.images
@@ -267,7 +270,7 @@ export default function ProductDetailSheet({
             )}
 
             {/* Variant / Model Selector */}
-            {product.variants && product.variants.length > 0 && (
+            {visibleVariants && visibleVariants.length > 0 && (
               <div className="space-y-2.5 text-left">
                 <div className="flex justify-between items-baseline">
                   <h4 className="text-[10px] uppercase font-black tracking-wider text-slate-400">Choose Model/Type</h4>
@@ -278,7 +281,7 @@ export default function ProductDetailSheet({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2.5">
-                  {product.variants.map((v) => {
+                  {visibleVariants.map((v) => {
                     const isVarSelected = activeVariant?.id === v.id;
                     const varImg = imagesList[v.imageIndex];
                     const varImgUrl = varImg ? transformImageUrl(varImg.url) : '';
