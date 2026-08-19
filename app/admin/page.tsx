@@ -1646,6 +1646,9 @@ export default function AdminDashboard() {
         const descHi = item.descHi || descEn;
         const code = item.code || '';
         const design = item.design || '';
+        const location = item.location || item.locationNo || item.locationCode || item.rack || '';
+        const brand = item.brand || item.brandName || '';
+        const rawId = item.id || item.productId || '';
 
         // Auto-register category if not exists
         if (category && !activeCategories.includes(category)) {
@@ -1670,9 +1673,13 @@ export default function AdminDashboard() {
             const parts = v.split(':');
             const name = parts[0].trim();
             const imageIndex = parts[1] ? parseInt(parts[1].trim()) : 0;
+            const varLoc = parts[2] ? parts[2].trim() : (location || '');
             return {
               id: `v_csv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
               name,
+              location: varLoc,
+              designNo: name,
+              inStock: true,
               imageIndex: isNaN(imageIndex) ? 0 : imageIndex
             };
           });
@@ -1701,8 +1708,9 @@ export default function AdminDashboard() {
           }
         }
 
-        // Check if product exists in database catalog by code, design, or name
+        // Check if product exists in database catalog by ID, code, design, or name
         const existingInDb = productsList.find(p => 
+          (rawId && p.id === rawId) ||
           (p.code?.trim() && code.trim() && p.code.trim().toLowerCase() === code.trim().toLowerCase()) ||
           (p.design?.trim() && design.trim() && p.design.trim().toLowerCase() === design.trim().toLowerCase()) ||
           (p.nameEn?.trim() && nameEn.trim() && p.nameEn.trim().toLowerCase() === nameEn.trim().toLowerCase())
@@ -1735,7 +1743,16 @@ export default function AdminDashboard() {
             finalVariants = finalImages.map((_, i) => ({
               id: `v_auto_${i}_${Date.now()}`,
               name: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
+              location: location || existingInDb.location || '',
+              designNo: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
+              inStock: true,
               imageIndex: i
+            }));
+          } else {
+            finalVariants = finalVariants.map((v, i) => ({
+              ...v,
+              location: v.location || location || existingInDb.location || '',
+              designNo: v.designNo || v.name || (design ? `${design}-${i + 1}` : '')
             }));
           }
 
@@ -1752,6 +1769,8 @@ export default function AdminDashboard() {
             category,
             code,
             design,
+            location: location || existingInDb.location || '',
+            brand: brand || existingInDb.brand || '',
             images: finalImages,
             variants: finalVariants,
             priceRangePct: priceRangePctVal !== undefined ? priceRangePctVal : existingInDb.priceRangePct,
@@ -1772,6 +1791,8 @@ export default function AdminDashboard() {
             category,
             code,
             design,
+            location: location || '',
+            brand: brand || '',
             images,
             variants,
             priceRangePct: priceRangePctVal,

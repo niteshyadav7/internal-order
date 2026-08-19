@@ -10,6 +10,7 @@ import {
   CheckCircle2, 
   Layers, 
   Download, 
+  Upload,
   Copy, 
   RefreshCw
 } from 'lucide-react';
@@ -121,8 +122,6 @@ export default function BatchMissingFieldsModal({
     return Object.values(drafts).filter(d => d.isDirty).length;
   }, [drafts]);
 
-  if (!isOpen) return null;
-
   const handleProductFieldChange = (productId: string, field: 'location' | 'design', value: string) => {
     setDrafts(prev => {
       const existing = prev[productId] || {
@@ -199,42 +198,164 @@ export default function BatchMissingFieldsModal({
     }));
   };
 
-  const handleSaveAll = async () => {
-    const dirtyItems = Object.entries(drafts)
-      .filter(([_, d]) => d.isDirty)
-      .map(([id, d]) => ({
-        id,
-        location: d.location,
-        design: d.design,
-        variants: d.variants
-      }));
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
-    if (dirtyItems.length === 0) {
-      alert("No changes have been made yet.");
+  const handleUploadFilledCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      try {
+        const lines = text.split('\n');
+        if (lines.length <= 1) {
+          alert("CSV file is empty.");
+          return;
+        }
+
+        // Find header row
+        let headerLineIdx = 0;
+        while (headerLineIdx < lines.length && lines[headerLineIdx].trim().startsWith('#')) {
+          headerLineIdx++;
+        }
+        if (headerLineIdx >= lines.length) return;
+
+        const headers = lines[headerLineIdx]
+          .replace(/^\uFEFF/, '')
+          .split(',')
+          .map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+
+        let matchedCount = 0;
+        setDrafts(prevDrafts => {
+          const nextDrafts = { ...prevDrafts };
+
+          for (let i = headerLineIdx + 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line || line.startsWith('#')) continue;
+
+            const values: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            for (let j = 0; j < line.length; j++) {
+              const char = line[j];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            values.push(current.trim());
+
+            const rowData: Record<string, string> = {};
+            headers.forEach((h, idx) => {
+              let val = values[idx] || '';
+              val = val.replace(/^["']|["']$/g, '');
+              rowData[h] = val;
+            });
+
+            const rowId = rowData['id'] || rowData['productid'] || '';
+            const rowCode = rowData['code'] || rowData['sku'] || '';
+            const rowName = rowData['nameen'] || rowData['name'] || '';
+            const rowDesign = rowData['design'] || rowData['designno'] || rowData['design_no'] || '';
+            const rowLoc = rowData['location'] || rowData['locationno'] || rowData['location_no'] || rowData['rack'] || '';
+
+            // Find matching product in productsList
+            const targetProd = productsList.find(p => 
+              (rowId && p.id === rowId) ||
+              (p.code?.trim() && rowCode.trim() && p.code.trim().toLowerCase() === rowCode.trim().toLowerCase()) ||
+              (p.nameEn?.trim() && rowName.trim() && p.nameEn.trim().toLowerCase() === rowName.trim().toLowerCase())
+            );
+
+            if (targetProd && targetProd.id) {
+              const currentDraft = nextDrafts[targetProd.id] || {
+                location: targetProd.location || '',
+                design: targetProd.design || '',
+                variants: targetProd.variants ? JSON.parse(JSON.stringify(targetProd.variants)) : [],
+                isDirty: false
+              };
+
+              const newLoc = rowLoc || currentDraft.location;
+              const newDesign = rowDesign || currentDraft.design;
+              
+              const updatedVariants = currentDraft.variants.map((v, vIdx) => ({
+                ...v,
+                location: v.location || newLoc || '',
+                designNo: v.designNo || (newDesign ? `${newDesign}-${vIdx + 1}` : v.name)
+              }));
+
+              nextDrafts[targetProd.id] = {
+                location: newLoc,
+                design: newDesign,
+                variants: updatedVariants,
+                isDirty: true
+              };
+              matchedCount++;
+            }
+          }
+          return nextDrafts;
+        });
+
+        if (matchedCount > 0) {
+          setUploadMessage(`✅ Loaded & matched ${matchedCount} product(s) from CSV! Review and click "Save All Changes" below.`);
+          setTimeout(() => setUploadMessage(null), 8000);
+        } else {
+          alert("No matching products found in uploaded CSV.");
+        }
+      } catch (err) {
+        console.error("Error reading filled CSV:", err);
+        alert("Failed to parse CSV file. Please make sure it is a valid CSV.");
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSaveAll = async () => {
+    const dirtyIds = Object.keys(drafts).filter(id => drafts[id].isDirty);
+    if (dirtyIds.length === 0) {
+      alert("No changes have been made.");
       return;
     }
 
+    const updates = dirtyIds.map(id => ({
+      id,
+      location: drafts[id].location.trim(),
+      design: drafts[id].design.trim(),
+      variants: drafts[id].variants
+    }));
+
     setSaving(true);
     try {
-      await onSaveBatch(dirtyItems);
+      await onSaveBatch(updates);
       onClose();
     } catch (err) {
-      console.error("Batch save failed:", err);
-      alert("Failed to save missing fields updates. Please try again.");
+      console.error("Batch save error:", err);
+      alert("Failed to save changes. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
-        
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-150 dark:border-zinc-800/90 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/70 dark:bg-zinc-950/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-slate-150 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/80 dark:bg-zinc-950/80">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <span className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20">
+              <span className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
                 <AlertTriangle className="w-5 h-5" />
               </span>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
@@ -249,7 +370,25 @@ export default function BatchMissingFieldsModal({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-end md:self-auto">
+          <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".csv,.tsv,.txt"
+              onChange={handleUploadFilledCSV}
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Upload edited CSV to populate missing fields automatically"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload Filled CSV</span>
+            </button>
+
             {onExportCSV && (
               <button
                 type="button"
@@ -270,6 +409,19 @@ export default function BatchMissingFieldsModal({
             </button>
           </div>
         </div>
+
+        {uploadMessage && (
+          <div className="bg-emerald-50 dark:bg-emerald-955/30 border-b border-emerald-200 dark:border-emerald-900/50 px-6 py-2.5 flex items-center justify-between text-xs font-black text-emerald-800 dark:text-emerald-300 animate-in slide-in-from-top-2">
+            <span>{uploadMessage}</span>
+            <button
+              type="button"
+              onClick={() => setUploadMessage(null)}
+              className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 font-bold"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Toolbar & Filters */}
         <div className="px-6 py-3.5 border-b border-slate-150 dark:border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900">
