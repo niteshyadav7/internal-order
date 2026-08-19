@@ -1,6 +1,7 @@
 import React from 'react';
-import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter, PackageX } from 'lucide-react';
+import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter, PackageX, Sparkles, AlertTriangle } from 'lucide-react';
 import { Product } from '../../lib/db';
+import { isProductMissingDesign, isProductMissingLocation, isProductIncomplete } from './BatchMissingFieldsModal';
 import Loader from '../atoms/Loader';
 import SearchInput from '../molecules/SearchInput';
 import ProductPreview from '../molecules/ProductPreview';
@@ -51,11 +52,17 @@ interface ProductsTableProps {
   onCSVUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onExportCSV?: (selectedOnly?: boolean) => void;
   onOpenOutOfStockModal?: () => void;
+  onOpenMissingFieldsModal?: () => void;
   onToggleStock?: (product: Product) => void;
   onOpenBulkWorkspace?: () => void;
   onPreviewProductGallery?: (product: Product) => void;
   dateFilter?: 'all' | 'today' | '7days' | '30days' | 'custom';
   onDateFilterChange?: (filter: 'all' | 'today' | '7days' | '30days' | 'custom') => void;
+  dataFilter?: 'all' | 'missing-design' | 'missing-location' | 'incomplete';
+  onDataFilterChange?: (filter: 'all' | 'missing-design' | 'missing-location' | 'incomplete') => void;
+  missingDesignCount?: number;
+  missingLocationCount?: number;
+  incompleteCount?: number;
   startDate?: string;
   onStartDateChange?: (date: string) => void;
   endDate?: string;
@@ -89,11 +96,17 @@ export default function ProductsTable({
   onCSVUpload,
   onExportCSV,
   onOpenOutOfStockModal,
+  onOpenMissingFieldsModal,
   onToggleStock,
   onOpenBulkWorkspace,
   onPreviewProductGallery,
   dateFilter = 'all',
   onDateFilterChange,
+  dataFilter = 'all',
+  onDataFilterChange,
+  missingDesignCount,
+  missingLocationCount,
+  incompleteCount,
   startDate = '',
   onStartDateChange,
   endDate = '',
@@ -248,6 +261,82 @@ export default function ProductsTable({
                       className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100"
                     />
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Catalog Integrity & Missing Fields Filter Pills */}
+            {onDataFilterChange && (
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+                    Catalog Integrity:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onDataFilterChange('all')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                      dataFilter === 'all'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-zinc-900 border-slate-900 dark:border-white shadow-sm'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-750'
+                    }`}
+                  >
+                    All Items ({allProductsList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDataFilterChange('missing-design')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border flex items-center gap-1.5 ${
+                      dataFilter === 'missing-design'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-rose-50/70 dark:bg-rose-955/20 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-900/40 hover:bg-rose-100'
+                    }`}
+                  >
+                    <span>⚠️ Missing Design No</span>
+                    <span className="px-1.5 py-0.2 bg-white/20 dark:bg-zinc-900/40 rounded-full text-[10px] font-black">
+                      {missingDesignCount ?? allProductsList.filter(p => isProductMissingDesign(p)).length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDataFilterChange('missing-location')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border flex items-center gap-1.5 ${
+                      dataFilter === 'missing-location'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                        : 'bg-amber-50/70 dark:bg-amber-955/20 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/40 hover:bg-amber-100'
+                    }`}
+                  >
+                    <span>📦 Missing Location</span>
+                    <span className="px-1.5 py-0.2 bg-white/20 dark:bg-zinc-900/40 rounded-full text-[10px] font-black">
+                      {missingLocationCount ?? allProductsList.filter(p => isProductMissingLocation(p)).length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDataFilterChange('incomplete')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border flex items-center gap-1.5 ${
+                      dataFilter === 'incomplete'
+                        ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm'
+                        : 'bg-indigo-50/70 dark:bg-indigo-955/20 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-900/40 hover:bg-indigo-100'
+                    }`}
+                  >
+                    <span>🚨 All Incomplete</span>
+                    <span className="px-1.5 py-0.2 bg-white/20 dark:bg-zinc-900/40 rounded-full text-[10px] font-black">
+                      {incompleteCount ?? allProductsList.filter(p => isProductIncomplete(p)).length}
+                    </span>
+                  </button>
+                </div>
+
+                {onOpenMissingFieldsModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenMissingFieldsModal}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm whitespace-nowrap"
+                    title="Open batch missing fields quick edit workspace"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>⚡ Quick Fix Missing Data</span>
+                  </button>
                 )}
               </div>
             )}
@@ -406,24 +495,34 @@ export default function ProductsTable({
                               </td>
                               <td className="py-4 px-6">
                                 <div>
-                                  <div className="font-extrabold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                  <div className="font-extrabold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2 flex-wrap">
                                     <span>{product.nameEn}</span>
                                     {product.inStock === false && (
                                       <span className="inline-block bg-rose-55 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-rose-200/50 dark:border-rose-900/50">
                                         Out of stock
                                       </span>
                                     )}
+                                    {isProductMissingDesign(product) && (
+                                      <span className="inline-block bg-rose-50 text-rose-700 dark:bg-rose-955/30 dark:text-rose-300 text-[8px] font-black px-1.5 py-0.5 rounded border border-rose-200/70 dark:border-rose-900/50">
+                                        ⚠️ Missing Design
+                                      </span>
+                                    )}
+                                    {isProductMissingLocation(product) && (
+                                      <span className="inline-block bg-amber-50 text-amber-700 dark:bg-amber-955/30 dark:text-amber-300 text-[8px] font-black px-1.5 py-0.5 rounded border border-amber-200/70 dark:border-amber-900/50">
+                                        📦 Missing Location
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                                     <span>Code: {product.code || 'N/A'}</span>
                                     <span>•</span>
-                                    <span>Design: {product.design || 'N/A'}</span>
-                                    {product.location && (
-                                      <>
-                                        <span>•</span>
-                                        <span className="text-amber-600 dark:text-amber-400">Loc: {product.location}</span>
-                                      </>
-                                    )}
+                                    <span className={!product.design ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>
+                                      Design: {product.design || 'Not Set'}
+                                    </span>
+                                    <span>•</span>
+                                    <span className={!product.location ? 'text-amber-600 dark:text-amber-400 font-black' : 'text-amber-600 dark:text-amber-400'}>
+                                      Loc: {product.location || 'Not Set'}
+                                    </span>
                                   </div>
                                   <div className="text-xs font-semibold text-slate-400 dark:text-zinc-550 max-w-xs line-clamp-1 mt-0.5">{product.descEn}</div>
                                 </div>
@@ -539,16 +638,28 @@ export default function ProductsTable({
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200 truncate">{product.nameEn}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                {isProductMissingDesign(product) && (
+                                  <span className="bg-rose-50 text-rose-700 dark:bg-rose-955/30 dark:text-rose-300 text-[8px] font-black px-1.5 py-0.2 rounded border border-rose-200/70 dark:border-rose-900/50">
+                                    ⚠️ Missing Design
+                                  </span>
+                                )}
+                                {isProductMissingLocation(product) && (
+                                  <span className="bg-amber-50 text-amber-700 dark:bg-amber-955/30 dark:text-amber-300 text-[8px] font-black px-1.5 py-0.2 rounded border border-amber-200/70 dark:border-amber-900/50">
+                                    📦 Missing Location
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                                 <span>Code: {product.code || 'N/A'}</span>
                                 <span>•</span>
-                                <span>Design: {product.design || 'N/A'}</span>
-                                {product.location && (
-                                  <>
-                                    <span>•</span>
-                                    <span className="text-amber-600 dark:text-amber-400">Loc: {product.location}</span>
-                                  </>
-                                )}
+                                <span className={!product.design ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>
+                                  Design: {product.design || 'Not Set'}
+                                </span>
+                                <span>•</span>
+                                <span className={!product.location ? 'text-amber-600 dark:text-amber-400 font-black' : 'text-amber-600 dark:text-amber-400'}>
+                                  Loc: {product.location || 'Not Set'}
+                                </span>
                               </div>
                               <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                                 Added: {formatDateTime(product.createdAt)}

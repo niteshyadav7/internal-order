@@ -78,6 +78,7 @@ import ProductEditModal from '../components/organisms/ProductEditModal';
 import StaffManagement from '../components/organisms/StaffManagement';
 import BulkImportModal, { StagedProductItem } from '../components/organisms/BulkImportModal';
 import BulkOutOfStockModal, { OutOfStockRowItem } from '../components/organisms/BulkOutOfStockModal';
+import BatchMissingFieldsModal, { isProductMissingDesign, isProductMissingLocation, isProductIncomplete } from '../components/organisms/BatchMissingFieldsModal';
 import RoleManagement from '../components/organisms/RoleManagement';
 
 // Atoms for Form Components
@@ -307,6 +308,8 @@ export default function AdminDashboard() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  const [showBatchMissingFieldsModal, setShowBatchMissingFieldsModal] = useState(false);
+  const [productDataFilter, setProductDataFilter] = useState<'all' | 'missing-design' | 'missing-location' | 'incomplete'>('all');
   const [seedingCatalog, setSeedingCatalog] = useState(false);
   const [isBulkWorkspaceOpen, setIsBulkWorkspaceOpen] = useState(false);
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
@@ -587,7 +590,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setProductPage(1);
-  }, [productSearchQuery, productDateFilter, productStartDate, productEndDate]);
+  }, [productSearchQuery, productDateFilter, productStartDate, productEndDate, productDataFilter]);
 
   // Tab 1 (Users) sorting logic
   const handleSort = (field: 'name' | 'createdAt' | 'status') => {
@@ -1492,12 +1495,14 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleExportCSV = (selectedOnly: boolean = false) => {
+  const handleExportCSV = (selectedOnly: boolean = false, customList?: Product[]) => {
     let listToExport: Product[] = [];
 
-    if (selectedOnly) {
+    if (customList && customList.length > 0) {
+      listToExport = customList;
+    } else if (selectedOnly) {
       listToExport = productsList.filter(p => p.id && selectedProductIds.includes(p.id));
-    } else if (productSearchQuery.trim()) {
+    } else if (productSearchQuery.trim() || productDataFilter !== 'all' || productDateFilter !== 'all') {
       listToExport = filteredProducts;
     } else {
       listToExport = productsList;
@@ -1539,9 +1544,11 @@ export default function AdminDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = selectedOnly
-      ? `selected_products_${dateStr}.csv`
-      : `products_export_${dateStr}.csv`;
+    const filename = customList
+      ? `incomplete_products_${dateStr}.csv`
+      : selectedOnly
+        ? `selected_products_${dateStr}.csv`
+        : `products_export_${dateStr}.csv`;
     link.setAttribute("href", url);
     link.setAttribute("download", filename);
     document.body.appendChild(link);
@@ -1929,6 +1936,42 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBatchSaveMissingFields = async (
+    updates: { id: string; location?: string; design?: string; variants?: ProductVariant[] }[]
+  ) => {
+    try {
+      for (const item of updates) {
+        await updateProduct(item.id, {
+          location: item.location,
+          design: item.design,
+          variants: item.variants
+        });
+      }
+      dispatch(fetchProductsThunk());
+      setAdminToast({ message: `Successfully updated ${updates.length} product(s)!`, type: "success" });
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'UPDATE_PRODUCT',
+        details: `Batch updated missing design/location fields for ${updates.length} product(s)`
+      });
+    } catch (err) {
+      console.error("Batch save missing fields error:", err);
+      throw err;
+    }
+  };
+
+  const missingDesignCount = useMemo(() => {
+    return productsList.filter(p => isProductMissingDesign(p)).length;
+  }, [productsList]);
+
+  const missingLocationCount = useMemo(() => {
+    return productsList.filter(p => isProductMissingLocation(p)).length;
+  }, [productsList]);
+
+  const incompleteCount = useMemo(() => {
+    return productsList.filter(p => isProductIncomplete(p)).length;
+  }, [productsList]);
+
   const getFilteredAndSortedProducts = () => {
     let result = [...productsList];
     if (productSearchQuery.trim()) {
@@ -1941,6 +1984,13 @@ export default function AdminDashboard() {
         (p.design && p.design.toLowerCase().includes(q)) ||
         (p.brand && p.brand.toLowerCase().includes(q))
       );
+    }
+    if (productDataFilter === 'missing-design') {
+      result = result.filter(p => isProductMissingDesign(p));
+    } else if (productDataFilter === 'missing-location') {
+      result = result.filter(p => isProductMissingLocation(p));
+    } else if (productDataFilter === 'incomplete') {
+      result = result.filter(p => isProductIncomplete(p));
     }
     if (productDateFilter !== 'all') {
       const now = new Date();
@@ -3086,11 +3136,17 @@ export default function AdminDashboard() {
                   onCSVUpload={handleCSVUpload}
                   onExportCSV={handleExportCSV}
                   onOpenOutOfStockModal={() => setShowOutOfStockModal(true)}
+                  onOpenMissingFieldsModal={() => setShowBatchMissingFieldsModal(true)}
                   onToggleStock={handleToggleStock}
                   onOpenBulkWorkspace={() => setIsBulkWorkspaceOpen(true)}
                   onPreviewProductGallery={(product) => setGalleryProduct(product)}
                   dateFilter={productDateFilter}
                   onDateFilterChange={setProductDateFilter}
+                  dataFilter={productDataFilter}
+                  onDataFilterChange={setProductDataFilter}
+                  missingDesignCount={missingDesignCount}
+                  missingLocationCount={missingLocationCount}
+                  incompleteCount={incompleteCount}
                   startDate={productStartDate}
                   onStartDateChange={setProductStartDate}
                   endDate={productEndDate}
@@ -3113,6 +3169,14 @@ export default function AdminDashboard() {
                   productsList={productsList}
                   onConfirmOutOfStock={handleConfirmBulkOutOfStock}
                   onDownloadTemplate={handleDownloadOutOfStockTemplate}
+                />
+
+                <BatchMissingFieldsModal
+                  isOpen={showBatchMissingFieldsModal}
+                  onClose={() => setShowBatchMissingFieldsModal(false)}
+                  productsList={productsList}
+                  onSaveBatch={handleBatchSaveMissingFields}
+                  onExportCSV={(incompleteList) => handleExportCSV(false, incompleteList)}
                 />
               </div>
             )}
