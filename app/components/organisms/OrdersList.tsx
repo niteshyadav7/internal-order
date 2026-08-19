@@ -526,14 +526,31 @@ export default function OrdersList({
                                 <div className="flex items-start gap-1.5 min-w-0">
                                   <span className="w-1.5 h-1.5 rounded-full bg-[#5d51e8] mt-1.5 flex-shrink-0"></span>
                                   <div className="min-w-0 text-left">
-                                    <p className="font-extrabold truncate text-slate-800 dark:text-slate-200" title={item.nameEn}>
-                                      {item.nameEn}
-                                    </p>
-                                    {(item.selectedVariant || item.code || item.design) && (
-                                      <p className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold uppercase tracking-wider mt-0.5">
-                                        {item.selectedVariant && `Variant: ${item.selectedVariant} | `}Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="font-extrabold truncate text-slate-800 dark:text-slate-200" title={item.nameEn}>
+                                        {item.nameEn}
                                       </p>
-                                    )}
+                                      {item.brand && (
+                                        <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded">
+                                          {item.brand}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[9px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1.5 flex-wrap mt-0.5">
+                                      <span>Code: {item.code || 'N/A'}</span>
+                                      <span>•</span>
+                                      <span className="text-[#5d51e8] dark:text-indigo-400 font-extrabold">
+                                        Design: {item.designNo || item.design || item.selectedVariant || 'N/A'}
+                                      </span>
+                                      {item.location && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 py-0.2 rounded">
+                                            Loc: {item.location}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 <span className="font-black text-slate-900 dark:text-white bg-slate-50 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-800 text-[10px] shrink-0">
@@ -678,12 +695,29 @@ export default function OrdersList({
                           <div className="flex items-start gap-1.5 min-w-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#5d51e8] mt-1.5 flex-shrink-0"></span>
                             <div className="min-w-0 text-left">
-                              <p className="font-extrabold truncate text-slate-800 dark:text-slate-200">{item.nameEn}</p>
-                              {(item.selectedVariant || item.code || item.design) && (
-                                <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold uppercase mt-0.5">
-                                  {item.selectedVariant && `Variant: ${item.selectedVariant} | `}Code: {item.code || 'N/A'} | Design: {item.design || 'N/A'}
-                                </p>
-                              )}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-extrabold truncate text-slate-800 dark:text-slate-200">{item.nameEn}</p>
+                                {item.brand && (
+                                  <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 bg-white dark:bg-zinc-900 px-1 py-0.2 rounded border border-slate-200/60 dark:border-zinc-800">
+                                    {item.brand}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[9px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span>Code: {item.code || 'N/A'}</span>
+                                <span>•</span>
+                                <span className="text-[#5d51e8] dark:text-indigo-400 font-extrabold">
+                                  Design: {item.designNo || item.design || item.selectedVariant || 'N/A'}
+                                </span>
+                                {item.location && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 py-0.2 rounded">
+                                      Loc: {item.location}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <span className="font-black text-slate-900 dark:text-white bg-white dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-800 text-[10px] shrink-0">
@@ -1108,7 +1142,7 @@ export default function OrdersList({
                                   )}
                                   <div>
                                     <p className="font-extrabold text-slate-800 dark:text-slate-200 text-xs print:text-black flex items-center gap-2 flex-wrap">
-                                      <span>{item.selectedVariant ? `Variant: ${item.selectedVariant}` : 'Standard Variant'}</span>
+                                      <span>{item.selectedVariant ? `Variant: ${item.selectedVariant}` : (item.designNo ? `Design: ${item.designNo}` : 'Standard Variant')}</span>
                                       {(item as any).prepStatus && (
                                         <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider ${
                                           (item as any).prepStatus === 'found' 
@@ -1119,9 +1153,23 @@ export default function OrdersList({
                                         </span>
                                       )}
                                     </p>
-                                    <p className="text-[10px] text-slate-450 dark:text-zinc-500 font-bold mt-0.5 print:text-slate-600">
-                                      SKU: {group.code || 'N/A'}-{item.selectedVariant?.toUpperCase().replace(/\s+/g, '-') || 'STD'}
-                                    </p>
+                                    <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1.5 flex-wrap mt-0.5 print:text-slate-600">
+                                      <span>SKU: {group.code || 'N/A'}-{item.selectedVariant?.toUpperCase().replace(/\s+/g, '-') || 'STD'}</span>
+                                      {item.location && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 rounded">
+                                            Loc: {item.location}
+                                          </span>
+                                        </>
+                                      )}
+                                      {item.brand && (
+                                        <>
+                                          <span>•</span>
+                                          <span>Brand: {item.brand}</span>
+                                        </>
+                                      )}
+                                    </div>
                                     {(() => {
                                       if ((item as any).prepStatus === 'not_found' && item.productId) {
                                         const catalogProduct = productsList.find(p => p.id === item.productId);

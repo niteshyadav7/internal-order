@@ -573,6 +573,11 @@ export default function ProductCatalog() {
         const product = products.find(p => p.id === id);
         if (product) {
           const details = selectedVariants[cartKey];
+          const variant = details?.variantName || variantName;
+          const matchingVariant = product.variants?.find(v => v.name === variant || v.designNo === variant);
+          const itemLocation = matchingVariant?.location || product.location || '';
+          const itemDesignNo = matchingVariant?.designNo || matchingVariant?.name || product.design || '';
+
           const item: OrderItem = {
             productId: product.id || '',
             nameEn: product.nameEn,
@@ -582,10 +587,12 @@ export default function ProductCatalog() {
             quantity: 1,
             code: product.code || '',
             design: product.design || '',
+            location: itemLocation,
+            designNo: itemDesignNo,
+            brand: product.brand || '',
             selectedImageUrl: details?.imageUrl || product.imageUrl || '',
           };
           // Only include optional fields when they have real values (Firestore rejects undefined)
-          const variant = details?.variantName || variantName;
           if (variant) item.selectedVariant = variant;
           if (product.priceRangePct !== undefined) item.priceRangePct = product.priceRangePct;
           if ((product as any).minPrice !== undefined) item.minPrice = (product as any).minPrice;

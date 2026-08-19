@@ -813,23 +813,34 @@ export default function SalesmanPortal() {
 
                     {/* Product & Variant Specs */}
                     <div className="bg-slate-50 dark:bg-zinc-950/40 rounded-2xl p-5 border border-slate-150/60 dark:border-zinc-850 text-left space-y-3">
-                      <div>
-                        <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
-                          {item.nameEn} {item.nameHi && <span className="text-slate-400 dark:text-zinc-500 font-medium">({item.nameHi})</span>}
-                        </h4>
-                        <p className="text-xs text-indigo-500 font-black uppercase mt-1">
-                          {item.selectedVariant ? `Variant: ${item.selectedVariant}` : 'Standard Variant'}
-                        </p>
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
+                            {item.nameEn} {item.nameHi && <span className="text-slate-400 dark:text-zinc-500 font-medium">({item.nameHi})</span>}
+                          </h4>
+                          <p className="text-xs text-indigo-500 font-black uppercase mt-1">
+                            {item.selectedVariant ? `Variant: ${item.selectedVariant}` : (item.designNo ? `Design: ${item.designNo}` : 'Standard Variant')}
+                          </p>
+                        </div>
+                        {item.brand && (
+                          <span className="text-[10px] font-black uppercase px-2.5 py-1 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
+                            Brand: {item.brand}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-200/60 dark:border-zinc-800/80 text-xs font-bold text-slate-500 dark:text-zinc-400">
-                        <div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Product Code</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-extrabold">{item.code || 'N/A'}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200/60 dark:border-zinc-800/80 text-xs font-bold text-slate-500 dark:text-zinc-400">
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
+                          <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-300 block mb-0.5 tracking-wider">📦 Location / Rack</span>
+                          <span className="text-amber-800 dark:text-amber-200 font-black text-sm">{item.location || 'Not Specified'}</span>
                         </div>
-                        <div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Design Number</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-extrabold">{item.design || 'N/A'}</span>
+                        <div className="bg-slate-100/70 dark:bg-zinc-900 rounded-xl p-2.5 border border-slate-200/60 dark:border-zinc-800">
+                          <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Product Code</span>
+                          <span className="text-slate-800 dark:text-slate-200 font-black text-sm">{item.code || 'N/A'}</span>
+                        </div>
+                        <div className="bg-slate-100/70 dark:bg-zinc-900 rounded-xl p-2.5 border border-slate-200/60 dark:border-zinc-800">
+                          <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Design Number</span>
+                          <span className="text-[#5d51e8] dark:text-indigo-400 font-black text-sm">{item.designNo || item.design || item.selectedVariant || 'N/A'}</span>
                         </div>
                       </div>
 
@@ -874,10 +885,29 @@ export default function SalesmanPortal() {
                               </div>
                             )}
                             <div className="text-left">
-                              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 max-w-[200px] sm:max-w-[320px] truncate">{item.nameEn}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                                Qty: {item.quantity} {item.unit} | {item.selectedVariant || 'Standard'}
-                              </p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 max-w-[200px] sm:max-w-[320px] truncate">{item.nameEn}</p>
+                                {item.brand && (
+                                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded">
+                                    {item.brand}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span>Qty: {item.quantity} {item.unit}</span>
+                                <span>•</span>
+                                <span className="text-[#5d51e8] dark:text-indigo-400 font-black">
+                                  Design: {item.designNo || item.design || item.selectedVariant || 'N/A'}
+                                </span>
+                                {item.location && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 rounded">
+                                      Loc: {item.location}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
@@ -1134,15 +1164,31 @@ function OrderCard({
                   </div>
                 )}
                 <div className="text-left space-y-0.5 min-w-0 flex-1">
-                  <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
-                  {item.selectedVariant && (
-                    <p className="text-[10px] text-indigo-500 dark:text-indigo-450 font-extrabold uppercase truncate">
-                      Variant: {item.selectedVariant}
-                    </p>
-                  )}
-                  <p className="text-[9px] text-[#5d51e8] dark:text-indigo-400 font-bold uppercase truncate">
-                    {(item.code || item.design) ? `C: ${item.code || 'N/A'} | D: ${item.design || 'N/A'}` : 'No Code/Design'}
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
+                    {item.brand && (
+                      <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded border border-slate-200/50 dark:border-zinc-800">
+                        {item.brand}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap text-[9px] font-bold">
+                    <span className="text-slate-600 dark:text-slate-300">
+                      Code: {item.code || 'N/A'}
+                    </span>
+                    <span>•</span>
+                    <span className="text-[#5d51e8] dark:text-indigo-400 font-extrabold">
+                      Design: {item.designNo || item.design || item.selectedVariant || 'N/A'}
+                    </span>
+                    {item.location && (
+                      <>
+                        <span>•</span>
+                        <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 py-0.2 rounded border border-amber-200/40 dark:border-amber-900/40">
+                          Loc: {item.location}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               <span className="text-[10px] font-black px-2 py-0.5 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded flex-shrink-0">
