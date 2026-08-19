@@ -1161,8 +1161,37 @@ export default function AdminDashboard() {
         : null;
 
       if (existingProd && existingProd.id) {
-        // UPDATE EXISTING PRODUCT
-        const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : (existingProd.imageUrl || newProdImageUrl);
+        // UPDATE EXISTING PRODUCT - Append new images without overwriting previous
+        let finalImages = existingProd.images && Array.isArray(existingProd.images) ? [...existingProd.images] : [];
+        if (finalImages.length === 0 && existingProd.imageUrl && existingProd.imageUrl !== 'gradient-indigo' && !existingProd.imageUrl.startsWith('gradient-')) {
+          finalImages.push({ url: existingProd.imageUrl, label: 'Image 1' });
+        }
+        newProdImages.forEach(newImg => {
+          if (!finalImages.some(img => img.url === newImg.url)) {
+            finalImages.push({ url: newImg.url, label: `Image ${finalImages.length + 1}` });
+          }
+        });
+
+        // Merge variants
+        let finalVariants = existingProd.variants && Array.isArray(existingProd.variants) ? [...existingProd.variants] : [];
+        newProdVariants.forEach(newVar => {
+          if (!finalVariants.some(v => v.name === newVar.name)) {
+            finalVariants.push({
+              ...newVar,
+              id: newVar.id || `v_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              imageIndex: typeof newVar.imageIndex === 'number' ? newVar.imageIndex : finalImages.length - 1
+            });
+          }
+        });
+        if (finalVariants.length === 0 && finalImages.length > 0) {
+          finalVariants = finalImages.map((_, i) => ({
+            id: `v_auto_${i}_${Date.now()}`,
+            name: newProdDesign ? `${newProdDesign}-${i + 1}` : `Model ${i + 1}`,
+            imageIndex: i
+          }));
+        }
+
+        const mainImageUrl = finalImages.length > 0 ? finalImages[0].url : (existingProd.imageUrl || newProdImageUrl);
         await updateProduct(existingProd.id, {
           nameEn: newProdNameEn,
           nameHi: newProdNameEn,
@@ -1176,8 +1205,8 @@ export default function AdminDashboard() {
           code: newProdCode,
           design: newProdDesign,
           brand: newProdBrand,
-          images: newProdImages.length > 0 ? newProdImages : existingProd.images,
-          variants: newProdVariants.length > 0 ? newProdVariants : existingProd.variants,
+          images: finalImages,
+          variants: finalVariants,
           priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
           minPrice: newProdMinPrice.trim() ? parseFloat(newProdMinPrice) : undefined,
           maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
@@ -1315,18 +1344,34 @@ export default function AdminDashboard() {
   };
 
   const handleDownloadCSVTemplate = () => {
-    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'unit', 'category'];
-    const sampleRow = [
-      '"Cotton Silk Saree"',
-      '"SKU-101"',
-      '"DESIGN-A1"',
-      '"Balaji Textiles"',
-      '"Premium handloom cotton silk saree with zari border"',
-      '2499',
-      '"Pcs"',
-      '"Textiles"'
+    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'min', 'max', 'unit', 'category'];
+    const sampleRows = [
+      [
+        '"Cotton Silk Saree"',
+        '"SKU-101"',
+        '"DESIGN-A1"',
+        '"Balaji Textiles"',
+        '"Premium handloom cotton silk saree with zari border (Custom Min/Max Range)"',
+        '2499',
+        '2300',
+        '2700',
+        '"Pcs"',
+        '"Textiles"'
+      ],
+      [
+        '"Linen Formal Shirt"',
+        '"SKU-102"',
+        '"DESIGN-B2"',
+        '"Balaji Textiles"',
+        '"Pure linen formal shirt (Leave Min/Max empty for 0% variance / exact price)"',
+        '1499',
+        '""',
+        '""',
+        '"Pcs"',
+        '"Textiles"'
+      ]
     ];
-    const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
+    const csvContent = [headers.join(','), ...sampleRows.map(r => r.join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1353,7 +1398,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'unit', 'category', 'inStock', 'imageUrl', 'id'];
+    const headers = ['nameEn', 'code', 'design', 'brand', 'descEn', 'price', 'min', 'max', 'variance', 'unit', 'category', 'inStock', 'imageUrl', 'id'];
 
     const escapeCSV = (val: any) => {
       if (val === null || val === undefined) return '""';
@@ -1368,6 +1413,9 @@ export default function AdminDashboard() {
       escapeCSV(p.brand || ''),
       escapeCSV(p.descEn || ''),
       p.price ?? 0,
+      p.minPrice ?? '',
+      p.maxPrice ?? '',
+      p.priceRangePct ?? '',
       escapeCSV(p.unit || 'Pcs'),
       escapeCSV(p.category || ''),
       p.inStock !== false ? 'Yes' : 'No',
@@ -1467,7 +1515,8 @@ export default function AdminDashboard() {
     const items = csvProductsToImport;
     setCsvProductsToImport([]);
     try {
-      let successCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
       let activeCategories = [...settingsCategories];
       for (const item of items) {
         const nameEn = item.nameEn || item.name;
@@ -1511,42 +1560,118 @@ export default function AdminDashboard() {
           });
         }
 
-        const mainImageUrl = images.length > 0 ? images[0].url : (item.imageUrl || item.image || 'gradient-indigo');
-
         if (!nameEn || isNaN(price)) {
           console.warn("Skipping invalid CSV product record:", item);
           continue;
         }
 
-        const priceRangePctVal = item.priceRangePct ? parseFloat(item.priceRangePct) : undefined;
-        const minPriceVal = item.minPrice ? parseFloat(item.minPrice) : undefined;
-        const maxPriceVal = item.maxPrice ? parseFloat(item.maxPrice) : undefined;
+        const rawMin = item.minPrice ?? item.min ?? item.min_price ?? item['min price'] ?? item['Min Price'] ?? item['Min'];
+        const rawMax = item.maxPrice ?? item.max ?? item.max_price ?? item['max price'] ?? item['Max Price'] ?? item['Max'];
+        const rawVariance = item.priceRangePct ?? item.variance ?? item.price_range_pct ?? item['variance %'] ?? item['Variance'];
 
-        await createProduct({
-          nameEn,
-          nameHi,
-          descEn,
-          descHi,
-          price,
-          unit,
-          imageUrl: mainImageUrl,
-          category,
-          code,
-          design,
-          images,
-          variants,
-          priceRangePct: isNaN(priceRangePctVal as any) ? undefined : priceRangePctVal,
-          minPrice: isNaN(minPriceVal as any) ? undefined : minPriceVal,
-          maxPrice: isNaN(maxPriceVal as any) ? undefined : maxPriceVal
-        } as any);
-        successCount++;
+        const pVar = (rawVariance !== undefined && rawVariance !== '' && !isNaN(parseFloat(rawVariance))) ? parseFloat(rawVariance) : undefined;
+        const pMin = (rawMin !== undefined && rawMin !== '' && !isNaN(parseFloat(rawMin))) ? parseFloat(rawMin) : undefined;
+        const pMax = (rawMax !== undefined && rawMax !== '' && !isNaN(parseFloat(rawMax))) ? parseFloat(rawMax) : undefined;
+
+        let priceRangePctVal: number | undefined = pVar;
+        let minPriceVal: number | undefined = pMin;
+        let maxPriceVal: number | undefined = pMax;
+
+        if (minPriceVal === undefined && maxPriceVal === undefined) {
+          if (priceRangePctVal === undefined) {
+            priceRangePctVal = 0; // Default variance to 0 so no automatic range is generated
+          }
+        }
+
+        // Check if product exists in database catalog by code, design, or name
+        const existingInDb = productsList.find(p => 
+          (p.code?.trim() && code.trim() && p.code.trim().toLowerCase() === code.trim().toLowerCase()) ||
+          (p.design?.trim() && design.trim() && p.design.trim().toLowerCase() === design.trim().toLowerCase()) ||
+          (p.nameEn?.trim() && nameEn.trim() && p.nameEn.trim().toLowerCase() === nameEn.trim().toLowerCase())
+        );
+
+        if (existingInDb && existingInDb.id) {
+          // Merge images: preserve existing images and append new ones without duplicates
+          let finalImages = existingInDb.images && Array.isArray(existingInDb.images) ? [...existingInDb.images] : [];
+          if (finalImages.length === 0 && existingInDb.imageUrl && existingInDb.imageUrl !== 'gradient-indigo' && !existingInDb.imageUrl.startsWith('gradient-')) {
+            finalImages.push({ url: existingInDb.imageUrl, label: 'Image 1' });
+          }
+          images.forEach(newImg => {
+            if (!finalImages.some(img => img.url === newImg.url)) {
+              finalImages.push({ url: newImg.url, label: `Image ${finalImages.length + 1}` });
+            }
+          });
+
+          // Merge variants
+          let finalVariants = existingInDb.variants && Array.isArray(existingInDb.variants) ? [...existingInDb.variants] : [];
+          variants.forEach(newVar => {
+            if (!finalVariants.some(v => v.name === newVar.name)) {
+              finalVariants.push({
+                ...newVar,
+                id: newVar.id || `v_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                imageIndex: typeof newVar.imageIndex === 'number' ? newVar.imageIndex : finalImages.length - 1
+              });
+            }
+          });
+          if (finalVariants.length === 0 && finalImages.length > 0) {
+            finalVariants = finalImages.map((_, i) => ({
+              id: `v_auto_${i}_${Date.now()}`,
+              name: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
+              imageIndex: i
+            }));
+          }
+
+          const mainImageUrl = finalImages.length > 0 ? finalImages[0].url : (existingInDb.imageUrl || 'gradient-indigo');
+
+          await updateProduct(existingInDb.id, {
+            nameEn,
+            nameHi,
+            descEn,
+            descHi,
+            price,
+            unit,
+            imageUrl: mainImageUrl,
+            category,
+            code,
+            design,
+            images: finalImages,
+            variants: finalVariants,
+            priceRangePct: priceRangePctVal !== undefined ? priceRangePctVal : existingInDb.priceRangePct,
+            minPrice: minPriceVal !== undefined ? minPriceVal : (priceRangePctVal !== undefined ? undefined : existingInDb.minPrice),
+            maxPrice: maxPriceVal !== undefined ? maxPriceVal : (priceRangePctVal !== undefined ? undefined : existingInDb.maxPrice)
+          } as any);
+          updatedCount++;
+        } else {
+          const mainImageUrl = images.length > 0 ? images[0].url : (item.imageUrl || item.image || 'gradient-indigo');
+          await createProduct({
+            nameEn,
+            nameHi,
+            descEn,
+            descHi,
+            price,
+            unit,
+            imageUrl: mainImageUrl,
+            category,
+            code,
+            design,
+            images,
+            variants,
+            priceRangePct: priceRangePctVal,
+            minPrice: minPriceVal,
+            maxPrice: maxPriceVal
+          } as any);
+          createdCount++;
+        }
       }
-      alert(`Successfully imported ${successCount} products!`);
+      const msg = updatedCount > 0
+        ? `Successfully imported ${createdCount} new products and updated ${updatedCount} existing products!`
+        : `Successfully imported ${createdCount} products!`;
+      alert(msg);
       dispatch(fetchProductsThunk());
       logActivity({
         ...getPerformerDetails(),
         action: 'BULK_IMPORT',
-        details: `Imported ${successCount} products via CSV file`
+        details: `Imported ${createdCount} products, updated ${updatedCount} products via CSV file`
       });
     } catch (err) {
       console.error("Error importing CSV:", err);
@@ -1567,14 +1692,46 @@ export default function AdminDashboard() {
           setSettingsCategories(activeCategories);
         }
 
-        const mainImageUrl = item.images.length > 0 ? item.images[0].url : 'gradient-indigo';
+        const finalPriceRangePct = item.priceRangePct !== undefined
+          ? item.priceRangePct
+          : (item.minPrice === undefined && item.maxPrice === undefined ? 0 : undefined);
 
-        // Check if product with code exists in database catalog
-        const existingInDb = item.code?.trim()
-          ? productsList.find(p => p.code?.trim().toLowerCase() === item.code.trim().toLowerCase())
-          : null;
+        // Check if product with code, design, or name exists in database catalog
+        const existingInDb = productsList.find(p => 
+          (p.code?.trim() && item.code?.trim() && p.code.trim().toLowerCase() === item.code.trim().toLowerCase()) ||
+          (p.design?.trim() && item.design?.trim() && p.design.trim().toLowerCase() === item.design.trim().toLowerCase()) ||
+          (p.nameEn?.trim() && item.nameEn?.trim() && p.nameEn.trim().toLowerCase() === item.nameEn.trim().toLowerCase())
+        );
 
         if (existingInDb && existingInDb.id) {
+          // Merge images: preserve all existing images and include new ones without duplicate URLs
+          let finalImages: ProductImage[] = item.images && item.images.length > 0 ? [...item.images] : [];
+          
+          if (finalImages.length === 0 && existingInDb.images && Array.isArray(existingInDb.images)) {
+            finalImages = existingInDb.images.map((img: any, i: number) => ({
+              url: typeof img === 'string' ? img : img.url,
+              label: (typeof img === 'object' && img.label) ? img.label : `Image ${i + 1}`
+            }));
+          }
+
+          // Merge variants
+          let finalVariants: ProductVariant[] = item.variants && item.variants.length > 0 ? [...item.variants] : [];
+          if (finalVariants.length === 0 && existingInDb.variants && Array.isArray(existingInDb.variants)) {
+            finalVariants = [...existingInDb.variants];
+          } else if (finalVariants.length < finalImages.length) {
+            for (let i = finalVariants.length; i < finalImages.length; i++) {
+              finalVariants.push({
+                id: `v_auto_${i}_${Date.now()}`,
+                name: item.design ? `${item.design}-${i + 1}` : `Model ${i + 1}`,
+                imageIndex: i
+              });
+            }
+          }
+
+          const mainImageUrl = finalImages.length > 0 
+            ? finalImages[0].url 
+            : (existingInDb.imageUrl && existingInDb.imageUrl !== 'gradient-indigo' ? existingInDb.imageUrl : 'gradient-indigo');
+
           // UPDATE existing product doc
           await updateProduct(existingInDb.id, {
             nameEn: item.nameEn,
@@ -1588,14 +1745,15 @@ export default function AdminDashboard() {
             code: item.code || '',
             design: item.design || '',
             brand: item.brand || '',
-            images: item.images.length > 0 ? item.images : existingInDb.images,
-            variants: item.variants.length > 0 ? item.variants : existingInDb.variants,
-            priceRangePct: item.priceRangePct,
+            images: finalImages,
+            variants: finalVariants,
+            priceRangePct: finalPriceRangePct,
             minPrice: item.minPrice,
             maxPrice: item.maxPrice
           } as any);
           updatedCount++;
         } else {
+          const mainImageUrl = item.images.length > 0 ? item.images[0].url : 'gradient-indigo';
           // CREATE new product doc
           await createProduct({
             nameEn: item.nameEn,
@@ -1611,7 +1769,7 @@ export default function AdminDashboard() {
             brand: item.brand || '',
             images: item.images,
             variants: item.variants,
-            priceRangePct: item.priceRangePct,
+            priceRangePct: finalPriceRangePct,
             minPrice: item.minPrice,
             maxPrice: item.maxPrice
           } as any);

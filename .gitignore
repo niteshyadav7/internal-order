@@ -45,3 +45,6 @@ firebase-service-account.json
 firebase-debug.log
 *.log
 
+
+.vercel
+.env*

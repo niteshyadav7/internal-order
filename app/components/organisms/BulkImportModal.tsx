@@ -22,7 +22,7 @@ import {
   Unlink,
   GripVertical
 } from 'lucide-react';
-import { ProductImage, ProductVariant } from '../../lib/db';
+import { ProductImage, ProductVariant, getPriceRange } from '../../lib/db';
 import { compressImage } from '../../lib/image';
 import { uploadImageToStorage } from '../../lib/storage';
 import Button from '../atoms/Button';
@@ -151,42 +151,85 @@ export default function BulkImportModal({
         }
 
         const items: StagedProductItem[] = rawRecords.map((rec, idx) => {
-          const nameEn = rec.nameEn || rec.name || `Product ${idx + 1}`;
-          const priceVal = parseFloat(rec.price);
-          const price = isNaN(priceVal) ? 0 : priceVal;
-          const unit = rec.unit || 'Pcs';
-          const category = rec.category || (categoriesList[0] || 'Electronics');
-          const code = rec.code || rec.sku || `SKU-${100 + idx}`;
-          const design = rec.design || rec.designCode || `DES-${100 + idx}`;
-          const brand = rec.brand || rec.brandName || rec.brand_name || '';
-          const descEn = rec.descEn || rec.description || '';
+          const rawCode = rec.code || rec.sku || `SKU-${100 + idx}`;
+          const rawDesign = rec.design || rec.designCode || `DES-${100 + idx}`;
+          const rawName = rec.nameEn || rec.name || `Product ${idx + 1}`;
 
-          // Parse initial CSV image URLs if provided
+          // Find if product already exists in Firestore catalog
+          const existingProd = existingProductsList.find(p => 
+            (p.code?.trim() && rawCode?.trim() && p.code.trim().toLowerCase() === rawCode.trim().toLowerCase()) ||
+            (p.design?.trim() && rawDesign?.trim() && p.design.trim().toLowerCase() === rawDesign.trim().toLowerCase()) ||
+            (p.nameEn?.trim() && rawName?.trim() && p.nameEn.trim().toLowerCase() === rawName.trim().toLowerCase())
+          );
+
+          const nameEn = rec.nameEn || rec.name || existingProd?.nameEn || `Product ${idx + 1}`;
+          const nameHi = rec.nameHi || rec.name_hi || existingProd?.nameHi || nameEn;
+          const priceVal = parseFloat(rec.price);
+          const price = !isNaN(priceVal) ? priceVal : (existingProd?.price ?? 0);
+          const unit = rec.unit || existingProd?.unit || 'Pcs';
+          const category = rec.category || existingProd?.category || (categoriesList[0] || 'Electronics');
+          const code = rec.code || rec.sku || existingProd?.code || `SKU-${100 + idx}`;
+          const design = rec.design || rec.designCode || existingProd?.design || `DES-${100 + idx}`;
+          const brand = rec.brand || rec.brandName || rec.brand_name || existingProd?.brand || '';
+          const descEn = rec.descEn || rec.description || existingProd?.descEn || '';
+          const descHi = rec.descHi || rec.description_hi || existingProd?.descHi || descEn;
+
+          // 1. Initialize with existing images from database if any
           let images: ProductImage[] = [];
-          if (rec.images) {
-            const list = String(rec.images).split(';').map(u => u.trim()).filter(Boolean);
-            images = list.map((url, i) => ({ url, label: `Image ${i + 1}` }));
-          } else if (rec.imageUrl || rec.image) {
-            images = [{ url: String(rec.imageUrl || rec.image).trim(), label: 'Image 1' }];
+          if (existingProd?.images && Array.isArray(existingProd.images) && existingProd.images.length > 0) {
+            images = existingProd.images.map((img: any, i: number) => ({
+              url: typeof img === 'string' ? img : img.url,
+              label: (typeof img === 'object' && img.label) ? img.label : `Image ${i + 1}`
+            }));
+          } else if (existingProd?.imageUrl && existingProd.imageUrl !== 'gradient-indigo' && !existingProd.imageUrl.startsWith('gradient-')) {
+            images = [{ url: existingProd.imageUrl, label: 'Image 1' }];
           }
 
-          // Parse initial CSV variants if provided
+          // 2. Parse and append any CSV image URLs if provided (avoiding duplicate URLs)
+          let csvImageUrls: string[] = [];
+          if (rec.images) {
+            csvImageUrls = String(rec.images).split(';').map(u => u.trim()).filter(Boolean);
+          } else if (rec.imageUrl || rec.image) {
+            csvImageUrls = [String(rec.imageUrl || rec.image).trim()].filter(Boolean);
+          }
+
+          csvImageUrls.forEach(url => {
+            if (!images.some(img => img.url === url)) {
+              images.push({ url, label: `Image ${images.length + 1}` });
+            }
+          });
+
+          // 3. Initialize variants with existing variants if any, or build from images
           let variants: ProductVariant[] = [];
           if (rec.variants) {
             const vList = String(rec.variants).split(';').map(v => v.trim()).filter(Boolean);
-            variants = vList.map(v => {
+            variants = vList.map((v, vIdx) => {
               const parts = v.split(':');
               return {
                 id: `v_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                 name: parts[0].trim(),
-                imageIndex: parts[1] ? parseInt(parts[1].trim()) || 0 : 0
+                imageIndex: parts[1] ? parseInt(parts[1].trim()) || 0 : (vIdx < images.length ? vIdx : 0)
               };
             });
+          } else if (existingProd?.variants && Array.isArray(existingProd.variants) && existingProd.variants.length > 0) {
+            variants = existingProd.variants.map((v: any, vIdx: number) => ({
+              id: v.id || `v_existing_${vIdx}_${Date.now()}`,
+              name: v.name || (design ? `${design}-${vIdx + 1}` : `Model ${vIdx + 1}`),
+              imageIndex: typeof v.imageIndex === 'number' ? v.imageIndex : vIdx
+            }));
+            // If images were appended from CSV and exceed existing variants, create variants for the new ones
+            for (let i = variants.length; i < images.length; i++) {
+              variants.push({
+                id: `v_auto_${i}_${Date.now()}`,
+                name: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
+                imageIndex: i
+              });
+            }
           } else {
             // Auto build variants from images
             variants = images.map((_, i) => ({
               id: `v_auto_${i}_${Date.now()}`,
-              name: `Model ${i + 1}`,
+              name: design ? `${design}-${i + 1}` : `Model ${i + 1}`,
               imageIndex: i
             }));
           }
@@ -194,18 +237,36 @@ export default function BulkImportModal({
           return {
             tempId: `staged_${Date.now()}_${idx}`,
             nameEn,
-            nameHi: nameEn,
+            nameHi,
             descEn,
-            descHi: descEn,
+            descHi,
             price,
             unit,
             category,
             code,
             design,
             brand,
-            priceRangePct: rec.priceRangePct ? parseFloat(rec.priceRangePct) : undefined,
-            minPrice: rec.minPrice ? parseFloat(rec.minPrice) : undefined,
-            maxPrice: rec.maxPrice ? parseFloat(rec.maxPrice) : undefined,
+            priceRangePct: (() => {
+              const rawVariance = rec.priceRangePct ?? rec.variance ?? rec.price_range_pct ?? rec['variance %'] ?? rec['Variance'];
+              const rawMin = rec.minPrice ?? rec.min ?? rec.min_price ?? rec['min price'] ?? rec['Min Price'] ?? rec['Min'];
+              const rawMax = rec.maxPrice ?? rec.max ?? rec.max_price ?? rec['max price'] ?? rec['Max Price'] ?? rec['Max'];
+              const pVar = (rawVariance !== undefined && rawVariance !== '' && !isNaN(parseFloat(rawVariance))) ? parseFloat(rawVariance) : undefined;
+              const pMin = (rawMin !== undefined && rawMin !== '' && !isNaN(parseFloat(rawMin))) ? parseFloat(rawMin) : undefined;
+              const pMax = (rawMax !== undefined && rawMax !== '' && !isNaN(parseFloat(rawMax))) ? parseFloat(rawMax) : undefined;
+
+              if (pVar !== undefined) return pVar;
+              if (pMin !== undefined || pMax !== undefined) return undefined;
+              // If both min and max are empty, variance is explicitly 0 (no automatic ±5% range)
+              return 0;
+            })(),
+            minPrice: (() => {
+              const rawMin = rec.minPrice ?? rec.min ?? rec.min_price ?? rec['min price'] ?? rec['Min Price'] ?? rec['Min'];
+              return (rawMin !== undefined && rawMin !== '' && !isNaN(parseFloat(rawMin))) ? parseFloat(rawMin) : undefined;
+            })(),
+            maxPrice: (() => {
+              const rawMax = rec.maxPrice ?? rec.max ?? rec.max_price ?? rec['max price'] ?? rec['Max Price'] ?? rec['Max'];
+              return (rawMax !== undefined && rawMax !== '' && !isNaN(parseFloat(rawMax))) ? parseFloat(rawMax) : undefined;
+            })(),
             images,
             variants,
             selectedCoverIndex: 0
@@ -253,7 +314,7 @@ export default function BulkImportModal({
         });
       }
 
-      // Auto Match photos by Product Code or Filename if possible
+      // Auto Match photos by Product Code or Filename if possible (APPENDING to existing images)
       setStagedProducts(prevStaged => {
         const updatedProducts = [...prevStaged];
 
@@ -268,16 +329,19 @@ export default function BulkImportModal({
 
           if (matchedProd) {
             photo.assignedProductTempId = matchedProd.tempId;
-            const nextIdx = matchedProd.images.length;
-            matchedProd.images.push({
-              url: photo.url,
-              label: `Image ${nextIdx + 1}`
-            });
-            matchedProd.variants.push({
-              id: `v_auto_${nextIdx}_${Date.now()}`,
-              name: matchedProd.design ? `${matchedProd.design}-${nextIdx + 1}` : `Model ${nextIdx + 1}`,
-              imageIndex: nextIdx
-            });
+            // Append if URL not already present
+            if (!matchedProd.images.some(img => img.url === photo.url)) {
+              const nextIdx = matchedProd.images.length;
+              matchedProd.images.push({
+                url: photo.url,
+                label: `Image ${nextIdx + 1}`
+              });
+              matchedProd.variants.push({
+                id: `v_auto_${nextIdx}_${Date.now()}`,
+                name: matchedProd.design ? `${matchedProd.design}-${nextIdx + 1}` : `Model ${nextIdx + 1}`,
+                imageIndex: nextIdx
+              });
+            }
           }
         });
 
@@ -295,7 +359,7 @@ export default function BulkImportModal({
     }
   };
 
-  // Assign a photo from pool to a staged product by product tempId
+  // Assign a photo from pool to a staged product by product tempId (APPENDING to existing images)
   const assignPhotoToProduct = (photoId: string, productTempId: string) => {
     const photo = photoPool.find(p => p.id === photoId);
     if (!photo) return;
@@ -362,6 +426,39 @@ export default function BulkImportModal({
     });
   };
 
+  // Remove any image directly from a staged product (whether existing from DB or uploaded)
+  const handleRemoveImageFromProduct = (productIndex: number, imageIndex: number) => {
+    setStagedProducts(prev => {
+      const updated = [...prev];
+      const item = { ...updated[productIndex] };
+      if (!item || !item.images[imageIndex]) return prev;
+
+      const removedUrl = item.images[imageIndex].url;
+
+      // If this was an uploaded pool photo, unassign it in the pool
+      const poolItem = photoPool.find(p => p.url === removedUrl);
+      if (poolItem) {
+        setPhotoPool(pList => pList.map(p => p.id === poolItem.id ? { ...p, assignedProductTempId: null } : p));
+      }
+
+      const newImages = item.images.filter((_, idx) => idx !== imageIndex).map((img, i) => ({
+        ...img,
+        label: `Image ${i + 1}`
+      }));
+      
+      const newVariants = newImages.map((_, i) => ({
+        id: item.variants[i]?.id || `v_auto_${i}_${Date.now()}`,
+        name: item.variants[i]?.name || (item.design ? `${item.design}-${i + 1}` : `Model ${i + 1}`),
+        imageIndex: i
+      }));
+
+      item.images = newImages;
+      item.variants = newVariants;
+      updated[productIndex] = item;
+      return updated;
+    });
+  };
+
   // Delete a photo completely from pool and products
   const deletePhotoFromPool = (photoId: string) => {
     const photo = photoPool.find(p => p.id === photoId);
@@ -408,7 +505,7 @@ export default function BulkImportModal({
     });
   };
 
-  // Add an image directly to a selected staged product via direct file select
+  // Add an image directly to a selected staged product via direct file select (APPENDING)
   const handleAddImageToProduct = async (productIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1109,6 +1206,88 @@ export default function BulkImportModal({
                       />
                     </div>
                   </div>
+
+                  {/* B2B Price Range / Min-Max / Variance Settings */}
+                  <div className="p-3 bg-slate-50/50 dark:bg-zinc-955/20 border border-slate-200/70 dark:border-zinc-800/80 rounded-2xl space-y-2.5">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
+                        B2B Price Range Bounds (Min / Max / Variance)
+                      </span>
+                      {(() => {
+                        const basePrice = currentProduct.price || 0;
+                        const minVal = currentProduct.minPrice;
+                        const maxVal = currentProduct.maxPrice;
+                        const pctVal = currentProduct.priceRangePct;
+                        const finalPct = pctVal !== undefined ? pctVal : 0;
+                        const displayRange = getPriceRange(basePrice, finalPct, minVal, maxVal);
+                        const reason = (minVal !== undefined && maxVal !== undefined && minVal > 0 && maxVal > 0)
+                          ? 'Min/Max Bounds'
+                          : pctVal !== undefined ? `Variance ±${pctVal}%` : '0% Variance (Exact Price)';
+                        return (
+                          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">
+                            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">
+                              Preview: {displayRange} / {currentProduct.unit || 'Pcs'}
+                            </span>
+                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded">
+                              {reason}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[9px] font-black uppercase text-slate-400">Min Price</label>
+                        <input
+                          type="number"
+                          placeholder="Min bound (optional)"
+                          value={currentProduct.minPrice ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                            updateStagedProduct(selectedProductIndex, {
+                              minPrice: val,
+                              priceRangePct: val !== undefined ? undefined : currentProduct.priceRangePct
+                            });
+                          }}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black uppercase text-slate-400">Max Price</label>
+                        <input
+                          type="number"
+                          placeholder="Max bound (optional)"
+                          value={currentProduct.maxPrice ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                            updateStagedProduct(selectedProductIndex, {
+                              maxPrice: val,
+                              priceRangePct: val !== undefined ? undefined : currentProduct.priceRangePct
+                            });
+                          }}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black uppercase text-slate-400">Variance (%)</label>
+                        <input
+                          type="number"
+                          placeholder="0 for exact price"
+                          value={currentProduct.priceRangePct ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
+                            updateStagedProduct(selectedProductIndex, {
+                              priceRangePct: val,
+                              minPrice: undefined,
+                              maxPrice: undefined
+                            });
+                          }}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* LINKED PHOTOS GALLERY FOR ACTIVE PRODUCT */}
@@ -1157,14 +1336,23 @@ export default function BulkImportModal({
                                 >
                                   <Maximize2 className="w-4 h-4" />
                                 </button>
-                                {poolItem && (
+                                {poolItem ? (
                                   <button
                                     type="button"
                                     onClick={() => unassignPhotoFromProduct(poolItem.id)}
-                                    className="p-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors shadow flex items-center gap-1 text-[10px] font-bold"
+                                    className="p-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors shadow flex items-center gap-1 text-[10px] font-bold cursor-pointer"
                                     title="Unlink Photo back to Pool"
                                   >
                                     <Unlink className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveImageFromProduct(selectedProductIndex, imgIdx)}
+                                    className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-colors shadow flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                    title="Remove Photo"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 )}
                               </div>
