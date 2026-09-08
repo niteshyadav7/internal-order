@@ -381,7 +381,7 @@ export default function ProductCatalog() {
     const list: OrderPreviewItem[] = [];
     selectedIds.forEach(cartKey => {
       const [id, variantName] = cartKey.split('|');
-      const product = products.find(p => p.id === id);
+      const product = products.find(p => p.id === id && (!p.approvalStatus || p.approvalStatus === 'approved'));
       if (product) {
         const details = selectedVariants[cartKey];
         list.push({
@@ -570,11 +570,14 @@ export default function ProductCatalog() {
       const items: OrderItem[] = [];
       selectedIds.forEach(cartKey => {
         const [id, variantName] = cartKey.split('|');
-        const product = products.find(p => p.id === id);
+        const product = products.find(p => p.id === id && (!p.approvalStatus || p.approvalStatus === 'approved'));
         if (product) {
           const details = selectedVariants[cartKey];
           const variant = details?.variantName || variantName;
-          const matchingVariant = product.variants?.find(v => v.name === variant || v.designNo === variant);
+          const matchingVariant = product.variants?.find(v => 
+            (variant && (v.name === variant || v.designNo === variant)) ||
+            (details?.imageUrl && v.imageIndex !== undefined && product.images?.[v.imageIndex]?.url === details.imageUrl)
+          );
           const itemLocation = matchingVariant?.location || product.location || '';
           const itemDesignNo = matchingVariant?.designNo || matchingVariant?.name || product.design || '';
 
@@ -647,8 +650,12 @@ export default function ProductCatalog() {
     }
   };
 
-  // Filter products by search query, hiding out-of-stock items
-  const visibleProducts = products.filter(product => product.inStock !== false);
+  // Filter products by search query, hiding out-of-stock, abandoned, and unapproved items
+  const visibleProducts = products.filter(product => 
+    product.inStock !== false && 
+    !product.isAbandoned && 
+    (!product.approvalStatus || product.approvalStatus === 'approved')
+  );
   const filteredProducts = visibleProducts.filter(product => {
     const name = lang === 'en' ? product.nameEn : product.nameHi;
     const desc = lang === 'en' ? product.descEn : product.descHi;

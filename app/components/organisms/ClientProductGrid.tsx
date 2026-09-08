@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight, PackageX, Sparkles, Eye } from 'lucide-react';
+import { Search, ShoppingCart, Loader2, Check, SlidersHorizontal, RotateCcw, X, ChevronUp, ChevronLeft, ChevronRight, PackageX, Sparkles, Eye, Share2 } from 'lucide-react';
 import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import ProductPreview from '../molecules/ProductPreview';
 import ProductDetailSheet from './ProductDetailSheet';
@@ -73,13 +73,40 @@ function ReelProductCard({
 
   const hasMultipleImages = imagesList.length > 1;
 
-  const visibleVariants = (product.variants || []).filter(v => v.inStock !== false);
+  const visibleVariants = (product.variants || []).filter(v => v.inStock !== false && !v.isAbandoned);
 
   // Find which variant matches the current image index
   const activeVariant: ProductVariant | undefined =
     visibleVariants.find(v => v.imageIndex === activeImgIdx) || visibleVariants[0] || undefined;
 
   const isSelected = selectedIds.has((product.id || '') + '|' + (activeVariant?.name || ''));
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!product?.id) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = `${origin}/product/${encodeURIComponent(product.id)}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.nameEn} - Balaji Textiles`,
+          text: `Check out ${product.nameEn}${product.code ? ` (${product.code})` : ''} at Balaji Textiles!`,
+          url: shareUrl
+        });
+        return;
+      } catch (err) {}
+    }
+
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      } catch (err) {}
+    }
+  };
 
   // Touch handlers for horizontal swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -250,19 +277,12 @@ function ReelProductCard({
             </span>
           </div>
 
-          {/* Product Brand & Design — prominent high-contrast badges */}
-          {(product.brand || product.design) && (
+          {/* Product Brand badge */}
+          {product.brand && (
             <div className="inline-flex items-center gap-1.5 flex-wrap ml-2">
-              {product.brand && (
-                <span className="bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide shadow-lg border border-amber-300">
-                  Brand: {product.brand}
-                </span>
-              )}
-              {product.design && (
-                <span className="bg-black/85 backdrop-blur-md text-indigo-200 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide shadow-md border border-indigo-400/50">
-                  Design: {product.design}
-                </span>
-              )}
+              <span className="bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wide shadow-lg border border-amber-300">
+                Brand: {product.brand}
+              </span>
             </div>
           )}
 
@@ -336,33 +356,53 @@ function ReelProductCard({
 
         {/* Add to Cart button or Stock status */}
         {readOnly ? (
-          <div className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 flex-shrink-0 ${product.inStock
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-            <span>{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
+          <div className="flex items-center gap-2 w-full flex-shrink-0">
+            <div className={`flex-1 py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 ${product.inStock
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              <span>{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/15 transition-all active:scale-90 cursor-pointer flex-shrink-0"
+              title="Share Product"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+            </button>
           </div>
         ) : (
-          <button
-            onClick={() => handleAddToCart('success')}
-            className={`w-full py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] flex-shrink-0 ${isSelected
-                ? 'bg-white text-[#5d51e8] shadow-lg'
-                : 'bg-gradient-to-r from-[#5d51e8] to-[#7c3aed] text-white shadow-lg shadow-[#5d51e8]/30'
-              }`}
-          >
-            {isSelected ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Selected{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="w-4 h-4" />
-                <span>Add to Cart{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 w-full flex-shrink-0">
+            <button
+              onClick={() => handleAddToCart('success')}
+              className={`flex-1 py-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.97] ${isSelected
+                  ? 'bg-white text-[#5d51e8] shadow-lg'
+                  : 'bg-gradient-to-r from-[#5d51e8] to-[#7c3aed] text-white shadow-lg shadow-[#5d51e8]/30'
+                }`}
+            >
+              {isSelected ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Selected{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Add to Cart{activeVariant ? ` · ${activeVariant.name}` : ''}</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/15 transition-all active:scale-90 cursor-pointer flex-shrink-0"
+              title="Share Product"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+            </button>
+          </div>
         )}
       </div>
 
@@ -432,6 +472,33 @@ export default function ClientProductGrid({
   const isMobile = useIsMobile();
   const [visibleCount, setVisibleCount] = useState(12);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [gridCopiedId, setGridCopiedId] = useState<string | null>(null);
+
+  const handleShareProduct = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!product?.id) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = `${origin}/product/${encodeURIComponent(product.id)}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.nameEn} - Balaji Textiles`,
+          text: `Check out ${product.nameEn}${product.code ? ` (${product.code})` : ''} at Balaji Textiles!`,
+          url: shareUrl
+        });
+        return;
+      } catch (err) {}
+    }
+
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setGridCopiedId(product.id);
+        setTimeout(() => setGridCopiedId(null), 2500);
+      } catch (err) {}
+    }
+  };
 
   // States for detail modal
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
@@ -1225,6 +1292,20 @@ export default function ClientProductGrid({
                       className="w-full h-full rounded-none border-none shadow-none"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-80" />
+                    <button
+                      type="button"
+                      onClick={(e) => handleShareProduct(product, e)}
+                      className={`absolute top-4 left-4 w-7 h-7 rounded-full text-white backdrop-blur-md flex items-center justify-center transition-all z-20 cursor-pointer shadow-md ${
+                        gridCopiedId === product.id ? 'bg-emerald-600' : 'bg-black/40 hover:bg-black/60'
+                      }`}
+                      title={gridCopiedId === product.id ? "Link copied!" : "Share product link"}
+                    >
+                      {gridCopiedId === product.id ? (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      ) : (
+                        <Share2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                     {!readOnly && (
                       <div className={`absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all z-10 ${isSelected
                         ? 'bg-[#5d51e8] text-white border-[#5d51e8] scale-110 shadow-lg'
@@ -1243,18 +1324,11 @@ export default function ClientProductGrid({
 
                   <div className="p-6 space-y-4">
                     <div className="space-y-1 text-left">
-                      {(product.brand || product.design) && (
+                      {product.brand && (
                         <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          {product.brand && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 border-2 border-amber-500/40 text-xs font-black uppercase tracking-wide shadow-sm">
-                              Brand: {product.brand}
-                            </span>
-                          )}
-                          {product.design && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 text-xs font-black uppercase tracking-wide">
-                              Design: {product.design}
-                            </span>
-                          )}
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 border-2 border-amber-500/40 text-xs font-black uppercase tracking-wide shadow-sm">
+                            Brand: {product.brand}
+                          </span>
                         </div>
                       )}
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white leading-snug group-hover:text-[#5d51e8] transition-colors line-clamp-1">
@@ -1385,6 +1459,16 @@ export default function ClientProductGrid({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Link Copied Notification */}
+      {gridCopiedId && (
+        <div className="fixed bottom-20 right-6 z-50 bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-2xl text-xs font-black flex items-center gap-2.5 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+            <Check className="w-3 h-3 stroke-[3]" />
+          </div>
+          <span>Product link copied to clipboard!</span>
         </div>
       )}
     </>

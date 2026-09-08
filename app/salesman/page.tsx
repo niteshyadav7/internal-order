@@ -7,6 +7,8 @@ import {
   Order,
   getPriceRange,
   Product,
+  OrderItem,
+  abandonVariant,
   addSalesmanNote,
   subscribeToUserProfiles,
   UserProfile
@@ -179,12 +181,51 @@ export default function SalesmanPortal() {
     prevPendingOrderIdsRef.current = currentPendingIds;
   }, [orders, loadingOrders]);
 
-  // Fetch products on demand when products tab is opened
+  // Eagerly fetch product catalog so live design-wise locations are available across all order views
   useEffect(() => {
-    if (activeTab === 'products') {
+    if (user && userProfile?.role === 'salesman') {
       dispatch(fetchProductsThunk());
     }
-  }, [activeTab, dispatch]);
+  }, [user, userProfile, dispatch]);
+
+  // Helper to dynamically resolve design-wise location from live product variants or item snapshot
+  const getItemDesignLocation = (item: OrderItem): string => {
+    const product = productsList.find(p => p.id === item.productId);
+    if (product && product.variants && product.variants.length > 0) {
+      const variant = product.variants.find(v => 
+        (item.designNo && v.designNo && v.designNo.trim().toLowerCase() === item.designNo.trim().toLowerCase()) ||
+        (item.selectedVariant && (
+          (v.name && v.name.trim().toLowerCase() === item.selectedVariant.trim().toLowerCase()) ||
+          (v.designNo && v.designNo.trim().toLowerCase() === item.selectedVariant.trim().toLowerCase())
+        )) ||
+        (item.design && v.designNo && v.designNo.trim().toLowerCase() === item.design.trim().toLowerCase()) ||
+        (item.selectedImageUrl && product.images?.[v.imageIndex]?.url === item.selectedImageUrl)
+      );
+      if (variant?.location && variant.location.trim()) {
+        return variant.location.trim();
+      }
+    }
+    return item.location?.trim() || product?.location?.trim() || '';
+  };
+
+  const getItemDesignNo = (item: OrderItem): string => {
+    const product = productsList.find(p => p.id === item.productId);
+    if (product && product.variants && product.variants.length > 0) {
+      const variant = product.variants.find(v => 
+        (item.designNo && v.designNo && v.designNo.trim().toLowerCase() === item.designNo.trim().toLowerCase()) ||
+        (item.selectedVariant && (
+          (v.name && v.name.trim().toLowerCase() === item.selectedVariant.trim().toLowerCase()) ||
+          (v.designNo && v.designNo.trim().toLowerCase() === item.selectedVariant.trim().toLowerCase())
+        )) ||
+        (item.design && v.designNo && v.designNo.trim().toLowerCase() === item.design.trim().toLowerCase()) ||
+        (item.selectedImageUrl && product.images?.[v.imageIndex]?.url === item.selectedImageUrl)
+      );
+      if (variant?.designNo && variant.designNo.trim()) {
+        return variant.designNo.trim();
+      }
+    }
+    return item.designNo || item.design || item.selectedVariant || '';
+  };
 
   // Helper to get Category/Product Icons for Retail Store
   const getProductIcon = (category: string, size = "w-6 h-6") => {
@@ -314,10 +355,22 @@ export default function SalesmanPortal() {
       await dispatch(updateOrderThunk({ orderId: prepOrder.id, updatedItems: updatedItems as any })).unwrap();
       await dispatch(completeOrderThunk(prepOrder.id)).unwrap();
 
-      // Auto-create stock alerts for items marked as not_found
+      // Auto-create stock alerts and soft-archive to abandoned for items marked as not_found
       const notFoundItems = prepOrder.items.filter((_, idx) => prepStates[idx] === 'not_found');
       for (const item of notFoundItems) {
         try {
+          // Soft-archive specific variant to abandoned in product catalog (preserves product & other variants in DB)
+          const prod = productsList.find(p => p.id === item.productId);
+          if (prod && prod.id && prod.variants && prod.variants.length > 0) {
+            const vIdx = prod.variants.findIndex(v => 
+              (item.designNo && v.designNo && v.designNo.toLowerCase() === item.designNo.toLowerCase()) ||
+              (item.selectedVariant && v.name && v.name.toLowerCase() === item.selectedVariant.toLowerCase()) ||
+              (item.selectedImageUrl && prod.images?.[v.imageIndex]?.url === item.selectedImageUrl)
+            );
+            if (vIdx !== -1) {
+              await abandonVariant(prod.id, vIdx, prod.variants, 'salesman_unfound');
+            }
+          }
           await dispatch(flagProductOutOfStockThunk({
             product: { id: item.productId, nameEn: item.nameEn } as any,
             user,
@@ -328,7 +381,7 @@ export default function SalesmanPortal() {
         }
       }
       if (notFoundItems.length > 0) {
-        showToast(`${notFoundItems.length} stock alert(s) sent to admin`, 'success');
+        showToast(`${notFoundItems.length} design(s) moved to Abandoned & stock alert sent`, 'success');
       }
 
       setPrepOrder(null);
@@ -668,6 +721,8 @@ export default function SalesmanPortal() {
                     actionLoading={actionLoading}
                     priceRangePct={priceRangePct}
                     onImageClick={setLightboxUrl}
+                    getItemDesignLocation={getItemDesignLocation}
+                    getItemDesignNo={getItemDesignNo}
                   />
                 ))
               )
@@ -694,6 +749,8 @@ export default function SalesmanPortal() {
                     onImageClick={setLightboxUrl}
                     showNotes={true}
                     onAddNote={handleAddNote}
+                    getItemDesignLocation={getItemDesignLocation}
+                    getItemDesignNo={getItemDesignNo}
                   />
                 ))
               )
@@ -714,6 +771,8 @@ export default function SalesmanPortal() {
                     isCompleted={true}
                     priceRangePct={priceRangePct}
                     onImageClick={setLightboxUrl}
+                    getItemDesignLocation={getItemDesignLocation}
+                    getItemDesignNo={getItemDesignNo}
                   />
                 ))
               )
@@ -823,54 +882,43 @@ export default function SalesmanPortal() {
                       )}
                     </div>
 
-                    {/* Product & Variant Specs */}
-                    <div className="bg-slate-50 dark:bg-zinc-950/40 rounded-2xl p-5 border border-slate-150/60 dark:border-zinc-850 text-left space-y-3">
-                      <div className="flex items-start justify-between gap-2 flex-wrap">
-                        <div>
-                          <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
-                            {item.nameEn} {item.nameHi && <span className="text-slate-400 dark:text-zinc-500 font-medium">({item.nameHi})</span>}
-                          </h4>
-                          <p className="text-xs text-indigo-500 font-black uppercase mt-1">
-                            {item.selectedVariant ? `Variant: ${item.selectedVariant}` : (item.designNo ? `Design: ${item.designNo}` : 'Standard Variant')}
-                          </p>
-                        </div>
-                        {item.brand && (
-                          <span className="text-[10px] font-black uppercase px-2.5 py-1 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
-                            Brand: {item.brand}
-                          </span>
-                        )}
+                    {/* Product & Single-Line Detailing Bar */}
+                    <div className="bg-slate-50 dark:bg-zinc-950/40 rounded-2xl p-4 border border-slate-150/60 dark:border-zinc-850 text-left space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
+                          {item.nameEn} {item.nameHi && <span className="text-slate-400 dark:text-zinc-500 font-medium">({item.nameHi})</span>}
+                        </h4>
+                        <span className="text-xs font-black uppercase px-3 py-1 bg-gradient-to-r from-indigo-500 to-[#5d51e8] text-white rounded-xl shadow-sm">
+                          Quantity: {item.quantity} {item.unit}
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200/60 dark:border-zinc-800/80 text-xs font-bold text-slate-500 dark:text-zinc-400">
-                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
-                          <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-300 block mb-0.5 tracking-wider">📦 Location / Rack</span>
-                          <span className="text-amber-800 dark:text-amber-200 font-black text-sm">{item.location || 'Not Specified'}</span>
-                        </div>
-                        <div className="bg-slate-100/70 dark:bg-zinc-900 rounded-xl p-2.5 border border-slate-200/60 dark:border-zinc-800">
-                          <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Product Code</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-black text-sm">{item.code || 'N/A'}</span>
-                        </div>
-                        <div className="bg-slate-100/70 dark:bg-zinc-900 rounded-xl p-2.5 border border-slate-200/60 dark:border-zinc-800">
-                          <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Design Number</span>
-                          <span className="text-[#5d51e8] dark:text-indigo-400 font-black text-sm">{item.designNo || item.design || item.selectedVariant || 'N/A'}</span>
-                        </div>
-                      </div>
-
-                      {/* Required Quantity display */}
-                      <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-950/20 dark:to-indigo-950/10 border border-indigo-150/60 dark:border-indigo-900/30 rounded-xl p-4 flex items-center justify-between mt-2">
-                        <div className="space-y-0.5">
-                          <span className="text-[9px] font-black uppercase text-[#5d51e8] tracking-wider block">Quantity Requested</span>
-                          <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">Standard measurement unit</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-2xl font-black text-[#5d51e8] dark:text-indigo-400">
-                            {item.quantity}
-                          </span>
-                          <span className="text-xs font-black text-slate-450 dark:text-zinc-500 uppercase tracking-widest ml-1.5">
-                            {item.unit}
-                          </span>
-                        </div>
-                      </div>
+                      {/* Single-Line Detailing Row */}
+                      {(() => {
+                        const loc = getItemDesignLocation(item);
+                        const des = getItemDesignNo(item);
+                        return (
+                          <div className="flex items-center gap-2 flex-wrap text-xs bg-white dark:bg-zinc-900 p-2.5 rounded-xl border border-slate-200/70 dark:border-zinc-800 shadow-sm">
+                            <span className="px-2.5 py-1 bg-amber-500/15 text-amber-800 dark:text-amber-250 border border-amber-500/30 rounded-lg font-black text-xs flex items-center gap-1.5">
+                              <span>📦 Location / Rack:</span>
+                              <span className="text-sm font-black underline">{loc || 'Not Specified'}</span>
+                            </span>
+                            <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 rounded-lg font-black text-xs">
+                              Design: {des || 'N/A'}
+                            </span>
+                            {item.code && (
+                              <span className="px-2 py-1 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-xs">
+                                Code: {item.code}
+                              </span>
+                            )}
+                            {item.brand && (
+                              <span className="px-2 py-1 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 rounded-lg font-bold text-xs">
+                                Brand: {item.brand}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                   </div>
@@ -888,8 +936,10 @@ export default function SalesmanPortal() {
                   <div className="border border-slate-150 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-slate-150 dark:divide-zinc-800">
                     {prepOrder.items.map((item, idx) => {
                       const status = prepStates[idx] || 'found';
+                      const loc = getItemDesignLocation(item);
+                      const des = getItemDesignNo(item);
                       return (
-                        <div key={idx} className="p-4 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-zinc-950/30 transition-colors">
+                        <div key={idx} className="p-4 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-zinc-955/30 transition-colors">
                           <div className="flex items-center gap-3">
                             {item.selectedImageUrl && (
                               <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-850 flex-shrink-0 bg-slate-50 dark:bg-zinc-950">
@@ -905,18 +955,21 @@ export default function SalesmanPortal() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-2 flex-wrap mt-1">
                                 <span>Qty: {item.quantity} {item.unit}</span>
                                 <span>•</span>
-                                <span className="text-[#5d51e8] dark:text-indigo-400 font-black">
-                                  Design: {item.designNo || item.design || item.selectedVariant || 'N/A'}
+                                <span className="px-2 py-0.5 bg-amber-500/15 text-amber-800 dark:text-amber-250 border border-amber-500/30 rounded font-black flex items-center gap-1">
+                                  <span>📦 Loc:</span>
+                                  <span className="underline">{loc || 'Not Specified'}</span>
                                 </span>
-                                {item.location && (
+                                <span>•</span>
+                                <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 rounded font-black">
+                                  Design: {des || 'N/A'}
+                                </span>
+                                {item.code && (
                                   <>
                                     <span>•</span>
-                                    <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 rounded">
-                                      Loc: {item.location}
-                                    </span>
+                                    <span>Code: {item.code}</span>
                                   </>
                                 )}
                               </div>
@@ -930,7 +983,7 @@ export default function SalesmanPortal() {
                               </span>
                             ) : (
                               <span className="text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-955/40 dark:text-rose-300 border border-rose-250/20 px-2.5 py-1 rounded-lg">
-                                ❌ Not Found
+                                ❌ Not Found (Abandoned)
                               </span>
                             )}
                           </div>
@@ -1067,6 +1120,8 @@ interface OrderCardProps {
   onImageClick?: (url: string) => void;
   showNotes?: boolean;
   onAddNote?: (id: string, note: string) => Promise<void>;
+  getItemDesignLocation?: (item: OrderItem) => string;
+  getItemDesignNo?: (item: OrderItem) => string;
 }
 
 function OrderCard({
@@ -1081,7 +1136,9 @@ function OrderCard({
   priceRangePct = 5,
   onImageClick,
   showNotes = false,
-  onAddNote
+  onAddNote,
+  getItemDesignLocation,
+  getItemDesignNo
 }: OrderCardProps) {
   const orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isLoading = actionLoading === order.id;
@@ -1156,58 +1213,64 @@ function OrderCard({
       <div className="space-y-2">
         <h5 className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Ordered Items</h5>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {order.items.map((item, idx) => (
-            <div
-              key={idx}
-              className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/40 dark:border-zinc-850 p-2 rounded-xl flex items-center justify-between gap-3 animate-in fade-in duration-200"
-            >
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                {item.selectedImageUrl ? (
-                  <div 
-                    onClick={() => onImageClick?.(item.selectedImageUrl || '')}
-                    className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0 cursor-zoom-in hover:border-[#5d51e8] transition-all hover:scale-105 active:scale-95"
-                    title="Click to view full screen"
-                  >
-                    <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex items-center justify-center flex-shrink-0 text-slate-400">
-                    <ShoppingBag className="w-4 h-4 stroke-[1.5]" />
-                  </div>
-                )}
-                <div className="text-left space-y-0.5 min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
-                    {item.brand && (
-                      <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded border border-slate-200/50 dark:border-zinc-800">
-                        {item.brand}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap text-[9px] font-bold">
-                    <span className="text-slate-600 dark:text-slate-300">
-                      Code: {item.code || 'N/A'}
-                    </span>
-                    <span>•</span>
-                    <span className="text-[#5d51e8] dark:text-indigo-400 font-extrabold">
-                      Design: {item.designNo || item.design || item.selectedVariant || 'N/A'}
-                    </span>
-                    {item.location && (
-                      <>
-                        <span>•</span>
-                        <span className="text-amber-600 dark:text-amber-400 font-black bg-amber-50 dark:bg-amber-955/20 px-1 py-0.2 rounded border border-amber-200/40 dark:border-amber-900/40">
-                          Loc: {item.location}
+          {order.items.map((item, idx) => {
+            const loc = getItemDesignLocation ? getItemDesignLocation(item) : (item.location || '');
+            const des = getItemDesignNo ? getItemDesignNo(item) : (item.designNo || item.design || item.selectedVariant || '');
+            return (
+              <div
+                key={idx}
+                className="bg-slate-50/50 dark:bg-zinc-950 border border-slate-150/40 dark:border-zinc-850 p-2.5 rounded-xl flex items-center justify-between gap-3 animate-in fade-in duration-200"
+              >
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  {item.selectedImageUrl ? (
+                    <div 
+                      onClick={() => onImageClick?.(item.selectedImageUrl || '')}
+                      className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-150 dark:bg-zinc-900 flex-shrink-0 cursor-zoom-in hover:border-[#5d51e8] transition-all hover:scale-105 active:scale-95"
+                      title="Click to view full screen"
+                    >
+                      <img src={item.selectedImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    </div>
+                  ) : (
+                    <div className="w-11 h-11 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex items-center justify-center flex-shrink-0 text-slate-400">
+                      <ShoppingBag className="w-4 h-4 stroke-[1.5]" />
+                    </div>
+                  )}
+                  <div className="text-left space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{item.nameEn}</p>
+                      {item.brand && (
+                        <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded border border-slate-200/50 dark:border-zinc-800">
+                          {item.brand}
                         </span>
-                      </>
-                    )}
+                      )}
+                    </div>
+                    {/* Single-Line Detailing */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-bold">
+                      <span className="px-1.5 py-0.5 bg-amber-500/15 text-amber-800 dark:text-amber-250 border border-amber-500/30 rounded font-black flex items-center gap-1">
+                        <span>📦 Loc:</span>
+                        <span className="underline">{loc || 'N/A'}</span>
+                      </span>
+                      <span>•</span>
+                      <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 rounded font-black">
+                        Design: {des || 'N/A'}
+                      </span>
+                      {item.code && (
+                        <>
+                          <span>•</span>
+                          <span className="text-slate-600 dark:text-slate-300">
+                            Code: {item.code}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <span className="text-xs font-black px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg flex-shrink-0 shadow-sm">
+                  x{item.quantity} {item.unit}
+                </span>
               </div>
-              <span className="text-[10px] font-black px-2 py-0.5 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded flex-shrink-0">
-                x{item.quantity} {item.unit}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

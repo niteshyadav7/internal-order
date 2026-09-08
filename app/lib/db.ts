@@ -10,6 +10,7 @@ import {
   where,
   addDoc,
   deleteDoc,
+  deleteField,
   onSnapshot,
   orderBy,
   limit,
@@ -276,6 +277,28 @@ export interface ProductVariant {
   location?: string; // Location No (Rack/Shelf/Bin/Folder)
   designNo?: string; // Design No / Code
   inStock?: boolean; // Stock availability for this specific design (default true)
+  isAbandoned?: boolean;     // Soft-archive flag: out of stock/abandoned designs preserved in DB
+  abandonedAt?: string;     // ISO timestamp when marked abandoned
+  abandonedReason?: string; // Optional reason (e.g. 'salesman_unfound', 'bulk_out_of_stock', 'admin_archive')
+}
+
+export type ProductApprovalStatus = 'approved' | 'pending_review' | 'changes_requested' | 'draft';
+
+export interface ProductApprovalRecord {
+  action: 'SUBMITTED' | 'EDITED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'DIRECT_PUBLISHED';
+  userUid: string;
+  userName: string;
+  userEmail: string;
+  timestamp: string;
+  note?: string;
+}
+
+export interface UserAuditRef {
+  uid: string;
+  name: string;
+  email: string;
+  role?: string;
+  at: string;
 }
 
 // Product Interface
@@ -300,6 +323,15 @@ export interface Product {
   priceRangePct?: number;       // Custom product price variance % override
   minPrice?: number;            // Custom product minimum price override
   maxPrice?: number;            // Custom product maximum price override
+  isAbandoned?: boolean;        // Soft-archive flag: out of stock/abandoned products preserved in DB
+  abandonedAt?: string;        // ISO timestamp when marked abandoned
+  abandonedReason?: string;    // Reason for archiving
+  approvalStatus?: ProductApprovalStatus; // Default: 'approved' for live catalog
+  createdBy?: UserAuditRef;    // Creator details
+  lastModifiedBy?: UserAuditRef; // Last editor/fixer details
+  approvedBy?: UserAuditRef;   // Final approver details
+  approvalHistory?: ProductApprovalRecord[]; // Audit trail
+  reviewNotes?: string;        // Feedback or fix details
 }
 
 // Order Item Interface
@@ -429,6 +461,45 @@ export async function getProductsPaginated(
     return { products: [], lastVisible: null, hasMore: false };
   }
 }
+
+// Fetch a single product by Firestore Document ID or Product Code fallback
+export async function getProductById(id: string): Promise<Product | null> {
+  if (!db || !id) return null;
+  try {
+    // 1. Try fetching by Firestore Document ID
+    const docRef = doc(db, 'products', id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as Product;
+    }
+
+    // 2. Fallback: Search by exact product code (e.g. 'C503')
+    const productsRef = collection(db, 'products');
+    const qCode = query(productsRef, where('code', '==', id), limit(1));
+    const codeSnap = await getDocs(qCode);
+    if (!codeSnap.empty) {
+      const firstDoc = codeSnap.docs[0];
+      return { id: firstDoc.id, ...firstDoc.data() } as Product;
+    }
+
+    // 3. Fallback: Try uppercase code
+    const upperId = id.toUpperCase();
+    if (upperId !== id) {
+      const qUpper = query(productsRef, where('code', '==', upperId), limit(1));
+      const upperSnap = await getDocs(qUpper);
+      if (!upperSnap.empty) {
+        const firstDoc = upperSnap.docs[0];
+        return { id: firstDoc.id, ...firstDoc.data() } as Product;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error in getProductById:", error);
+    return null;
+  }
+}
+
 // Add a new product (Admin)
 export async function createProduct(product: Omit<Product, 'id' | 'createdAt'>): Promise<Product | null> {
   if (!db) return null;
@@ -462,7 +533,7 @@ export async function updateProduct(
   }
 }
 
-// Delete product (Admin)
+// Delete product (Admin) - permanent deletion
 export async function deleteProduct(id: string): Promise<void> {
   if (!db) return;
   try {
@@ -473,6 +544,278 @@ export async function deleteProduct(id: string): Promise<void> {
     throw error;
   }
 }
+
+// Soft-Archive Product to Abandoned (No database deletion)
+export async function abandonProduct(id: string, reason = 'out_of_stock'): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', id);
+    await updateDoc(productRef, {
+      isAbandoned: true,
+      inStock: false,
+      abandonedAt: new Date().toISOString(),
+      abandonedReason: reason
+    });
+  } catch (error) {
+    console.error("Error in abandonProduct:", error);
+    throw error;
+  }
+}
+
+// Restore Product from Abandoned back to Active
+export async function restoreProduct(id: string): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', id);
+    await updateDoc(productRef, {
+      isAbandoned: false,
+      inStock: true,
+      abandonedAt: deleteField(),
+      abandonedReason: deleteField()
+    });
+  } catch (error) {
+    console.error("Error in restoreProduct:", error);
+    throw error;
+  }
+}
+
+// Soft-Archive Specific Variant/Design to Abandoned (No database deletion)
+export async function abandonVariant(
+  productId: string,
+  variantIndexOrDesign: number | string,
+  currentVariants?: ProductVariant[],
+  reason = 'out_of_stock'
+): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', productId);
+    let variants = currentVariants;
+    if (!variants) {
+      const snap = await getDoc(productRef);
+      variants = snap.exists() ? (snap.data()?.variants || []) : [];
+    }
+
+    const updatedVariants = (variants || []).map((v, idx) => {
+      const isMatch = typeof variantIndexOrDesign === 'number' 
+        ? idx === variantIndexOrDesign
+        : (v.designNo?.toLowerCase() === variantIndexOrDesign.toLowerCase() || v.name?.toLowerCase() === variantIndexOrDesign.toLowerCase());
+      if (isMatch) {
+        return {
+          ...v,
+          isAbandoned: true,
+          inStock: false,
+          abandonedAt: new Date().toISOString(),
+          abandonedReason: reason
+        };
+      }
+      return v;
+    });
+
+    const allVariantsAbandoned = updatedVariants.length > 0 && updatedVariants.every(v => v.isAbandoned || v.inStock === false);
+    await updateDoc(productRef, {
+      variants: updatedVariants,
+      ...(allVariantsAbandoned ? { inStock: false, isAbandoned: true, abandonedAt: new Date().toISOString() } : {})
+    });
+  } catch (error) {
+    console.error("Error in abandonVariant:", error);
+    throw error;
+  }
+}
+
+// Restore Specific Variant/Design from Abandoned back to Active
+export async function restoreVariant(
+  productId: string,
+  variantIndexOrDesign: number | string,
+  currentVariants?: ProductVariant[]
+): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', productId);
+    let variants = currentVariants;
+    if (!variants) {
+      const snap = await getDoc(productRef);
+      variants = snap.exists() ? (snap.data()?.variants || []) : [];
+    }
+
+    const updatedVariants = (variants || []).map((v, idx) => {
+      const isMatch = typeof variantIndexOrDesign === 'number'
+        ? idx === variantIndexOrDesign
+        : (v.designNo?.toLowerCase() === variantIndexOrDesign.toLowerCase() || v.name?.toLowerCase() === variantIndexOrDesign.toLowerCase());
+      if (isMatch) {
+        return {
+          ...v,
+          isAbandoned: false,
+          inStock: true,
+          abandonedAt: undefined,
+          abandonedReason: undefined
+        };
+      }
+      return v;
+    });
+
+    await updateDoc(productRef, {
+      variants: updatedVariants,
+      inStock: true,
+      isAbandoned: false
+    });
+  } catch (error) {
+    console.error("Error in restoreVariant:", error);
+    throw error;
+  }
+}
+
+// ─── 2-PERSON MAKER-CHECKER PRODUCT APPROVAL WORKFLOW ──────────────
+
+// Approve Product (Maker-Checker 2-Person Verification or Super Admin Direct)
+export async function approveProduct(
+  productId: string,
+  reviewer: { uid: string; name: string; email: string },
+  note: string = 'Approved for live catalog',
+  isDirectSuperAdmin: boolean = false
+): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error('Product not found in database');
+    const data = snap.data() as Product;
+
+    // Maker-Checker policy enforcement:
+    // A staff member cannot approve a product they created or last modified (unless Super Admin)
+    if (!isDirectSuperAdmin) {
+      const lastAuthorUid = data.lastModifiedBy?.uid || data.createdBy?.uid;
+      if (lastAuthorUid && lastAuthorUid === reviewer.uid) {
+        throw new Error('Maker-Checker Policy: You cannot approve a product you created or last modified. A second reviewer must sign off.');
+      }
+    }
+
+    const newRecord: ProductApprovalRecord = {
+      action: isDirectSuperAdmin ? 'DIRECT_PUBLISHED' : 'APPROVED',
+      userUid: reviewer.uid,
+      userName: reviewer.name,
+      userEmail: reviewer.email,
+      timestamp: new Date().toISOString(),
+      note
+    };
+
+    const currentHistory = Array.isArray(data.approvalHistory) ? data.approvalHistory : [];
+
+    await updateDoc(productRef, {
+      approvalStatus: 'approved',
+      approvedBy: {
+        uid: reviewer.uid,
+        name: reviewer.name,
+        email: reviewer.email,
+        at: new Date().toISOString()
+      },
+      approvalHistory: [...currentHistory, newRecord],
+      reviewNotes: deleteField()
+    });
+  } catch (error) {
+    console.error("Error in approveProduct:", error);
+    throw error;
+  }
+}
+
+// Request Changes or Report Bug on Product
+export async function requestChangesOnProduct(
+  productId: string,
+  reviewer: { uid: string; name: string; email: string },
+  reviewNotes: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error('Product not found in database');
+    const data = snap.data() as Product;
+
+    const newRecord: ProductApprovalRecord = {
+      action: 'CHANGES_REQUESTED',
+      userUid: reviewer.uid,
+      userName: reviewer.name,
+      userEmail: reviewer.email,
+      timestamp: new Date().toISOString(),
+      note: reviewNotes
+    };
+
+    const currentHistory = Array.isArray(data.approvalHistory) ? data.approvalHistory : [];
+
+    await updateDoc(productRef, {
+      approvalStatus: 'changes_requested',
+      lastModifiedBy: {
+        uid: reviewer.uid,
+        name: reviewer.name,
+        email: reviewer.email,
+        at: new Date().toISOString()
+      },
+      reviewNotes,
+      approvalHistory: [...currentHistory, newRecord]
+    });
+  } catch (error) {
+    console.error("Error in requestChangesOnProduct:", error);
+    throw error;
+  }
+}
+
+// Update Product with Modification Tracking for Approval
+export async function updateProductWithApproval(
+  productId: string,
+  details: Partial<Omit<Product, 'id' | 'createdAt'>>,
+  modifier: { uid: string; name: string; email: string },
+  isDirectSuperAdmin: boolean = false,
+  modificationNote?: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const productRef = doc(db, 'products', productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error('Product not found');
+    const existing = snap.data() as Product;
+
+    const newRecord: ProductApprovalRecord = {
+      action: isDirectSuperAdmin ? 'DIRECT_PUBLISHED' : 'EDITED',
+      userUid: modifier.uid,
+      userName: modifier.name,
+      userEmail: modifier.email,
+      timestamp: new Date().toISOString(),
+      note: modificationNote || 'Product details updated'
+    };
+
+    const currentHistory = Array.isArray(existing.approvalHistory) ? existing.approvalHistory : [];
+
+    const updatePayload: any = {
+      ...sanitizeForFirestore(details),
+      lastModifiedBy: {
+        uid: modifier.uid,
+        name: modifier.name,
+        email: modifier.email,
+        at: new Date().toISOString()
+      },
+      approvalHistory: [...currentHistory, newRecord]
+    };
+
+    if (isDirectSuperAdmin) {
+      updatePayload.approvalStatus = 'approved';
+      updatePayload.approvedBy = {
+        uid: modifier.uid,
+        name: modifier.name,
+        email: modifier.email,
+        at: new Date().toISOString()
+      };
+      updatePayload.reviewNotes = deleteField();
+    } else {
+      // Non-superadmin edit puts it back to pending review so 2nd person must re-verify
+      updatePayload.approvalStatus = 'pending_review';
+    }
+
+    await updateDoc(productRef, updatePayload);
+  } catch (error) {
+    console.error("Error in updateProductWithApproval:", error);
+    throw error;
+  }
+}
+
 
 
 // Create a new order (User)

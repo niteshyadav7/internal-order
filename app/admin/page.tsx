@@ -15,6 +15,10 @@ import {
   ProductVariant,
   updateProduct,
   deleteProduct,
+  abandonProduct,
+  restoreProduct,
+  abandonVariant,
+  restoreVariant,
   syncAdminProfile,
   updateGlobalSettings,
   GlobalSettings,
@@ -31,7 +35,12 @@ import {
   RolePermission,
   AdminTabKey,
   subscribeToRoles,
-  DEFAULT_SYSTEM_ROLES
+  DEFAULT_SYSTEM_ROLES,
+  approveProduct,
+  requestChangesOnProduct,
+  updateProductWithApproval,
+  UserAuditRef,
+  ProductApprovalStatus
 } from '../lib/db';
 import { FALLBACK_PRODUCTS } from '../components/products/ProductCatalog';
 import { auth } from '../lib/firebase';
@@ -80,6 +89,7 @@ import BulkImportModal, { StagedProductItem } from '../components/organisms/Bulk
 import BulkOutOfStockModal, { OutOfStockRowItem } from '../components/organisms/BulkOutOfStockModal';
 import BatchMissingFieldsModal, { isProductMissingDesign, isProductMissingLocation, isProductIncomplete } from '../components/organisms/BatchMissingFieldsModal';
 import RoleManagement from '../components/organisms/RoleManagement';
+import ProductApprovalModal from '../components/organisms/ProductApprovalModal';
 
 // Atoms for Form Components
 import { Input, Checkbox, Select } from '../components/atoms/Input';
@@ -309,7 +319,9 @@ export default function AdminDashboard() {
   const [showBatchDeleteProductsModal, setShowBatchDeleteProductsModal] = useState(false);
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
   const [showBatchMissingFieldsModal, setShowBatchMissingFieldsModal] = useState(false);
-  const [productDataFilter, setProductDataFilter] = useState<'all' | 'missing-design' | 'missing-location' | 'incomplete'>('all');
+  const [productDataFilter, setProductDataFilter] = useState<'all' | 'missing-design' | 'missing-location' | 'incomplete' | 'abandoned' | 'pending-approval'>('all');
+  const [approvalModalProduct, setApprovalModalProduct] = useState<Product | null>(null);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState<boolean>(false);
   const [seedingCatalog, setSeedingCatalog] = useState(false);
   const [isBulkWorkspaceOpen, setIsBulkWorkspaceOpen] = useState(false);
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
@@ -1057,6 +1069,57 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRestoreProduct = async (product: Product) => {
+    if (!product.id) return;
+    try {
+      await restoreProduct(product.id);
+      dispatch(fetchProductsThunk());
+      setAdminToast({
+        message: `Restored "${product.nameEn}" back to active catalog!`,
+        type: 'success'
+      });
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'UPDATE_PRODUCT',
+        details: `Restored abandoned product "${product.nameEn}" back to active catalog`,
+        targetProductId: product.id,
+        targetProductName: product.nameEn
+      });
+    } catch (err: any) {
+      console.error("Failed to restore product:", err);
+      setAdminToast({
+        message: `Failed to restore product: ${err.message}`,
+        type: 'error'
+      });
+    }
+  };
+
+  const handleRestoreVariant = async (product: Product, variantIndex: number) => {
+    if (!product.id) return;
+    try {
+      await restoreVariant(product.id, variantIndex, product.variants);
+      dispatch(fetchProductsThunk());
+      const varName = product.variants?.[variantIndex]?.name || product.variants?.[variantIndex]?.designNo || `Variant #${variantIndex + 1}`;
+      setAdminToast({
+        message: `Restored design "${varName}" back to stock!`,
+        type: 'success'
+      });
+      logActivity({
+        ...getPerformerDetails(),
+        action: 'UPDATE_PRODUCT',
+        details: `Restored design "${varName}" of product "${product.nameEn}" back to stock`,
+        targetProductId: product.id,
+        targetProductName: product.nameEn
+      });
+    } catch (err: any) {
+      console.error("Failed to restore variant:", err);
+      setAdminToast({
+        message: `Failed to restore variant: ${err.message}`,
+        type: 'error'
+      });
+    }
+  };
+
   const startEditingProduct = (product: Product & { minPrice?: number; maxPrice?: number }) => {
     setEditingProduct(product);
     setEditProdNameEn(product.nameEn || '');
@@ -1086,29 +1149,50 @@ export default function AdminDashboard() {
     }
     setSavingEditedProduct(true);
     try {
-      await updateProduct(editingProduct.id, {
-        nameEn: editProdNameEn,
-        nameHi: editProdNameEn,
-        descEn: editProdDescEn,
-        descHi: editProdDescEn,
-        price: parseFloat(editProdPrice),
-        unit: editProdUnit,
-        category: editProdCategory,
-        imageUrl: editProdImages.length > 0 ? editProdImages[0].url : editProdImageUrl,
-        inStock: editProdInStock,
-        code: editProdCode,
-        design: editProdDesign,
-        location: editProdLocation,
-        brand: editProdBrand,
-        images: editProdImages,
-        variants: editProdVariants,
-        priceRangePct: editProdPriceRangePct.trim() ? parseFloat(editProdPriceRangePct) : (null as any),
-        minPrice: editProdMinPrice.trim() ? parseFloat(editProdMinPrice) : (null as any),
-        maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : (null as any)
-      });
+      const isSuperAdmin = !userProfile?.role || userProfile?.role === 'admin';
+      const performer = getPerformerDetails();
+      const auditUser: UserAuditRef = {
+        uid: performer.performerUid,
+        name: performer.performerName,
+        email: performer.performerEmail,
+        role: performer.performerRole,
+        at: new Date().toISOString()
+      };
+
+      await updateProductWithApproval(
+        editingProduct.id,
+        {
+          nameEn: editProdNameEn,
+          nameHi: editProdNameEn,
+          descEn: editProdDescEn,
+          descHi: editProdDescEn,
+          price: parseFloat(editProdPrice),
+          unit: editProdUnit,
+          category: editProdCategory,
+          imageUrl: editProdImages.length > 0 ? editProdImages[0].url : editProdImageUrl,
+          inStock: editProdInStock,
+          code: editProdCode,
+          design: editProdDesign,
+          location: editProdLocation,
+          brand: editProdBrand,
+          images: editProdImages,
+          variants: editProdVariants,
+          priceRangePct: editProdPriceRangePct.trim() ? parseFloat(editProdPriceRangePct) : (null as any),
+          minPrice: editProdMinPrice.trim() ? parseFloat(editProdMinPrice) : (null as any),
+          maxPrice: editProdMaxPrice.trim() ? parseFloat(editProdMaxPrice) : (null as any)
+        },
+        auditUser,
+        isSuperAdmin && (!editingProduct.approvalStatus || editingProduct.approvalStatus === 'approved'),
+        'Updated product details'
+      );
       dispatch(fetchProductsThunk());
       setEditingProduct(null);
-      setAdminToast({ message: "Product updated successfully!", type: "success" });
+      setAdminToast({ 
+        message: (isSuperAdmin && (!editingProduct.approvalStatus || editingProduct.approvalStatus === 'approved'))
+          ? "Product updated successfully!"
+          : "Product updated & moved to pending review (second reviewer must sign off)!", 
+        type: "success" 
+      });
       logActivity({
         ...getPerformerDetails(),
         action: 'UPDATE_PRODUCT',
@@ -1254,6 +1338,17 @@ export default function AdminDashboard() {
         });
       } else {
         // CREATE NEW PRODUCT
+        const isSuperAdmin = !userProfile?.role || userProfile?.role === 'admin';
+        const performer = getPerformerDetails();
+        const auditUser: UserAuditRef = {
+          uid: performer.performerUid,
+          name: performer.performerName,
+          email: performer.performerEmail,
+          role: performer.performerRole,
+          at: new Date().toISOString()
+        };
+        const defaultStatus: ProductApprovalStatus = isSuperAdmin ? 'approved' : 'pending_review';
+
         const mainImageUrl = newProdImages.length > 0 ? newProdImages[0].url : newProdImageUrl;
         const addedProduct = await createProduct({
           nameEn: newProdNameEn,
@@ -1273,7 +1368,19 @@ export default function AdminDashboard() {
           variants: newProdVariants,
           priceRangePct: newProdPriceRangePct.trim() ? parseFloat(newProdPriceRangePct) : undefined,
           minPrice: newProdMinPrice.trim() ? parseFloat(newProdMinPrice) : undefined,
-          maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined
+          maxPrice: newProdMaxPrice.trim() ? parseFloat(newProdMaxPrice) : undefined,
+          approvalStatus: defaultStatus,
+          createdBy: auditUser,
+          lastModifiedBy: auditUser,
+          approvedBy: isSuperAdmin ? auditUser : undefined,
+          approvalHistory: [
+            {
+              action: isSuperAdmin ? 'approved' : 'submitted',
+              user: auditUser,
+              timestamp: new Date().toISOString(),
+              note: isSuperAdmin ? 'Directly published by Super Admin' : 'Submitted for 2-way approval'
+            }
+          ]
         } as any);
 
         if (addedProduct) {
@@ -1294,11 +1401,16 @@ export default function AdminDashboard() {
           setNewProdPriceRangePct('');
           setNewProdMinPrice('');
           setNewProdMaxPrice('');
-          setAdminToast({ message: "Product created successfully!", type: "success" });
+          setAdminToast({ 
+            message: isSuperAdmin 
+              ? "Product created and published live!" 
+              : "Product created & submitted for approval (pending second reviewer)!", 
+            type: "success" 
+          });
           logActivity({
             ...getPerformerDetails(),
             action: 'CREATE_PRODUCT',
-            details: `Created new product "${newProdNameEn}" (Price: ₹${newProdPrice}/${newProdUnit}, Category: ${newProdCategory})`,
+            details: `Created new product "${newProdNameEn}" (Price: ₹${newProdPrice}/${newProdUnit}, Category: ${newProdCategory}, Approval: ${defaultStatus})`,
             targetProductId: addedProduct.id,
             targetProductName: newProdNameEn
           });
@@ -1454,9 +1566,18 @@ export default function AdminDashboard() {
       let productChanged = false;
 
       if (data.allProductOutOfStock || newVariants.length === 0) {
-        newVariants = newVariants.map(v => ({ ...v, inStock: false }));
+        newVariants = newVariants.map(v => ({ 
+          ...v, 
+          inStock: false, 
+          isAbandoned: true, 
+          abandonedAt: new Date().toISOString(),
+          abandonedReason: 'Bulk Out Of Stock'
+        }));
         await updateProduct(prodId, {
           inStock: false,
+          isAbandoned: true,
+          abandonedAt: new Date().toISOString(),
+          abandonedReason: 'Bulk Out Of Stock',
           variants: newVariants
         });
         updatedProductsCount++;
@@ -1464,19 +1585,28 @@ export default function AdminDashboard() {
       } else {
         newVariants = newVariants.map(v => {
           const vDesign = (v.designNo || v.name || '').trim().toLowerCase();
-          if (data.targetDesigns.has(vDesign) && v.inStock !== false) {
+          if (data.targetDesigns.has(vDesign) && (v.inStock !== false || !v.isAbandoned)) {
             productChanged = true;
             eliminatedVariantsCount++;
-            return { ...v, inStock: false };
+            return { 
+              ...v, 
+              inStock: false, 
+              isAbandoned: true, 
+              abandonedAt: new Date().toISOString(),
+              abandonedReason: 'Bulk Out Of Stock'
+            };
           }
           return v;
         });
 
-        const allVariantsOut = newVariants.every(v => v.inStock === false);
+        const allVariantsOut = newVariants.every(v => v.inStock === false || v.isAbandoned);
         if (productChanged || allVariantsOut) {
           await updateProduct(prodId, {
             variants: newVariants,
-            inStock: allVariantsOut ? false : prod.inStock
+            inStock: allVariantsOut ? false : prod.inStock,
+            isAbandoned: allVariantsOut ? true : prod.isAbandoned,
+            abandonedAt: allVariantsOut ? new Date().toISOString() : prod.abandonedAt,
+            abandonedReason: allVariantsOut ? 'Bulk Out Of Stock (All variants)' : prod.abandonedReason
           });
           updatedProductsCount++;
         }
@@ -1993,6 +2123,92 @@ export default function AdminDashboard() {
     return productsList.filter(p => isProductIncomplete(p)).length;
   }, [productsList]);
 
+  const pendingApprovalCount = useMemo(() => {
+    return productsList.filter(p => !p.isAbandoned && (p.approvalStatus === 'pending_review' || p.approvalStatus === 'changes_requested')).length;
+  }, [productsList]);
+
+  const handleApproveProductModal = async (product: Product, note?: string) => {
+    if (!product.id) return;
+    const performer = getPerformerDetails();
+    const reviewer = {
+      uid: performer.performerUid,
+      name: performer.performerName,
+      email: performer.performerEmail
+    };
+    const isSuperAdmin = !userProfile?.role || userProfile?.role === 'admin';
+    try {
+      await approveProduct(product.id, reviewer, note, isSuperAdmin);
+      dispatch(fetchProductsThunk());
+      setAdminToast({ message: `"${product.nameEn}" successfully approved & published live!`, type: "success" });
+      logActivity({
+        ...performer,
+        action: 'APPROVE_PRODUCT' as any,
+        details: `Approved product "${product.nameEn}" for live catalog${note ? ` (${note})` : ''}`,
+        targetProductId: product.id,
+        targetProductName: product.nameEn
+      });
+      setIsApprovalModalOpen(false);
+      setApprovalModalProduct(null);
+    } catch (err: any) {
+      console.error("Failed to approve product:", err);
+      setAdminToast({ message: err.message || "Failed to approve product", type: "error" });
+    }
+  };
+
+  const handleRequestChangesModal = async (product: Product, reason: string) => {
+    if (!product.id) return;
+    const performer = getPerformerDetails();
+    const reviewer = {
+      uid: performer.performerUid,
+      name: performer.performerName,
+      email: performer.performerEmail
+    };
+    try {
+      await requestChangesOnProduct(product.id, reviewer, reason);
+      dispatch(fetchProductsThunk());
+      setAdminToast({ message: `Changes requested on "${product.nameEn}". Maker notified!`, type: "warning" });
+      logActivity({
+        ...performer,
+        action: 'REQUEST_CHANGES' as any,
+        details: `Requested changes on product "${product.nameEn}": ${reason}`,
+        targetProductId: product.id,
+        targetProductName: product.nameEn
+      });
+      setIsApprovalModalOpen(false);
+      setApprovalModalProduct(null);
+    } catch (err: any) {
+      console.error("Failed to request changes:", err);
+      setAdminToast({ message: err.message || "Failed to request changes", type: "error" });
+    }
+  };
+
+  const handleDirectPublishModal = async (product: Product) => {
+    if (!product.id) return;
+    const performer = getPerformerDetails();
+    const reviewer = {
+      uid: performer.performerUid,
+      name: performer.performerName,
+      email: performer.performerEmail
+    };
+    try {
+      await approveProduct(product.id, reviewer, "Direct override publish by Super Admin", true);
+      dispatch(fetchProductsThunk());
+      setAdminToast({ message: `"${product.nameEn}" published directly by Super Admin!`, type: "success" });
+      logActivity({
+        ...performer,
+        action: 'DIRECT_PUBLISH_PRODUCT' as any,
+        details: `Super Admin direct published product "${product.nameEn}"`,
+        targetProductId: product.id,
+        targetProductName: product.nameEn
+      });
+      setIsApprovalModalOpen(false);
+      setApprovalModalProduct(null);
+    } catch (err: any) {
+      console.error("Failed to direct publish:", err);
+      setAdminToast({ message: err.message || "Failed to direct publish", type: "error" });
+    }
+  };
+
   const getFilteredAndSortedProducts = () => {
     let result = [...productsList];
     if (productSearchQuery.trim()) {
@@ -2007,11 +2223,17 @@ export default function AdminDashboard() {
       );
     }
     if (productDataFilter === 'missing-design') {
-      result = result.filter(p => isProductMissingDesign(p));
+      result = result.filter(p => !p.isAbandoned && isProductMissingDesign(p));
     } else if (productDataFilter === 'missing-location') {
-      result = result.filter(p => isProductMissingLocation(p));
+      result = result.filter(p => !p.isAbandoned && isProductMissingLocation(p));
     } else if (productDataFilter === 'incomplete') {
-      result = result.filter(p => isProductIncomplete(p));
+      result = result.filter(p => !p.isAbandoned && isProductIncomplete(p));
+    } else if (productDataFilter === 'abandoned') {
+      result = result.filter(p => p.isAbandoned || p.variants?.some(v => v.isAbandoned));
+    } else if (productDataFilter === 'pending-approval') {
+      result = result.filter(p => !p.isAbandoned && (p.approvalStatus === 'pending_review' || p.approvalStatus === 'changes_requested'));
+    } else {
+      result = result.filter(p => !p.isAbandoned);
     }
     if (productDateFilter !== 'all') {
       const now = new Date();
@@ -2887,25 +3109,13 @@ export default function AdminDashboard() {
                             <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#5d51e8] text-white text-[10px] font-black">3</span>
                             <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <Input
                               label="Product Code"
                               required
                               value={newProdCode}
                               onChange={(e) => setNewProdCode(e.target.value)}
                               placeholder="e.g. SKU-100"
-                            />
-                            <Input
-                              label="Design Identifier"
-                              value={newProdDesign}
-                              onChange={(e) => setNewProdDesign(e.target.value)}
-                              placeholder="e.g. Design-A"
-                            />
-                            <Input
-                              label="Location No"
-                              value={newProdLocation}
-                              onChange={(e) => setNewProdLocation(e.target.value)}
-                              placeholder="e.g. Rack-1"
                             />
                             <Input
                               label="Brand Name"
@@ -2938,8 +3148,6 @@ export default function AdminDashboard() {
                                   setNewProdPrice(existingCodeProduct.price ? String(existingCodeProduct.price) : '');
                                   setNewProdUnit(existingCodeProduct.unit || 'Pcs');
                                   setNewProdCategory(existingCodeProduct.category || '');
-                                  setNewProdDesign(existingCodeProduct.design || '');
-                                  setNewProdLocation(existingCodeProduct.location || '');
                                   setNewProdBrand(existingCodeProduct.brand || '');
                                   if (existingCodeProduct.images && existingCodeProduct.images.length > 0) {
                                     setNewProdImages(existingCodeProduct.images);
@@ -3168,6 +3376,14 @@ export default function AdminDashboard() {
                   missingDesignCount={missingDesignCount}
                   missingLocationCount={missingLocationCount}
                   incompleteCount={incompleteCount}
+                  abandonedCount={productsList.filter(p => p.isAbandoned || p.variants?.some(v => v.isAbandoned)).length}
+                  pendingApprovalCount={pendingApprovalCount}
+                  onOpenApprovalModal={(prod) => {
+                    setApprovalModalProduct(prod);
+                    setIsApprovalModalOpen(true);
+                  }}
+                  onRestoreProduct={handleRestoreProduct}
+                  onRestoreVariant={handleRestoreVariant}
                   startDate={productStartDate}
                   onStartDateChange={setProductStartDate}
                   endDate={productEndDate}
@@ -3530,6 +3746,28 @@ export default function AdminDashboard() {
         isOpen={!!galleryProduct}
         onClose={() => setGalleryProduct(null)}
         product={galleryProduct}
+      />
+
+      <ProductApprovalModal
+        isOpen={isApprovalModalOpen}
+        onClose={() => {
+          setIsApprovalModalOpen(false);
+          setApprovalModalProduct(null);
+        }}
+        product={approvalModalProduct}
+        currentUser={{
+          uid: getPerformerDetails().performerUid,
+          name: getPerformerDetails().performerName,
+          email: getPerformerDetails().performerEmail
+        }}
+        isSuperAdmin={!userProfile?.role || userProfile?.role === 'admin'}
+        onApprove={handleApproveProductModal}
+        onRequestChanges={handleRequestChangesModal}
+        onDirectPublish={handleDirectPublishModal}
+        onEditProduct={(prod) => {
+          setIsApprovalModalOpen(false);
+          startEditingProduct(prod);
+        }}
       />
 
       {adminToast && (

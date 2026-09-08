@@ -1,5 +1,5 @@
-import React from 'react';
-import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter, PackageX, Sparkles, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Edit2, Trash2, Database, Upload, ArrowUp, ArrowDown, Loader2, ToggleLeft, ToggleRight, Eye, Download, Calendar, Filter, PackageX, Sparkles, AlertTriangle, RotateCcw, Layers, ChevronDown, ChevronUp, Share2, Check, ShieldCheck, Clock } from 'lucide-react';
 import { Product } from '../../lib/db';
 import { isProductMissingDesign, isProductMissingLocation, isProductIncomplete } from './BatchMissingFieldsModal';
 import Loader from '../atoms/Loader';
@@ -58,11 +58,16 @@ interface ProductsTableProps {
   onPreviewProductGallery?: (product: Product) => void;
   dateFilter?: 'all' | 'today' | '7days' | '30days' | 'custom';
   onDateFilterChange?: (filter: 'all' | 'today' | '7days' | '30days' | 'custom') => void;
-  dataFilter?: 'all' | 'missing-design' | 'missing-location' | 'incomplete';
-  onDataFilterChange?: (filter: 'all' | 'missing-design' | 'missing-location' | 'incomplete') => void;
+  dataFilter?: 'all' | 'missing-design' | 'missing-location' | 'incomplete' | 'abandoned' | 'pending-approval';
+  onDataFilterChange?: (filter: 'all' | 'missing-design' | 'missing-location' | 'incomplete' | 'abandoned' | 'pending-approval') => void;
   missingDesignCount?: number;
   missingLocationCount?: number;
   incompleteCount?: number;
+  abandonedCount?: number;
+  pendingApprovalCount?: number;
+  onOpenApprovalModal?: (product: Product) => void;
+  onRestoreProduct?: (product: Product) => void;
+  onRestoreVariant?: (product: Product, variantIndex: number) => void;
   startDate?: string;
   onStartDateChange?: (date: string) => void;
   endDate?: string;
@@ -107,12 +112,85 @@ export default function ProductsTable({
   missingDesignCount,
   missingLocationCount,
   incompleteCount,
+  abandonedCount,
+  pendingApprovalCount,
+  onOpenApprovalModal,
+  onRestoreProduct,
+  onRestoreVariant,
   startDate = '',
   onStartDateChange,
   endDate = '',
   onEndDateChange
 }: ProductsTableProps) {
   const allSelected = products.length > 0 && selectedProductIds.length === products.length;
+  const [expandedDesigns, setExpandedDesigns] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleShareProduct = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = product.id;
+    if (!id) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = `${origin}/product/${encodeURIComponent(id)}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.nameEn} - Balaji Textiles`,
+          text: `Check out ${product.nameEn}${product.code ? ` (${product.code})` : ''} at Balaji Textiles!`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        // Fallback to clipboard
+      }
+    }
+
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2500);
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+      }
+    }
+  };
+
+  const getProductDesignsSummary = (product: Product) => {
+    const variantList = product.variants || [];
+    const hasVariants = variantList.length > 0;
+    
+    const totalDesigns = hasVariants 
+      ? variantList.length 
+      : (product.images && product.images.length > 0 ? product.images.length : 1);
+
+    const activeDesigns = hasVariants
+      ? variantList.filter(v => v.inStock !== false && !v.isAbandoned).length
+      : (product.inStock !== false && !product.isAbandoned ? totalDesigns : 0);
+
+    const abandonedDesigns = hasVariants
+      ? variantList.filter(v => v.isAbandoned).length
+      : (product.isAbandoned ? totalDesigns : 0);
+
+    return {
+      totalDesigns,
+      activeDesigns,
+      abandonedDesigns,
+      hasVariants,
+      variantList
+    };
+  };
+
+  const toggleExpandDesigns = (productId?: string) => {
+    if (!productId) return;
+    setExpandedDesigns(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -325,6 +403,29 @@ export default function ProductsTable({
                       {incompleteCount ?? allProductsList.filter(p => isProductIncomplete(p)).length}
                     </span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => onDataFilterChange('abandoned')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border flex items-center gap-1.5 ${
+                      dataFilter === 'abandoned'
+                        ? 'bg-purple-700 text-white border-purple-700 shadow-sm'
+                        : 'bg-purple-50/70 dark:bg-purple-955/20 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-900/40 hover:bg-purple-100'
+                    }`}
+                  >
+                    <span>📦 Abandoned ({abandonedCount ?? allProductsList.filter(p => p.isAbandoned || p.variants?.some(v => v.isAbandoned)).length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDataFilterChange('pending-approval')}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border flex items-center gap-1.5 ${
+                      dataFilter === 'pending-approval'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                        : 'bg-amber-50/70 dark:bg-amber-955/20 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/40 hover:bg-amber-100'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>⏳ Needs Approval ({pendingApprovalCount ?? allProductsList.filter(p => p.approvalStatus === 'pending_review' || p.approvalStatus === 'changes_requested').length})</span>
+                  </button>
                 </div>
 
                 {onOpenMissingFieldsModal && (
@@ -464,6 +565,8 @@ export default function ProductsTable({
                       ) : (
                         products.map((product) => {
                           const isSelected = selectedProductIds.includes(product.id || '');
+                          const { totalDesigns, activeDesigns, abandonedDesigns, hasVariants, variantList } = getProductDesignsSummary(product);
+                          const isExpanded = expandedDesigns.has(product.id || '');
 
                           return (
                             <tr key={product.id} className={`hover:bg-slate-55/40 dark:hover:bg-zinc-800/20 transition-colors ${
@@ -497,7 +600,36 @@ export default function ProductsTable({
                                 <div>
                                   <div className="font-extrabold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2 flex-wrap">
                                     <span>{product.nameEn}</span>
-                                    {product.inStock === false && (
+
+                                    {/* Prominent Total Designs Badge */}
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandDesigns(product.id)}
+                                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-black border transition-all cursor-pointer ${
+                                        isExpanded
+                                          ? 'bg-[#5d51e8] text-white border-[#5d51e8] shadow-sm shadow-[#5d51e8]/25'
+                                          : 'bg-indigo-50 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800/80 hover:bg-indigo-100 hover:border-[#5d51e8]'
+                                      }`}
+                                      title={hasVariants ? "Click to view/hide all individual designs breakdown" : "Total designs in this product"}
+                                    >
+                                      <Layers className="w-3.5 h-3.5 flex-shrink-0" />
+                                      <span>{totalDesigns} Total Design{totalDesigns === 1 ? '' : 's'}</span>
+                                      {hasVariants && (
+                                        isExpanded ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />
+                                      )}
+                                    </button>
+
+                                    {product.isAbandoned && (
+                                      <span className="inline-block bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-purple-200/50 dark:border-purple-900/50">
+                                        📦 Abandoned Product
+                                      </span>
+                                    )}
+                                    {product.variants?.some(v => v.isAbandoned) && !product.isAbandoned && (
+                                      <span className="inline-block bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-purple-200/50 dark:border-purple-900/50">
+                                        📦 {product.variants.filter(v => v.isAbandoned).length} Abandoned Design(s)
+                                      </span>
+                                    )}
+                                    {product.inStock === false && !product.isAbandoned && (
                                       <span className="inline-block bg-rose-55 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-rose-200/50 dark:border-rose-900/50">
                                         Out of stock
                                       </span>
@@ -512,18 +644,143 @@ export default function ProductsTable({
                                         📦 Missing Location
                                       </span>
                                     )}
+                                    {product.approvalStatus === 'pending_review' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onOpenApprovalModal?.(product)}
+                                        className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[9px] font-black px-2 py-0.5 rounded-md uppercase border border-amber-300 dark:border-amber-800 hover:bg-amber-100 cursor-pointer shadow-xs"
+                                        title="Click to review and 2-way approve product"
+                                      >
+                                        <Clock className="w-2.5 h-2.5" />
+                                        <span>⏳ Needs 2nd Approval</span>
+                                      </button>
+                                    )}
+                                    {product.approvalStatus === 'changes_requested' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onOpenApprovalModal?.(product)}
+                                        className="inline-flex items-center gap-1 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 text-[9px] font-black px-2 py-0.5 rounded-md uppercase border border-orange-300 dark:border-orange-800 hover:bg-orange-100 cursor-pointer shadow-xs"
+                                        title="Click to view change request and fix"
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        <span>🔄 Changes Requested</span>
+                                      </button>
+                                    )}
                                   </div>
-                                  <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+
+                                  <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                                    <span className="px-1.5 py-0.5 bg-indigo-50/80 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 rounded font-black">
+                                      🎨 Designs: {totalDesigns} {hasVariants && `(${activeDesigns} Active${abandonedDesigns > 0 ? `, ${abandonedDesigns} Abandoned` : ''})`}
+                                    </span>
+                                    <span>•</span>
                                     <span>Code: {product.code || 'N/A'}</span>
-                                    <span>•</span>
-                                    <span className={!product.design ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>
-                                      Design: {product.design || 'Not Set'}
-                                    </span>
-                                    <span>•</span>
-                                    <span className={!product.location ? 'text-amber-600 dark:text-amber-400 font-black' : 'text-amber-600 dark:text-amber-400'}>
-                                      Loc: {product.location || 'Not Set'}
-                                    </span>
                                   </div>
+
+                                  {/* Expandable all-designs breakdown grid */}
+                                  {isExpanded && hasVariants && (
+                                    <div className="mt-2.5 p-3 bg-slate-50/80 dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                          <Layers className="w-3.5 h-3.5 text-[#5d51e8]" />
+                                          <span>All Designs ({totalDesigns} Total: {activeDesigns} Active, {abandonedDesigns} Abandoned):</span>
+                                        </p>
+                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {variantList.map((v, vIdx) => {
+                                          const img = product.images?.[v.imageIndex]?.url || product.imageUrl;
+                                          return (
+                                            <div key={vIdx} className={`p-2 rounded-xl border flex items-center gap-2 text-xs transition-all ${
+                                              v.isAbandoned
+                                                ? 'bg-purple-50/60 dark:bg-purple-950/30 border-purple-200/70 dark:border-purple-800/70'
+                                                : v.inStock === false
+                                                ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200/70 dark:border-rose-800/70'
+                                                : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'
+                                            }`}>
+                                              {img && (
+                                                <div 
+                                                  onClick={() => onPreviewProductGallery?.(product)}
+                                                  className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex-shrink-0 cursor-pointer"
+                                                  title="View Gallery"
+                                                >
+                                                  <img src={img} alt="" className="w-full h-full object-cover" />
+                                                </div>
+                                              )}
+                                              <div className="min-w-0 flex-1 text-left">
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                  <span className="font-extrabold text-[11px] text-slate-800 dark:text-slate-200 truncate">
+                                                    Design: {v.designNo || v.name || `#${vIdx + 1}`}
+                                                  </span>
+                                                  {v.isAbandoned ? (
+                                                    <span className="text-[8px] font-black text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-1 rounded">
+                                                      Abandoned
+                                                    </span>
+                                                  ) : v.inStock === false ? (
+                                                    <span className="text-[8px] font-black text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950 px-1 rounded">
+                                                      Out
+                                                    </span>
+                                                  ) : (
+                                                    <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1 rounded">
+                                                      Active
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1.5 mt-0.5">
+                                                  <span className="text-amber-700 dark:text-amber-300 font-black">
+                                                    📦 Loc: {v.location || 'N/A'}
+                                                  </span>
+                                                  {v.isAbandoned && onRestoreVariant && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => onRestoreVariant(product, vIdx)}
+                                                      className="text-purple-600 hover:text-purple-800 dark:text-purple-400 font-black underline ml-auto flex items-center gap-0.5 cursor-pointer"
+                                                      title="Restore this design"
+                                                    >
+                                                      <RotateCcw className="w-3 h-3" />
+                                                      <span>Restore</span>
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {/* Abandoned variants quick restore sub-list */}
+                                  {product.variants && product.variants.some(v => v.isAbandoned) && (
+                                    <div className="mt-2 space-y-1 bg-purple-50/50 dark:bg-purple-950/20 p-2 rounded-xl border border-purple-100 dark:border-purple-900/40">
+                                      <p className="text-[9px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                                        Abandoned Variants ({product.variants.filter(v => v.isAbandoned).length}):
+                                      </p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {product.variants.map((v, vIdx) => {
+                                          if (!v.isAbandoned) return null;
+                                          return (
+                                            <div key={vIdx} className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-800 text-[10px]">
+                                              <span className="font-bold text-slate-700 dark:text-slate-300">
+                                                Design: {v.designNo || v.name || `#${vIdx + 1}`}
+                                              </span>
+                                              {v.location && (
+                                                <span className="text-amber-600 font-bold">({v.location})</span>
+                                              )}
+                                              {onRestoreVariant && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => onRestoreVariant(product, vIdx)}
+                                                  className="text-purple-600 hover:text-purple-800 dark:text-purple-400 font-black underline ml-1 cursor-pointer flex items-center gap-0.5"
+                                                  title="Restore this specific design back to stock"
+                                                >
+                                                  <RotateCcw className="w-3 h-3" />
+                                                  <span>Restore</span>
+                                                </button>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
                                   <div className="text-xs font-semibold text-slate-400 dark:text-zinc-550 max-w-xs line-clamp-1 mt-0.5">{product.descEn}</div>
                                 </div>
                               </td>
@@ -540,6 +797,35 @@ export default function ProductsTable({
                               </td>
                               <td className="py-4 px-6 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  {/* Restore Product Button */}
+                                  {(product.isAbandoned || dataFilter === 'abandoned') && onRestoreProduct && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onRestoreProduct(product)}
+                                      className="p-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-955/25 rounded-full transition-all cursor-pointer"
+                                      title="Restore Product to Active Catalog"
+                                    >
+                                      <RotateCcw className="w-4.5 h-4.5" />
+                                    </button>
+                                  )}
+                                  {onOpenApprovalModal && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenApprovalModal(product)}
+                                      className={`p-2 rounded-full transition-all cursor-pointer ${
+                                        product.approvalStatus === 'pending_review' || product.approvalStatus === 'changes_requested'
+                                          ? 'text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-955/40 ring-1 ring-amber-400 animate-pulse'
+                                          : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/20'
+                                      }`}
+                                      title={
+                                        product.approvalStatus === 'pending_review' || product.approvalStatus === 'changes_requested'
+                                          ? "Review & 2-Way Approve Product"
+                                          : "View Approval Details"
+                                      }
+                                    >
+                                      <ShieldCheck className="w-4.5 h-4.5" />
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => onPreviewProductGallery?.(product)}
@@ -547,6 +833,22 @@ export default function ProductsTable({
                                     title="View Product Image Gallery"
                                   >
                                     <Eye className="w-4.5 h-4.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleShareProduct(product, e)}
+                                    className={`p-2 rounded-full transition-all cursor-pointer ${
+                                      copiedId === product.id
+                                        ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+                                        : 'text-slate-400 hover:text-[#5d51e8] hover:bg-[#5d51e8]/10'
+                                    }`}
+                                    title="Share or Copy Direct Product Link"
+                                  >
+                                    {copiedId === product.id ? (
+                                      <Check className="w-4.5 h-4.5 text-emerald-500" />
+                                    ) : (
+                                      <Share2 className="w-4.5 h-4.5" />
+                                    )}
                                   </button>
                                   <button
                                     type="button"
@@ -595,6 +897,9 @@ export default function ProductsTable({
                   <div className="block md:hidden p-4 space-y-4 bg-slate-50/30 dark:bg-zinc-955/10">
                     {products.map((product) => {
                       const isSelected = selectedProductIds.includes(product.id || '');
+                      const { totalDesigns, activeDesigns, abandonedDesigns, hasVariants, variantList } = getProductDesignsSummary(product);
+                      const isExpanded = expandedDesigns.has(product.id || '');
+
                       return (
                         <div 
                           key={product.id} 
@@ -604,22 +909,66 @@ export default function ProductsTable({
                               : 'border-slate-150 dark:border-zinc-800/80'
                           }`}
                         >
-                          {/* Header: Checkbox + Stock status + Category badge */}
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                          {/* Header: Checkbox + Total designs + Stock status + Category badge */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={(e) => onSelectProduct(product.id || '', e.target.checked)}
                                 className="w-4 h-4 text-[#5d51e8] focus:ring-[#5d51e8] border-slate-350 rounded cursor-pointer"
                               />
-                              <span className="text-[10px] bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2.5 py-0.5 rounded-full font-black border border-slate-200/50 dark:border-zinc-700/50 uppercase tracking-wider">
+                              <span className="text-[10px] bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2 py-0.5 rounded-full font-black border border-slate-200/50 dark:border-zinc-700/50 uppercase tracking-wider">
                                 {product.category}
                               </span>
-                              {product.inStock === false && (
+
+                              {/* Mobile Total Designs Badge */}
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandDesigns(product.id)}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer ${
+                                  isExpanded
+                                    ? 'bg-[#5d51e8] text-white border-[#5d51e8]'
+                                    : 'bg-indigo-50 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800'
+                                }`}
+                                title="Click to view all designs"
+                              >
+                                <Layers className="w-3 h-3" />
+                                <span>{totalDesigns} Design{totalDesigns === 1 ? '' : 's'}</span>
+                                {hasVariants && (
+                                  isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />
+                                )}
+                              </button>
+
+                              {product.isAbandoned && (
+                                <span className="inline-block bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-purple-200/50 dark:border-purple-900/50">
+                                  📦 Abandoned
+                                </span>
+                              )}
+                              {product.inStock === false && !product.isAbandoned && (
                                 <span className="inline-block bg-rose-50 dark:bg-rose-955/20 text-rose-600 dark:text-rose-400 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-rose-200/50 dark:border-rose-900/50">
                                   Out of Stock
                                 </span>
+                              )}
+                              {product.approvalStatus === 'pending_review' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenApprovalModal?.(product)}
+                                  className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[8px] font-black px-1.5 py-0.5 rounded border border-amber-300 cursor-pointer"
+                                >
+                                  <Clock className="w-2.5 h-2.5" />
+                                  <span>Needs 2nd Approval</span>
+                                </button>
+                              )}
+                              {product.approvalStatus === 'changes_requested' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenApprovalModal?.(product)}
+                                  className="inline-flex items-center gap-1 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 text-[8px] font-black px-1.5 py-0.5 rounded border border-orange-300 cursor-pointer"
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  <span>Changes Requested</span>
+                                </button>
                               )}
                             </div>
                             <span className="text-xs font-black text-slate-900 dark:text-white">
@@ -650,17 +999,72 @@ export default function ProductsTable({
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <div className="text-[10px] font-black text-[#5d51e8] dark:text-indigo-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                                <span className="px-1.5 py-0.2 bg-indigo-50/80 dark:bg-indigo-950/40 text-[#5d51e8] dark:text-indigo-300 border border-indigo-200/60 rounded font-black">
+                                  🎨 {totalDesigns} Designs {hasVariants && `(${activeDesigns} Active)`}
+                                </span>
+                                <span>•</span>
                                 <span>Code: {product.code || 'N/A'}</span>
-                                <span>•</span>
-                                <span className={!product.design ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>
-                                  Design: {product.design || 'Not Set'}
-                                </span>
-                                <span>•</span>
-                                <span className={!product.location ? 'text-amber-600 dark:text-amber-400 font-black' : 'text-amber-600 dark:text-amber-400'}>
-                                  Loc: {product.location || 'Not Set'}
-                                </span>
                               </div>
+
+                              {/* Mobile Expandable Designs Breakdown */}
+                              {isExpanded && hasVariants && (
+                                <div className="mt-2 p-2 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1.5">
+                                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                    <Layers className="w-2.5 h-2.5 text-[#5d51e8]" />
+                                    <span>All Designs ({totalDesigns} Total: {activeDesigns} Active, {abandonedDesigns} Abandoned):</span>
+                                  </p>
+                                  <div className="grid grid-cols-1 gap-1.5">
+                                    {variantList.map((v, vIdx) => {
+                                      const img = product.images?.[v.imageIndex]?.url || product.imageUrl;
+                                      return (
+                                        <div key={vIdx} className="p-1.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-200/80 dark:border-zinc-800 flex items-center gap-2 text-[10px]">
+                                          {img && (
+                                            <div className="w-7 h-7 rounded overflow-hidden bg-slate-100 flex-shrink-0">
+                                              <img src={img} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                          )}
+                                          <div className="min-w-0 flex-1 flex items-center justify-between gap-1">
+                                            <span className="font-extrabold truncate">
+                                              Design: {v.designNo || v.name || `#${vIdx + 1}`}
+                                            </span>
+                                            <span className="text-amber-600 font-bold text-[9px] flex-shrink-0">
+                                              Loc: {v.location || 'N/A'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Mobile abandoned variants */}
+                              {product.variants && product.variants.some(v => v.isAbandoned) && (
+                                <div className="mt-1.5 space-y-1 bg-purple-50/50 dark:bg-purple-950/20 p-2 rounded-xl border border-purple-100 dark:border-purple-900/40">
+                                  <p className="text-[8px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                                    Abandoned Variants ({product.variants.filter(v => v.isAbandoned).length}):
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {product.variants.map((v, vIdx) => {
+                                      if (!v.isAbandoned) return null;
+                                      return (
+                                        <div key={vIdx} className="flex items-center gap-1 bg-white dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800 text-[9px]">
+                                          <span>{v.designNo || v.name || `#${vIdx + 1}`}</span>
+                                          {onRestoreVariant && (
+                                            <button
+                                              type="button"
+                                              onClick={() => onRestoreVariant(product, vIdx)}
+                                              className="text-purple-600 font-black underline ml-0.5 cursor-pointer"
+                                            >
+                                              Restore
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                               <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                                 Added: {formatDateTime(product.createdAt)}
                               </p>
@@ -670,6 +1074,54 @@ export default function ProductsTable({
 
                           {/* Footer: Quick Actions */}
                           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800/60">
+                            {onOpenApprovalModal && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenApprovalModal(product)}
+                                className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 text-[10px] font-black ${
+                                  product.approvalStatus === 'pending_review' || product.approvalStatus === 'changes_requested'
+                                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300'
+                                }`}
+                                title="Review & 2-Way Approve"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <span>{product.approvalStatus === 'pending_review' ? 'Approve' : 'Review'}</span>
+                              </button>
+                            )}
+                            {(product.isAbandoned || dataFilter === 'abandoned') && onRestoreProduct && (
+                              <button
+                                type="button"
+                                onClick={() => onRestoreProduct(product)}
+                                className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-955/25 rounded-lg cursor-pointer border border-purple-200 dark:border-purple-800 flex items-center justify-center gap-1 text-[10px] font-black"
+                                title="Restore Product"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Restore</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => handleShareProduct(product, e)}
+                              className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 text-[10px] font-black ${
+                                copiedId === product.id
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-600'
+                                  : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-indigo-300'
+                              }`}
+                              title="Share Product Link"
+                            >
+                                {copiedId === product.id ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Share2 className="w-3.5 h-3.5 text-[#5d51e8]" />
+                                    <span>Share</span>
+                                  </>
+                                )}
+                              </button>
                             <button
                               type="button"
                               onClick={() => onToggleStock?.(product)}
@@ -778,6 +1230,16 @@ export default function ProductsTable({
           </div>
         </div>
       </div>
+
+      {/* Floating Link Copied Notification */}
+      {copiedId && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-2xl text-xs font-black flex items-center gap-2.5 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+            <Check className="w-3 h-3 stroke-[3]" />
+          </div>
+          <span>Product link copied to clipboard! Ready to share.</span>
+        </div>
+      )}
     </div>
   );
 }

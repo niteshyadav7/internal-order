@@ -25,22 +25,19 @@ interface BatchMissingFieldsModalProps {
 }
 
 export function isProductMissingDesign(p: Product): boolean {
-  const hasProdDesign = !!p.design?.trim();
   if (p.variants && p.variants.length > 0) {
-    // Missing if any variant lacks designNo or has blank/generic name without designNo
-    const variantMissing = p.variants.some(v => !v.designNo?.trim() && (!v.name?.trim() || v.name.toLowerCase().startsWith('model ')));
-    return !hasProdDesign || variantMissing;
+    // Missing if any active variant lacks designNo or has blank/generic name without designNo
+    return p.variants.some(v => !v.isAbandoned && !v.designNo?.trim() && (!v.name?.trim() || v.name.toLowerCase().startsWith('model ')));
   }
-  return !hasProdDesign;
+  return false;
 }
 
 export function isProductMissingLocation(p: Product): boolean {
-  const hasProdLoc = !!p.location?.trim();
   if (p.variants && p.variants.length > 0) {
-    const variantMissing = p.variants.some(v => !v.location?.trim());
-    return !hasProdLoc || variantMissing;
+    // Missing if any active variant lacks location
+    return p.variants.some(v => !v.isAbandoned && !v.location?.trim());
   }
-  return !hasProdLoc;
+  return false;
 }
 
 export function isProductIncomplete(p: Product): boolean {
@@ -549,65 +546,45 @@ export default function BatchMissingFieldsModal({
                       </div>
                     </div>
 
-                    {/* Master Inputs */}
-                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[9px] font-black uppercase text-slate-400">
-                            Master Location No {prodMissingLoc && <span className="text-rose-500 font-black">*</span>}
-                          </label>
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="e.g. Rack-1, L-101"
-                          value={draft.location}
-                          onChange={(e) => handleProductFieldChange(product.id!, 'location', e.target.value)}
-                          className={`w-36 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-900 dark:text-white ${
-                            prodMissingLoc ? 'border-amber-300 dark:border-amber-700 bg-amber-50/30' : 'border-slate-200 dark:border-zinc-800'
-                          }`}
-                        />
+                    {/* Master Actions */}
+                    {hasVariants && (
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const loc = prompt(`Enter Location/Rack for all designs of "${product.nameEn}":`);
+                            if (loc !== null && loc.trim()) {
+                              setDrafts(prev => {
+                                const cur = prev[product.id!] || { location: '', design: '', variants: product.variants || [], isDirty: false };
+                                const updatedVars = cur.variants.map(v => ({ ...v, location: loc.trim() }));
+                                return {
+                                  ...prev,
+                                  [product.id!]: {
+                                    ...cur,
+                                    variants: updatedVars,
+                                    isDirty: true
+                                  }
+                                };
+                              });
+                            }
+                          }}
+                          className="px-2.5 py-1.5 text-[10px] font-black bg-amber-50 hover:bg-amber-100 dark:bg-amber-955/20 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/40 rounded-xl transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                          title="Apply location to all designs below"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>Fill All Locs</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAutoSequenceDesigns(product.id!, product.code)}
+                          className="px-2.5 py-1.5 text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-955/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-900/40 rounded-xl transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                          title="Auto sequence missing variant designs (e.g. DES-1, DES-2...)"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          <span>Auto Designs</span>
+                        </button>
                       </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[9px] font-black uppercase text-slate-400">
-                            Master Design No {prodMissingDesign && <span className="text-rose-500 font-black">*</span>}
-                          </label>
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="e.g. DES-101"
-                          value={draft.design}
-                          onChange={(e) => handleProductFieldChange(product.id!, 'design', e.target.value)}
-                          className={`w-36 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-900 dark:text-white ${
-                            prodMissingDesign ? 'border-rose-300 dark:border-rose-700 bg-rose-50/30' : 'border-slate-200 dark:border-zinc-800'
-                          }`}
-                        />
-                      </div>
-
-                      {hasVariants && (
-                        <div className="flex items-center gap-1.5 self-end pb-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyLocationToVariants(product.id!)}
-                            className="px-2.5 py-1.5 text-[10px] font-black bg-amber-50 hover:bg-amber-100 dark:bg-amber-955/20 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/40 rounded-xl transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap"
-                            title="Apply this Master Location to all photo variants below"
-                          >
-                            <Copy className="w-3 h-3" />
-                            <span>Copy Loc</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAutoSequenceDesigns(product.id!, product.code)}
-                            className="px-2.5 py-1.5 text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-955/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-900/40 rounded-xl transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap"
-                            title="Auto sequence missing variant designs (e.g. DES-1, DES-2...)"
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            <span>Auto Designs</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
 
                   {/* Photo Variants Grid if present */}

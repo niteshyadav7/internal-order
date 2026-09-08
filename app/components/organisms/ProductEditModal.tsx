@@ -464,7 +464,7 @@ export default function ProductEditModal({
               <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[#5d51e8] text-white text-[9px] font-black">3</span>
               <h4 className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Catalog Codes & Stock</h4>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-black text-slate-400">Product Code</label>
                 <input
@@ -472,26 +472,6 @@ export default function ProductEditModal({
                   required
                   value={code}
                   onChange={(e) => onCodeChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-black text-slate-400">Design Identifier</label>
-                <input
-                  type="text"
-                  value={design}
-                  onChange={(e) => onDesignChange(e.target.value)}
-                  placeholder="e.g. Design-A"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-black text-slate-400">Location No</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => onLocationChange(e.target.value)}
-                  placeholder="e.g. Rack-1"
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8] text-slate-800 dark:text-slate-100"
                 />
               </div>

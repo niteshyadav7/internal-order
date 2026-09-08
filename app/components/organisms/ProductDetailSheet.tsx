@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, ChevronLeft, ChevronRight, ShoppingCart, ZoomIn } from 'lucide-react';
+import { X, Check, ChevronLeft, ChevronRight, ShoppingCart, ZoomIn, Share2 } from 'lucide-react';
 import { Product, ProductVariant, getPriceRange } from '../../lib/db';
 import { transformImageUrl } from '../../lib/image';
 
@@ -29,10 +29,36 @@ export default function ProductDetailSheet({
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
   const [isZoomEnabled, setIsZoomEnabled] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({
     transform: 'scale(1)',
     transformOrigin: 'center center'
   });
+
+  const handleShare = async () => {
+    if (!product?.id) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = `${origin}/product/${encodeURIComponent(product.id)}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.nameEn} - Balaji Textiles`,
+          text: `Check out ${product.nameEn}${product.code ? ` (${product.code})` : ''} at Balaji Textiles!`,
+          url: shareUrl
+        });
+        return;
+      } catch (err) {}
+    }
+
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      } catch (err) {}
+    }
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isZoomEnabled) return;
@@ -64,7 +90,7 @@ export default function ProductDetailSheet({
       });
       
       // Auto-select first variant if variants exist
-      const inStockVariants = (product.variants || []).filter(v => v.inStock !== false);
+      const inStockVariants = (product.variants || []).filter(v => v.inStock !== false && !v.isAbandoned);
       if (inStockVariants.length > 0) {
         // If already selected, select that, otherwise select first
         const matched = inStockVariants.find(v => v.name === selectedVariantName);
@@ -93,7 +119,7 @@ export default function ProductDetailSheet({
 
   if (!isOpen || !product) return null;
 
-  const visibleVariants = (product.variants || []).filter(v => v.inStock !== false);
+  const visibleVariants = (product.variants || []).filter(v => v.inStock !== false && !v.isAbandoned);
 
   const imagesList = product.images && product.images.length > 0
     ? product.images
@@ -141,14 +167,26 @@ export default function ProductDetailSheet({
           <div className="w-12 h-1 bg-slate-200 dark:bg-zinc-700 rounded-full" />
         </div>
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-black/35 hover:bg-black/50 text-white backdrop-blur-md transition-colors cursor-pointer"
-          title="Close details"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {/* Top Action Buttons */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            className={`w-9 h-9 flex items-center justify-center rounded-full text-white backdrop-blur-md transition-all cursor-pointer shadow-md ${
+              copied ? 'bg-emerald-600' : 'bg-black/40 hover:bg-black/60'
+            }`}
+            title={copied ? "Link copied to clipboard!" : "Share product link"}
+          >
+            {copied ? <Check className="w-4 h-4 text-white" /> : <Share2 className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-colors cursor-pointer shadow-md"
+            title="Close details"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Scrollable Body */}
         <div className="overflow-y-auto flex-grow pb-8">
@@ -239,11 +277,6 @@ export default function ProductDetailSheet({
                   <span className="inline-flex items-center px-3 py-1 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 border-2 border-amber-500/40 text-xs font-black uppercase tracking-wide shadow-sm">
                     Brand: {product.brand}
                   </span>
-                )}
-                {product.design && (
-                  <div className="inline-flex items-center gap-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 text-[#5d51e8] dark:text-indigo-300 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-900/30">
-                    Design: {product.design}
-                  </div>
                 )}
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">

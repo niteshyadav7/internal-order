@@ -1229,25 +1229,6 @@ export default function BulkImportModal({
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black uppercase text-slate-400">Design Code</label>
-                      <input
-                        type="text"
-                        value={currentProduct.design}
-                        onChange={(e) => updateStagedProduct(selectedProductIndex, { design: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase text-slate-400">Location No</label>
-                      <input
-                        type="text"
-                        value={currentProduct.location || ''}
-                        onChange={(e) => updateStagedProduct(selectedProductIndex, { location: e.target.value })}
-                        placeholder="e.g. Rack-1"
-                        className="w-full px-3 py-1.5 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-[#5d51e8]"
-                      />
-                    </div>
-                    <div>
                       <label className="text-[9px] font-black uppercase text-slate-400">Brand Name</label>
                       <input
                         type="text"
