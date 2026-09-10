@@ -585,9 +585,9 @@ export default function OrdersList({
                               <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
                             </div>
                             {order.assignedSalesmanName ? (
-                              <span className="inline-flex items-center gap-1 bg-purple-50 dark:bg-purple-950/20 text-purple-650 dark:text-purple-400 text-[9px] font-black px-2 py-0.5 rounded-full border border-purple-200/50 dark:border-purple-900/50 uppercase tracking-wider" title={`UID: ${order.assignedSalesmanUid}`}>
+                              <span className="inline-flex items-center gap-1 bg-purple-50 dark:bg-purple-950/20 text-purple-650 dark:text-purple-400 text-[9px] font-black px-2 py-0.5 rounded-full border border-purple-200/50 dark:border-purple-900/50 uppercase tracking-wider" title={order.collaborators && order.collaborators.length > 0 ? `Prep Team: ${order.assignedSalesmanName} + ${order.collaborators.map(c => c.name).join(', ')}` : `UID: ${order.assignedSalesmanUid}`}>
                                 <span className="w-1 h-1 rounded-full bg-purple-500 animate-pulse"></span>
-                                <span>Prep: {order.assignedSalesmanName}</span>
+                                <span>Prep: {order.assignedSalesmanName}{order.collaborators && order.collaborators.length > 0 ? ` (+${order.collaborators.length} co-pick)` : ''}</span>
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 text-slate-400 text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-200 dark:border-zinc-800/80 uppercase tracking-wider">
@@ -744,9 +744,9 @@ export default function OrdersList({
                           <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
                         </div>
                         {order.assignedSalesmanName ? (
-                          <span className="inline-flex items-center gap-1 bg-purple-50 dark:bg-purple-950/20 text-purple-650 dark:text-purple-400 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-purple-200/50 dark:border-purple-900/50 uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1 bg-purple-50 dark:bg-purple-950/20 text-purple-650 dark:text-purple-400 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-purple-200/50 dark:border-purple-900/50 uppercase tracking-wider" title={order.collaborators && order.collaborators.length > 0 ? `Prep Team: ${order.assignedSalesmanName} + ${order.collaborators.map(c => c.name).join(', ')}` : `UID: ${order.assignedSalesmanUid}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
-                            <span>Prep: {order.assignedSalesmanName}</span>
+                            <span>Prep: {order.assignedSalesmanName}{order.collaborators && order.collaborators.length > 0 ? ` (+${order.collaborators.length})` : ''}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 text-slate-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-slate-200/80 dark:border-zinc-800/80 uppercase tracking-wider">

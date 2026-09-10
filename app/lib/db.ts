@@ -353,6 +353,9 @@ export interface OrderItem {
   minPrice?: number;            // Snapshot of custom min price override
   maxPrice?: number;            // Snapshot of custom max price override
   prepStatus?: 'found' | 'hold' | 'not_found'; // Salesman packing status
+  pickedByUid?: string;         // Salesman UID who picked/marked this item
+  pickedByName?: string;        // Salesman Name who picked/marked this item
+  pickedAt?: string;            // Timestamp when item status was updated
 }
 
 // Helper to format price range (protects from changing daily rate issues)
@@ -380,6 +383,12 @@ export function getPriceRange(price: number, pct: number = 5, minPrice?: number,
   return `₹${min.toLocaleString('en-IN')} - ₹${max.toLocaleString('en-IN')}`;
 }
 
+export interface OrderCollaborator {
+  uid: string;
+  name: string;
+  joinedAt: string;
+}
+
 // Order Interface
 export interface Order {
   id?: string;
@@ -396,6 +405,7 @@ export interface Order {
   salesmanNotes?: string;
   assignedSalesmanUid?: string;
   assignedSalesmanName?: string;
+  collaborators?: OrderCollaborator[];
 }
 
 // Fetch all products from Firestore
@@ -1098,10 +1108,125 @@ export async function releaseOrder(orderId: string): Promise<void> {
     await updateDoc(orderRef, {
       status: 'pending',
       assignedSalesmanUid: null,
-      assignedSalesmanName: null
+      assignedSalesmanName: null,
+      collaborators: []
     });
   } catch (error) {
     console.error("Error in releaseOrder:", error);
+    throw error;
+  }
+}
+
+// Join an in-progress order as a co-picker (Salesman Co-Sharing)
+export async function joinOrder(
+  orderId: string,
+  salesmanUid: string,
+  salesmanName: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    const snap = await getDoc(orderRef);
+    if (!snap.exists()) throw new Error("Order not found");
+    const data = snap.data() as Order;
+    const currentCollaborators = data.collaborators || [];
+    // Don't duplicate if already primary or already in collaborators
+    if (data.assignedSalesmanUid === salesmanUid || currentCollaborators.some(c => c.uid === salesmanUid)) {
+      return;
+    }
+    const updatedCollaborators = [
+      ...currentCollaborators,
+      {
+        uid: salesmanUid,
+        name: salesmanName,
+        joinedAt: new Date().toISOString()
+      }
+    ];
+    await updateDoc(orderRef, {
+      collaborators: updatedCollaborators,
+      status: 'processing'
+    });
+  } catch (error) {
+    console.error("Error in joinOrder:", error);
+    throw error;
+  }
+}
+
+// Leave an order (Salesman Co-Sharing)
+export async function leaveOrder(
+  orderId: string,
+  salesmanUid: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    const snap = await getDoc(orderRef);
+    if (!snap.exists()) throw new Error("Order not found");
+    const data = snap.data() as Order;
+    const currentCollaborators = (data.collaborators || []).filter(c => c.uid !== salesmanUid);
+
+    // If primary salesman is leaving
+    if (data.assignedSalesmanUid === salesmanUid) {
+      if (currentCollaborators.length > 0) {
+        // Promote first collaborator to primary
+        const newPrimary = currentCollaborators[0];
+        const remainingCollaborators = currentCollaborators.slice(1);
+        await updateDoc(orderRef, {
+          assignedSalesmanUid: newPrimary.uid,
+          assignedSalesmanName: newPrimary.name,
+          collaborators: remainingCollaborators
+        });
+      } else {
+        // No one left, release back to pending
+        await updateDoc(orderRef, {
+          status: 'pending',
+          assignedSalesmanUid: null,
+          assignedSalesmanName: null,
+          collaborators: []
+        });
+      }
+    } else {
+      // Just removing from collaborators list
+      await updateDoc(orderRef, {
+        collaborators: currentCollaborators
+      });
+    }
+  } catch (error) {
+    console.error("Error in leaveOrder:", error);
+    throw error;
+  }
+}
+
+// Update single item prep status in real-time (Collaborative Picking)
+export async function updateOrderItemPrep(
+  orderId: string,
+  itemIndex: number,
+  prepStatus: 'found' | 'hold' | 'not_found',
+  salesmanUid: string,
+  salesmanName: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    const snap = await getDoc(orderRef);
+    if (!snap.exists()) throw new Error("Order not found");
+    const data = snap.data() as Order;
+    if (!data.items || !data.items[itemIndex]) throw new Error("Item not found in order");
+
+    const updatedItems = [...data.items];
+    updatedItems[itemIndex] = {
+      ...updatedItems[itemIndex],
+      prepStatus,
+      pickedByUid: salesmanUid,
+      pickedByName: salesmanName,
+      pickedAt: new Date().toISOString()
+    };
+
+    await updateDoc(orderRef, {
+      items: updatedItems
+    });
+  } catch (error) {
+    console.error("Error in updateOrderItemPrep:", error);
     throw error;
   }
 }

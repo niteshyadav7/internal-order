@@ -113,7 +113,7 @@ export default function ClientOrdersList({
                     </div>
                     {order.assignedSalesmanName && (
                       <span className="text-[9px] bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-lg font-black border border-purple-100/50 dark:border-purple-900/40 uppercase tracking-wider">
-                        Prep: {order.assignedSalesmanName}
+                        Prep: {order.assignedSalesmanName}{order.collaborators && order.collaborators.length > 0 ? ` + ${order.collaborators.map(c => c.name).join(', ')}` : ''}
                       </span>
                     )}
                   </div>

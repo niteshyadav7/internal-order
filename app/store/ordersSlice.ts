@@ -5,6 +5,9 @@ import {
   claimOrder, 
   completeOrder, 
   releaseOrder, 
+  joinOrder,
+  leaveOrder,
+  updateOrderItemPrep,
   createOrder, 
   deleteOrder,
   updateOrder,
@@ -49,6 +52,54 @@ export const claimOrderThunk = createAsyncThunk(
       return { orderId, salesmanUid, salesmanName };
     } catch (err: any) {
       return rejectWithValue(err.message || "Failed to claim order");
+    }
+  }
+);
+
+export const joinOrderThunk = createAsyncThunk(
+  'orders/joinOrder',
+  async ({ orderId, salesmanUid, salesmanName }: { orderId: string; salesmanUid: string; salesmanName: string }, { rejectWithValue }) => {
+    try {
+      await joinOrder(orderId, salesmanUid, salesmanName);
+      return { orderId, salesmanUid, salesmanName };
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to join order");
+    }
+  }
+);
+
+export const leaveOrderThunk = createAsyncThunk(
+  'orders/leaveOrder',
+  async ({ orderId, salesmanUid }: { orderId: string; salesmanUid: string }, { rejectWithValue }) => {
+    try {
+      await leaveOrder(orderId, salesmanUid);
+      return { orderId, salesmanUid };
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to leave order");
+    }
+  }
+);
+
+export const updateOrderItemPrepThunk = createAsyncThunk(
+  'orders/updateOrderItemPrep',
+  async ({ 
+    orderId, 
+    itemIndex, 
+    prepStatus, 
+    salesmanUid, 
+    salesmanName 
+  }: { 
+    orderId: string; 
+    itemIndex: number; 
+    prepStatus: 'found' | 'hold' | 'not_found'; 
+    salesmanUid: string; 
+    salesmanName: string;
+  }, { rejectWithValue }) => {
+    try {
+      await updateOrderItemPrep(orderId, itemIndex, prepStatus, salesmanUid, salesmanName);
+      return { orderId, itemIndex, prepStatus, salesmanUid, salesmanName };
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to update item status");
     }
   }
 );
